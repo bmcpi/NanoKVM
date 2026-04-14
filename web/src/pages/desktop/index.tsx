@@ -8,6 +8,7 @@ import * as storage from '@/lib/localstorage.ts';
 import { client } from '@/lib/websocket.ts';
 import { picoclawChatOpenAtom } from '@/jotai/picoclaw.ts';
 import { resolutionAtom, videoModeAtom } from '@/jotai/screen.ts';
+import { serialTerminalOpenAtom } from '@/jotai/serial.ts';
 import { Head } from '@/components/head.tsx';
 
 import { Keyboard } from './keyboard';
@@ -17,6 +18,7 @@ import { Notification } from './notification.tsx';
 import { Sidebar as PicoclawSidebar } from './picoclaw';
 import { ActionOverlay } from './picoclaw/action-overlay.tsx';
 import { Screen } from './screen';
+import { SerialTerminalPane } from './serial-terminal-pane';
 import { VirtualKeyboard } from './virtual-keyboard';
 
 export const Desktop = () => {
@@ -27,6 +29,7 @@ export const Desktop = () => {
   const [videoMode, setVideoMode] = useAtom(videoModeAtom);
   const [resolution, setResolution] = useAtom(resolutionAtom);
   const isPicoclawChatOpen = useAtomValue(picoclawChatOpenAtom);
+  const isSerialTerminalOpen = useAtomValue(serialTerminalOpenAtom);
 
   useEffect(() => {
     client.connect();
@@ -79,9 +82,18 @@ export const Desktop = () => {
               onResize={handleSplitterResize}
             >
               <Splitter.Panel min="45%">
-                <div className="relative h-full min-h-0 w-full min-w-0 overflow-hidden bg-black">
-                  <Screen />
-                </div>
+                <Splitter layout="vertical" className="h-full w-full">
+                  <Splitter.Panel min={isSerialTerminalOpen ? '30%' : '100%'}>
+                    <div className="relative h-full min-h-0 w-full min-w-0 overflow-hidden bg-black">
+                      <Screen />
+                    </div>
+                  </Splitter.Panel>
+                  {isSerialTerminalOpen && (
+                    <Splitter.Panel defaultSize="35%" min="15%" max="60%">
+                      <SerialTerminalPane />
+                    </Splitter.Panel>
+                  )}
+                </Splitter>
               </Splitter.Panel>
               <Splitter.Panel
                 size={isBigScreen && isPicoclawChatOpen ? picoclawSidebarWidth : 0}

@@ -1,22 +1,30 @@
 import { ChangeEvent, useState } from 'react';
 import { Button, Input, InputNumber, Modal, Radio, RadioChangeEvent, Select } from 'antd';
-import { useSetAtom } from 'jotai';
+import { useAtom, useSetAtom } from 'jotai';
 import { SquareTerminalIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 import { isKeyboardEnableAtom } from '@/jotai/keyboard.ts';
+import {
+  serialConfigAtom,
+  serialConnectCountAtom,
+  serialTerminalOpenAtom
+} from '@/jotai/serial.ts';
 
 export const SerialPort = () => {
   const { t } = useTranslation();
   const setIsKeyboardEnable = useSetAtom(isKeyboardEnableAtom);
+  const [serialConfig, setSerialConfig] = useAtom(serialConfigAtom);
+  const setSerialTerminalOpen = useSetAtom(serialTerminalOpenAtom);
+  const setConnectCount = useSetAtom(serialConnectCountAtom);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [port, setPort] = useState('');
-  const [baudrate, setBaudrate] = useState(115200);
-  const [parity, setParity] = useState<string>('none');
-  const [flowControl, setFlowControl] = useState<string>('none');
-  const [dataBits, setDataBits] = useState(8);
-  const [stopBits, setStopBits] = useState(1);
+  const [port, setPort] = useState(serialConfig.port);
+  const [baudrate, setBaudrate] = useState(serialConfig.baudrate);
+  const [parity, setParity] = useState<string>(serialConfig.parity);
+  const [flowControl, setFlowControl] = useState<string>(serialConfig.flowControl);
+  const [dataBits, setDataBits] = useState(serialConfig.dataBits);
+  const [stopBits, setStopBits] = useState(serialConfig.stopBits);
 
   function openModal() {
     setIsKeyboardEnable(false);
@@ -48,8 +56,10 @@ export const SerialPort = () => {
       return;
     }
 
-    setIsModalOpen(false);
-    window.open(`/#terminal?port=${port}&baud=${baudrate}&parity=${parity}&flowControl=${flowControl}&dataBits=${dataBits}&stopBits=${stopBits}`, '_blank');
+    setSerialConfig({ port, baudrate, parity, flowControl, dataBits, stopBits });
+    setSerialTerminalOpen(true);
+    setConnectCount((c: number) => c + 1);
+    closeModal();
   }
 
   return (
