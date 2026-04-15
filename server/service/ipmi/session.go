@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 
 	log "github.com/sirupsen/logrus"
+
+	"NanoKVM-Server/service/serial"
 )
 
 // sessionState tracks RMCP+ authentication progress.
@@ -473,12 +475,14 @@ func (sm *sessionManager) handleSOLPayload(sess *session, payload []byte) []byte
 
 	if len(charData) > 0 {
 		solSession.mu.Lock()
-		if solSession.active && solSession.ptmx != nil {
-			if _, err := solSession.ptmx.Write(charData); err != nil {
+		active := solSession.active
+		solSession.mu.Unlock()
+
+		if active {
+			if _, err := serial.GetBroker().Write(charData); err != nil {
 				log.Errorf("SOL: serial write error: %s", err)
 			}
 		}
-		solSession.mu.Unlock()
 	}
 
 	// Build SOL ACK

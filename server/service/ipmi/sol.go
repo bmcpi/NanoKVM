@@ -2,29 +2,37 @@ package ipmi
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 	"sync"
 	"sync/atomic"
 
-	"github.com/creack/pty"
 	log "github.com/sirupsen/logrus"
+
+	"NanoKVM-Server/service/serial"
 )
 
-// solState manages a single SOL serial connection.
+// solState manages a single SOL session backed by the shared serial broker.
 type solState struct {
 	mu     sync.Mutex
 	active bool
-	cmd    *exec.Cmd
-	ptmx   *os.File
 	outSeq byte
 	sess   *session
-	stopCh chan struct{}
 }
 
 var solSession = &solState{}
 
-// handleActivatePayload starts a SOL session over the serial port.
+// solWriter adapts the broker's per-session output into IPMI SOL packets
+// sent over UDP. It implements io.Writer so the broker's readLoop can
+// push serial data through it.
+type solWriter struct {
+	sol *solState
+}
+
+func (w *solWriter) Write(p []byte) (int, error) {
+	w.sol.sendData(p)
+	return len(p), nil
+}
+
+// handleActivatePayload starts a SOL session over the shared serial broker.
 func handleActivatePayload(sess *session, cmdData []byte) []byte {
 	if len(cmdData) < 2 {
 		return []byte{ccInvalidParam}
@@ -42,23 +50,19 @@ func handleActivatePayload(sess *session, cmdData []byte) []byte {
 		return []byte{ccPayloadAlready}
 	}
 
-	cmd := exec.Command("picocom", "-b", defaultBaudRate, defaultSerialPort)
-	ptmx, err := pty.Start(cmd)
-	if err != nil {
-		log.Errorf("SOL: failed to start picocom: %s", err)
+	broker := serial.GetBroker()
+	writer := &solWriter{sol: solSession}
+
+	if _, err := broker.Connect("ipmi-sol", writer); err != nil {
+		log.Errorf("SOL: failed to connect to serial broker: %s", err)
 		return []byte{ccUnspecified}
 	}
 
-	solSession.cmd = cmd
-	solSession.ptmx = ptmx
 	solSession.active = true
 	solSession.outSeq = 0
 	solSession.sess = sess
-	solSession.stopCh = make(chan struct{})
 
-	go solSession.readLoop()
-
-	log.Info("SOL: session activated")
+	log.Info("SOL: session activated via serial broker")
 
 	// Response: cc(1) + aux(4) + inbound_size(2) + outbound_size(2) + port(2) + vlan(2)
 	resp := make([]byte, 13)
@@ -89,47 +93,10 @@ func (sol *solState) stop() {
 	}
 
 	sol.active = false
-	close(sol.stopCh)
-
-	if sol.ptmx != nil {
-		_ = sol.ptmx.Close()
-	}
-	if sol.cmd != nil && sol.cmd.Process != nil {
-		_ = sol.cmd.Process.Kill()
-		_ = sol.cmd.Wait()
-	}
-	sol.ptmx = nil
-	sol.cmd = nil
+	serial.GetBroker().Disconnect("ipmi-sol")
 	sol.sess = nil
 
 	log.Info("SOL: session deactivated")
-}
-
-// readLoop reads from the serial PTY and sends SOL data to the remote console.
-func (sol *solState) readLoop() {
-	buf := make([]byte, 1024)
-
-	for {
-		select {
-		case <-sol.stopCh:
-			return
-		default:
-		}
-
-		n, err := sol.ptmx.Read(buf)
-		if err != nil {
-			select {
-			case <-sol.stopCh:
-			default:
-				log.Debugf("SOL: read error: %s", err)
-			}
-			return
-		}
-
-		if n > 0 {
-			sol.sendData(buf[:n])
-		}
-	}
 }
 
 // sendData sends SOL payload data to the remote console.
