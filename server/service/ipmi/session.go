@@ -122,6 +122,7 @@ func (sm *sessionManager) handleIPMI15(data []byte, srv *Server) []byte {
 	switch {
 	case netFn == netFnAppReq && cmd == cmdGetChannelAuthCap:
 		respData = handleGetChannelAuthCap(cmdData)
+		log.Infof("IPMI: Get Channel Auth Capabilities request (pre-session)")
 	default:
 		log.Debugf("IPMI: unsupported pre-session cmd netFn=0x%02x cmd=0x%02x", netFn, cmd)
 		respData = []byte{ccInvalidCommand}
@@ -183,13 +184,21 @@ func (sm *sessionManager) handleIPMI20(data []byte, addr *net.UDPAddr, srv *Serv
 
 // handleGetChannelAuthCap responds to Get Channel Authentication Capabilities.
 func handleGetChannelAuthCap(cmdData []byte) []byte {
+	// Response per IPMI 2.0 Table 22-15 / ipmitool get_channel_auth_cap_rsp struct:
+	//   [0] completion code
+	//   [1] channel number
+	//   [2] auth type support  (bit 7 = v2.0 extended data available)
+	//   [3] auth status        (bit 5 = non-null users, bit 4 = null users, bit 3 = anon)
+	//   [4] extended caps      (bit 1 = IPMI v2.0, bit 0 = IPMI v1.5)
+	//   [5:7] OEM ID
+	//   [8] OEM auxiliary
 	resp := make([]byte, 9)
 	resp[0] = ccOK
 	resp[1] = 0x0E // channel 14 (current)
 	resp[2] = 0x80 // bit 7: IPMI v2.0+ extended data available
-	resp[3] = 0x10 // bit 4: per-message auth disabled, KG=default (zeros)
-	resp[4] = 0x20 // bit 5: non-null usernames enabled
-	resp[5] = 0x02 // bit 1: IPMI v2.0 connections supported
+	resp[3] = 0x20 // bit 5: non-null usernames enabled
+	resp[4] = 0x02 // bit 1: IPMI v2.0 connections supported
+	resp[5] = 0x00 // OEM ID byte 0
 	resp[6] = 0x00 // OEM ID byte 1
 	resp[7] = 0x00 // OEM ID byte 2
 	resp[8] = 0x00 // OEM auxiliary
@@ -221,7 +230,7 @@ func (sm *sessionManager) handleOpenSessionReq(data []byte, addr *net.UDPAddr, s
 	sess.server = srv
 	sess.state = stateOpenSession
 
-	log.Debugf("IPMI: Open Session req auth=%d integ=%d confid=%d bmcSID=0x%08x",
+	log.Infof("IPMI: Open Session req auth=%d integ=%d confid=%d bmcSID=0x%08x",
 		authAlgo, integAlgo, confidAlgo, sess.bmcSessionID)
 
 	// Build Open Session Response (36 bytes)
@@ -319,7 +328,7 @@ func (sm *sessionManager) handleRAKPMsg1(data []byte, addr *net.UDPAddr, srv *Se
 	copy(resp[24:40], bmcGUID[:])
 	copy(resp[40:], authCode)
 
-	log.Debugf("IPMI: RAKP1 processed, user=%q", sess.username)
+	log.Infof("IPMI: RAKP1 processed, user=%q bmcSID=0x%08x", sess.username, sess.bmcSessionID)
 
 	return wrapRMCP(rmcpClassIPMI, wrapRMCPPlus(payloadTypeRAKPMsg2, 0, 0, resp))
 }
@@ -375,7 +384,7 @@ func (sm *sessionManager) handleRAKPMsg3(data []byte) []byte {
 	sess.k2 = computeHMACSHA1(sess.sik, c2)
 
 	sess.state = stateActive
-	log.Debugf("IPMI: session 0x%08x activated", sess.bmcSessionID)
+	log.Infof("IPMI: session 0x%08x activated for user %q", sess.bmcSessionID, sess.username)
 
 	// Compute RAKP Message 4 integrity check value:
 	// HMAC_SIK(Rm || SIDc || GUIDm) truncated to 12 bytes
