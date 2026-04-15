@@ -1,0 +1,202 @@
+version: "2"
+run:
+  # The default runtime timeout is 1m, which doesn't work well on Github Actions.
+  timeout: 4m
+linters:
+  default: none
+  enable:
+    - asciicheck
+    - bodyclose
+    - copyloopvar
+    - cyclop
+    - dogsled
+    - dupl
+    - durationcheck
+    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - forcetypeassert
+    - gocognit
+    - goconst
+    - gocritic
+    - goheader
+    - goprintffuncname
+    - gosec
+    - govet
+    - importas
+    - ineffassign
+    - makezero
+    - misspell
+    - nakedret
+    - nestif
+    - nilerr
+    - noctx
+    - nolintlint
+    - predeclared
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - unused
+    - wastedassign
+    - whitespace
+  settings:
+    cyclop:
+      max-complexity: 37
+      package-average: 34
+    dupl:
+      threshold: 200
+    errorlint:
+      # Forcing %w in error wrapping forces authors to make errors part of their package APIs. The decision to make
+      # an error part of a package API should be a conscious decision by the author.
+      # Also see Hyrums Law.
+      errorf: false
+      asserts: false
+    exhaustive:
+      default-signifies-exhaustive: true
+    gocognit:
+      min-complexity: 98
+    goconst:
+      min-len: 4
+      min-occurrences: 5
+    goheader:
+      values:
+        const:
+          COMPANY: Tinkerbell
+      template: |-
+        Copyright {{ YEAR }} {{ COMPANY }}.
+
+        Licensed under the Apache License, Version 2.0 (the "License");
+        you may not use this file except in compliance with the License.
+        You may obtain a copy of the License at:
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+        Unless required by applicable law or agreed to in writing, software
+        distributed under the License is distributed on an "AS IS" BASIS,
+        WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        See the License for the specific language governing permissions and
+        limitations under the License.
+    gosec:
+      excludes:
+        - G107 # Potential HTTP request made with variable url
+        - G204 # Subprocess launched with function call as argument or cmd arguments
+        - G404 # Use of weak random number generator (math/rand instead of crypto/rand
+    nestif:
+      min-complexity: 8
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-unused: false
+    revive:
+      severity: warning
+      rules:
+        - name: atomic
+        - name: blank-imports
+        - name: bool-literal-in-expr
+        - name: confusing-naming
+        - name: constant-logical-expr
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: deep-exit
+        - name: defer
+        - name: range-val-in-closure
+        - name: range-val-address
+        - name: dot-imports
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: exported
+        - name: identical-branches
+        - name: if-return
+        - name: import-shadowing
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: indent-error-flow
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: struct-tag
+        - name: time-naming
+        - name: unexported-naming
+        - name: unexported-return
+        - name: unnecessary-stmt
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: var-declaration
+        - name: var-naming
+        - name: unconditional-recursion
+        - name: waitgroup-by-value
+        # https://github.com/mgechev/revive/blob/master/RULES_DESCRIPTIONS.md#struct-tag
+        - name: struct-tag
+          arguments:
+            - json,inline
+            - yaml,omitzero
+            - protobuf,casttype
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - revive
+        text: "var-naming: avoid package names that conflict with Go standard library package names"
+        path: (smee|tootles)/internal/http/
+      - linters:
+          - dupl
+          - errcheck
+          - forcetypeassert
+          - gocyclo
+          - gosec
+          - noctx
+        path: _test\.go
+      - linters:
+          # This check is of questionable value
+          - tparallel
+        text: call t.Parallel on the top level as well as its subtests
+      - linters:
+          - cyclop
+          - goconst
+        path: (.+)_test\.go
+      - linters:
+          - goheader
+        path-except: zz_generated\.deepcopy\.go
+    paths:
+      - smee/internal/iso/internal/reverseproxy.go
+      - smee/internal/iso/internal/reverseproxy_test.go
+      - smee/internal/iso/internal/acsii.go
+      - smee/internal/iso/internal/acsii_test.go
+      - cmd/tinkerbell/flag/url.go
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  exclusions:
+    generated: disable
+    paths:
+      - smee/internal/iso/internal/reverseproxy.go
+      - smee/internal/iso/internal/reverseproxy_test.go
+      - smee/internal/iso/internal/acsii.go
+      - smee/internal/iso/internal/acsii_test.go
+      - cmd/tinkerbell/flag/url.go
+      - third_party$
+      - builtin$
+      - examples$

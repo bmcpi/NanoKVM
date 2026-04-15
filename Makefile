@@ -31,34 +31,34 @@ templ:
 	@echo "Generating templ code..."
 	@cd server && templ generate
 
-out/server/NanoKVM-Server:
+dist/server/NanoKVM-Server:
 	@echo "Creating output directory..."
-	@mkdir -p out/server
+	@mkdir -p dist/server
 	@go mod tidy
-	@CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o ./out/server/NanoKVM-Server ./cmd/server
+	@CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o ./dist/server/NanoKVM-Server ./cmd/server
 
-out/kvm_system/kvm_system:
+dist/kvm_system/kvm_system:
 	@echo "Creating kvm_system output directory..."
-	@mkdir -p out/kvm_system
+	@mkdir -p dist/kvm_system
 	@go mod tidy
-	@CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o ./out/kvm_system/kvm_system ./cmd/system
+	@CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o ./dist/kvm_system/kvm_system ./cmd/system
 
-out/kvm_system/kvm_stream:
+dist/kvm_system/kvm_stream:
 	@echo "Creating kvm_stream output directory..."
-	@mkdir -p out/kvm_system
-	@touch out/kvm_system/kvm_stream
+	@mkdir -p dist/kvm_system
+	@touch dist/kvm_system/kvm_stream
 
 
 # Build Go application (generates templ first)
 app: templ clean
 	@echo "Building app..."
-	$(MAKE) out/server/NanoKVM-Server
+	$(MAKE) dist/server/NanoKVM-Server
 
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
-	@if [ -f out/server/NanoKVM-Server ]; then \
-		rm -f out/server/NanoKVM-Server; \
+	@if [ -f dist/server/NanoKVM-Server ]; then \
+		rm -f dist/server/NanoKVM-Server; \
 		echo "Removed NanoKVM-Server"; \
 	fi
 	@echo "Clean completed."

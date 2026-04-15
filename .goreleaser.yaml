@@ -1,0 +1,53 @@
+version: 2
+
+env:
+  - REGISTRY={{ envOrDefault "REGISTRY" "ghcr.io" }}
+  - IS_RELEASE={{ envOrDefault "IS_RELEASE" "false" }}
+
+builds:
+  - id: server
+    env: ["CGO_ENABLED=0"]
+    main: ./cmd/server
+    binary: NanoKVM-Server
+    goos:
+      - linux
+    goarch:
+      - riscv64
+    no_unique_dist_dir: false
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
+    skip: false
+
+  - id: system
+    env: ["CGO_ENABLED=0"]
+    main: ./cmd/system
+    binary: kvm_system
+    goos:
+      - linux
+    goarch:
+      - riscv64
+    no_unique_dist_dir: false
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
+    skip: false
+
+upx:
+  - enabled: true
+    ids:
+      - server
+      - system
+    compress: best
+    lzma: true
+
+checksum:
+  name_template: "{{ .ArtifactName }}-checksums.txt"
+  split: true
+
+release:
+  disable: true
+
+snapshot:
+  version_template: "{{ .Version }}-next"
+
+changelog:
+  disable: '{{ if eq .Env.IS_RELEASE "true" }}false{{ else }}true{{ end }}'
