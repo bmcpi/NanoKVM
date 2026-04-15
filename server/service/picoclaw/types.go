@@ -10,19 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type VisionReader interface {
-	ReadMjpeg(width uint16, height uint16, quality uint16) (data []byte, result int)
-}
-
-type HIDWriter interface {
-	WriteHid0(data []byte)
-	WriteHid1(data []byte)
-	WriteHid2(data []byte)
-}
-
 type Service struct {
-	vision  VisionReader
-	hid     HIDWriter
 	config  *ConfigStore
 	lock    *SessionLock
 	runtime *RuntimeStore

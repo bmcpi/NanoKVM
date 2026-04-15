@@ -9,7 +9,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"NanoKVM-Server/proto"
-	"NanoKVM-Server/service/hid"
 )
 
 const (
@@ -93,14 +92,6 @@ func (s *Service) UpdateVirtualDevice(c *gin.Context) {
 		rsp.ErrRsp(c, -2, "invalid arguments")
 		return
 	}
-
-	h := hid.GetHid()
-	h.Lock()
-	h.CloseNoLock()
-	defer func() {
-		h.OpenNoLock()
-		h.Unlock()
-	}()
 
 	for _, command := range commands {
 		err := exec.Command("sh", "-c", command).Run()

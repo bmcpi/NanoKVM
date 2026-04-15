@@ -7,9 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"NanoKVM-Server/common"
-	"NanoKVM-Server/service/hid"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,8 +24,6 @@ const runtimeStatusRefreshInterval = 2 * time.Second
 
 func NewService() *Service {
 	return &Service{
-		vision:  common.GetKvmVision(),
-		hid:     hid.GetHid(),
 		config:  getConfigStore(),
 		lock:    GetSessionLock(),
 		runtime: getRuntimeStore(),

@@ -4,10 +4,6 @@ import (
 	"encoding/json"
 	"time"
 
-	"NanoKVM-Server/service/hid"
-	"NanoKVM-Server/service/picoclaw"
-	"NanoKVM-Server/service/vm/jiggler"
-
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 )
@@ -19,25 +15,14 @@ const (
 )
 
 func NewClient(ws *websocket.Conn) *Client {
-	client := &Client{
+	return &Client{
 		ws:            ws,
-		hid:           hid.GetHid(),
-		keyboard:      make(chan []byte, 200),
-		mouse:         make(chan []byte, 200),
 		lastHeartbeat: time.Time{},
 	}
-
-	client.hid.Open()
-
-	return client
 }
 
 func (c *Client) Start() {
 	defer c.Close()
-
-	go c.hid.Keyboard(c.keyboard)
-	go c.hid.Mouse(c.mouse)
-
 	_ = c.Read()
 }
 
@@ -60,18 +45,8 @@ func (c *Client) Read() error {
 		switch data[0] {
 		case Heartbeat:
 			c.UpdateHeartbeat()
-		case KeyboardEvent:
-			if picoclaw.GetSessionLock().BlocksManualInput() {
-				log.Debug("manual keyboard input dropped while AI session holds control")
-				continue
-			}
-			writeQueue(c.keyboard, data[1:])
-		case MouseEvent:
-			if picoclaw.GetSessionLock().BlocksManualInput() {
-				log.Debug("manual mouse input dropped while AI session holds control")
-				continue
-			}
-			writeQueue(c.mouse, data[1:])
+		case KeyboardEvent, MouseEvent:
+			// HID removed; input events are dropped
 		}
 	}
 }
@@ -103,20 +78,5 @@ func (c *Client) UpdateHeartbeat() {
 
 func (c *Client) Close() {
 	_ = c.ws.Close()
-
-	closeQueue(c.keyboard)
-	closeQueue(c.mouse)
-
 	log.Debug("websocket disconnected")
-}
-
-func writeQueue(queue chan []byte, data []byte) {
-	queue <- data
-	jiggler.GetJiggler().Update()
-}
-
-func closeQueue(queue chan []byte) {
-	for range queue {
-	}
-	close(queue)
 }

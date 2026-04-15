@@ -4,8 +4,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"NanoKVM-Server/service/hid"
-
 	log "github.com/sirupsen/logrus"
 )
 
@@ -13,20 +11,6 @@ const picoclawMediaTempDirName = "picoclaw_media"
 
 func ReleaseSession(sessionID string) {
 	GetSessionLock().Release(sessionID)
-	releaseAllHIDState()
-}
-
-func releaseAllHIDState() {
-	h := hid.GetHid()
-	h.WriteHid0([]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
-	h.WriteHid1([]byte{0x00, 0x00, 0x00, 0x00})
-	h.WriteHid2([]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
-}
-
-func (s *Service) releaseAllHIDState() {
-	s.hid.WriteHid0([]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
-	s.hid.WriteHid1([]byte{0x00, 0x00, 0x00, 0x00})
-	s.hid.WriteHid2([]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
 }
 
 func picoclawMediaTempDir() string {
