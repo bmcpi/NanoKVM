@@ -50,15 +50,15 @@ out/kvm_system/kvm_stream:
 
 
 # Build Go application (generates templ first)
-app: templ
+app: templ clean
 	@echo "Building app..."
 	$(MAKE) out/server/NanoKVM-Server
 
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
-	@if [ -f NanoKVM-Server ]; then \
-		rm -f NanoKVM-Server; \
+	@if [ -f out/server/NanoKVM-Server ]; then \
+		rm -f out/server/NanoKVM-Server; \
 		echo "Removed NanoKVM-Server"; \
 	fi
 	@echo "Clean completed."
