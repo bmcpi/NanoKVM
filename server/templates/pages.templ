@@ -30,7 +30,6 @@ templ PasswordPage(bundlePath string) {
 templ DashboardPage() {
 	@layout("NanoKVM BMC - Dashboard") {
 		<div class="p-6 space-y-6">
-			<!-- Power Control -->
 			<div class="card">
 				<h2 class="text-lg font-semibold mb-4">Power Control</h2>
 				<div class="flex items-center space-x-3">
@@ -38,10 +37,9 @@ templ DashboardPage() {
 					<button class="btn btn-yellow" onclick="powerAction('reset', 800)" id="btn-reset">Reset</button>
 					<button class="btn btn-red" onclick="powerAction('power', 5000)" id="btn-forceoff">Force Off</button>
 				</div>
-				<p class="text-xs text-neutral-500 mt-2">Power On/Off sends a short press. Force Off holds for 5 seconds.</p>
+				<p class="text-xs text-neutral-500 mt-2">Power On/Off sends a short press. Force Off holds { "for" } 5 seconds.</p>
 			</div>
 
-			<!-- Boot Device Override -->
 			<div class="card">
 				<h2 class="text-lg font-semibold mb-4">Boot Device Override</h2>
 				<div class="flex items-center space-x-3">
@@ -57,7 +55,6 @@ templ DashboardPage() {
 				<p id="boot-status" class="text-xs text-neutral-500 mt-2"></p>
 			</div>
 
-			<!-- Quick Links -->
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 				<a href="/console" class="card hover:border-blue-700 transition-colors">
 					<h3 class="font-semibold">Serial Console</h3>
@@ -65,15 +62,14 @@ templ DashboardPage() {
 				</a>
 				<div class="card">
 					<h3 class="font-semibold">IPMI</h3>
-					<p class="text-sm text-neutral-400 mt-1">IPMI over LAN available on UDP port 623. Use <code class="text-neutral-300">ipmitool</code> for command-line access.</p>
+					<p class="text-sm text-neutral-400 mt-1">IPMI over LAN available on UDP port 623. Use <span class="font-mono text-neutral-300">ipmitool</span> { "for" } command-line access.</p>
 				</div>
 				<div class="card">
 					<h3 class="font-semibold">Redfish API</h3>
-					<p class="text-sm text-neutral-400 mt-1">REST API at <a href="/redfish/v1" class="text-blue-400 hover:underline">/redfish/v1</a> for programmatic management.</p>
+					<p class="text-sm text-neutral-400 mt-1">REST API at <a href="/redfish/v1" class="text-blue-400 hover:underline">/redfish/v1</a> { "for" } programmatic management.</p>
 				</div>
 			</div>
 
-			<!-- System Info -->
 			<div class="card">
 				<h2 class="text-lg font-semibold mb-4">System Information</h2>
 				<div id="sys-info" class="grid grid-cols-2 gap-2 text-sm">
@@ -143,7 +139,6 @@ templ ConsolePage() {
 	@layout("NanoKVM BMC - Serial Console") {
 		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css"/>
 		<div class="flex h-full flex-col">
-			<!-- Serial config bar -->
 			<div class="flex items-center justify-between border-b border-neutral-800 px-4 py-2">
 				<div class="flex items-center space-x-3">
 					<label class="text-xs text-neutral-400">Port</label>
@@ -184,7 +179,6 @@ templ ConsolePage() {
 					<button class="btn btn-neutral text-xs" onclick="disconnectSerial()" id="btn-disconnect" disabled>Disconnect</button>
 				</div>
 			</div>
-			<!-- Terminal container -->
 			<div id="terminal" class="min-h-0 flex-1 p-1"></div>
 		</div>
 
@@ -283,7 +277,6 @@ templ ConsolePage() {
 templ SettingsPage() {
 	@layout("NanoKVM BMC - Settings") {
 		<div class="p-6 space-y-6 max-w-3xl mx-auto">
-			<!-- Network -->
 			<div class="card">
 				<h2 class="text-lg font-semibold mb-4">Hostname</h2>
 				<div class="flex items-center space-x-3">
@@ -293,7 +286,6 @@ templ SettingsPage() {
 				<p id="hostname-status" class="text-xs text-neutral-500 mt-2"></p>
 			</div>
 
-			<!-- SSH -->
 			<div class="card">
 				<h2 class="text-lg font-semibold mb-4">SSH Access</h2>
 				<div class="flex items-center space-x-3">
@@ -303,7 +295,6 @@ templ SettingsPage() {
 				</div>
 			</div>
 
-			<!-- TLS -->
 			<div class="card">
 				<h2 class="text-lg font-semibold mb-4">TLS / HTTPS</h2>
 				<div class="flex items-center space-x-3">
@@ -313,7 +304,6 @@ templ SettingsPage() {
 				<p class="text-xs text-neutral-500 mt-2">Enabling TLS requires a valid certificate and key.</p>
 			</div>
 
-			<!-- mDNS -->
 			<div class="card">
 				<h2 class="text-lg font-semibold mb-4">mDNS</h2>
 				<div class="flex items-center space-x-3">
@@ -323,7 +313,6 @@ templ SettingsPage() {
 				</div>
 			</div>
 
-			<!-- Swap -->
 			<div class="card">
 				<h2 class="text-lg font-semibold mb-4">Swap File</h2>
 				<div class="flex items-center space-x-3">
@@ -334,7 +323,6 @@ templ SettingsPage() {
 				<p id="swap-status" class="text-xs text-neutral-500 mt-2"></p>
 			</div>
 
-			<!-- System -->
 			<div class="card">
 				<h2 class="text-lg font-semibold mb-4">System</h2>
 				<div class="flex items-center space-x-3">

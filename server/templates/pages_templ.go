@@ -63,7 +63,7 @@ func IndexPage(bundlePath string) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("NanoKVM").Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("NanoKVM BMC").Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -132,8 +132,8 @@ func LoginPage(bundlePath string) templ.Component {
 	})
 }
 
-// DesktopPage serves the main KVM desktop route with React island.
-func DesktopPage(bundlePath string) templ.Component {
+// PasswordPage serves the password change route with React island.
+func PasswordPage(bundlePath string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -185,7 +185,7 @@ func DesktopPage(bundlePath string) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("NanoKVM").Render(templ.WithChildren(ctx, templ_7745c5c3_Var8), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("NanoKVM - Password").Render(templ.WithChildren(ctx, templ_7745c5c3_Var8), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -193,8 +193,8 @@ func DesktopPage(bundlePath string) templ.Component {
 	})
 }
 
-// TerminalPage serves the terminal route with React island.
-func TerminalPage(bundlePath string) templ.Component {
+// DashboardPage is the server-rendered BMC dashboard.
+func DashboardPage() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -227,26 +227,52 @@ func TerminalPage(bundlePath string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div id=\"root\"></div><script type=\"module\" src=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<div class=\"p-6 space-y-6\"><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">Power Control</h2><div class=\"flex items-center space-x-3\"><button class=\"btn btn-blue\" onclick=\"powerAction('power', 800)\" id=\"btn-power\">Power On/Off</button> <button class=\"btn btn-yellow\" onclick=\"powerAction('reset', 800)\" id=\"btn-reset\">Reset</button> <button class=\"btn btn-red\" onclick=\"powerAction('power', 5000)\" id=\"btn-forceoff\">Force Off</button></div><p class=\"text-xs text-neutral-500 mt-2\">Power On/Off sends a short press. Force Off holds ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var12 string
-			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(bundlePath)
+			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs("for")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/pages.templ`, Line: 33, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/pages.templ`, Line: 40, Col: 102}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\"></script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, " 5 seconds.</p></div><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">Boot Device Override</h2><div class=\"flex items-center space-x-3\"><select id=\"boot-device\" class=\"bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm\"><option value=\"None\">None (Default)</option> <option value=\"Pxe\">PXE Network Boot</option> <option value=\"Hdd\">Hard Disk</option> <option value=\"Cd\">CD/DVD</option> <option value=\"BiosSetup\">BIOS Setup</option></select> <button class=\"btn btn-neutral\" onclick=\"setBootDevice()\">Set Boot Device</button></div><p id=\"boot-status\" class=\"text-xs text-neutral-500 mt-2\"></p></div><div class=\"grid grid-cols-1 md:grid-cols-3 gap-4\"><a href=\"/console\" class=\"card hover:border-blue-700 transition-colors\"><h3 class=\"font-semibold\">Serial Console</h3><p class=\"text-sm text-neutral-400 mt-1\">Open the serial-over-LAN console to interact with the managed system.</p></a><div class=\"card\"><h3 class=\"font-semibold\">IPMI</h3><p class=\"text-sm text-neutral-400 mt-1\">IPMI over LAN available on UDP port 623. Use <span class=\"font-mono text-neutral-300\">ipmitool</span> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var13 string
+			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs("for")
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/pages.templ`, Line: 65, Col: 155}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, " command-line access.</p></div><div class=\"card\"><h3 class=\"font-semibold\">Redfish API</h3><p class=\"text-sm text-neutral-400 mt-1\">REST API at <a href=\"/redfish/v1\" class=\"text-blue-400 hover:underline\">/redfish/v1</a> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var14 string
+			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs("for")
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/pages.templ`, Line: 69, Col: 141}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, " programmatic management.</p></div></div><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">System Information</h2><div id=\"sys-info\" class=\"grid grid-cols-2 gap-2 text-sm\"><span class=\"text-neutral-500\">Loading...</span></div></div></div><script>\n\t\t\tconst token = localStorage.getItem('nano-kvm-token') || '';\n\t\t\tconst headers = { 'Content-Type': 'application/json', 'token': token };\n\n\t\t\tasync function powerAction(type, duration) {\n\t\t\t\tdocument.querySelectorAll('.btn').forEach(b => b.disabled = true);\n\t\t\t\ttry {\n\t\t\t\t\tawait fetch('/api/vm/gpio', { method: 'POST', headers, body: JSON.stringify({type, duration}) });\n\t\t\t\t} catch(e) { console.error(e); }\n\t\t\t\tsetTimeout(() => {\n\t\t\t\t\tdocument.querySelectorAll('.btn').forEach(b => b.disabled = false);\n\t\t\t\t\tpollPower();\n\t\t\t\t}, 2000);\n\t\t\t}\n\n\t\t\tasync function setBootDevice() {\n\t\t\t\tconst device = document.getElementById('boot-device').value;\n\t\t\t\ttry {\n\t\t\t\t\tconst r = await fetch('/redfish/v1/Systems/1', {\n\t\t\t\t\t\tmethod: 'PATCH', headers,\n\t\t\t\t\t\tbody: JSON.stringify({ Boot: { BootSourceOverrideTarget: device } })\n\t\t\t\t\t});\n\t\t\t\t\tconst data = await r.json();\n\t\t\t\t\tdocument.getElementById('boot-status').textContent =\n\t\t\t\t\t\t'Boot device set to: ' + (data.Boot?.BootSourceOverrideTarget || device);\n\t\t\t\t} catch(e) {\n\t\t\t\t\tdocument.getElementById('boot-status').textContent = 'Failed to set boot device';\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tasync function loadSysInfo() {\n\t\t\t\ttry {\n\t\t\t\t\tconst r = await fetch('/api/vm/info', { headers: { 'token': token } });\n\t\t\t\t\tconst data = await r.json();\n\t\t\t\t\tif (data.code === 0) {\n\t\t\t\t\t\tconst info = data.data;\n\t\t\t\t\t\tconst el = document.getElementById('sys-info');\n\t\t\t\t\t\tel.innerHTML = '';\n\t\t\t\t\t\tconst fields = [\n\t\t\t\t\t\t\t['Application', info.application || '-'],\n\t\t\t\t\t\t\t['Image Version', info.imageVersion || '-'],\n\t\t\t\t\t\t\t['Hardware', info.hardware || '-'],\n\t\t\t\t\t\t\t['IP', info.ip || '-'],\n\t\t\t\t\t\t\t['MAC', info.mac || '-'],\n\t\t\t\t\t\t];\n\t\t\t\t\t\tfields.forEach(([k,v]) => {\n\t\t\t\t\t\t\tel.innerHTML += '<span class=\"text-neutral-500\">' + k + '</span><span>' + v + '</span>';\n\t\t\t\t\t\t});\n\t\t\t\t\t}\n\t\t\t\t} catch(e) {}\n\t\t\t}\n\t\t\tloadSysInfo();\n\t\t</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("NanoKVM - Terminal").Render(templ.WithChildren(ctx, templ_7745c5c3_Var11), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("NanoKVM BMC - Dashboard").Render(templ.WithChildren(ctx, templ_7745c5c3_Var11), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -254,8 +280,8 @@ func TerminalPage(bundlePath string) templ.Component {
 	})
 }
 
-// PasswordPage serves the password change route with React island.
-func PasswordPage(bundlePath string) templ.Component {
+// ConsolePage is the server-rendered serial console page with xterm.js.
+func ConsolePage() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -271,12 +297,12 @@ func PasswordPage(bundlePath string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var13 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var13 == nil {
-			templ_7745c5c3_Var13 = templ.NopComponent
+		templ_7745c5c3_Var15 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var15 == nil {
+			templ_7745c5c3_Var15 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var14 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var16 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -288,26 +314,13 @@ func PasswordPage(bundlePath string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div id=\"root\"></div><script type=\"module\" src=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var15 string
-			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(bundlePath)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/pages.templ`, Line: 41, Col: 40}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "\"></script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css\"><div class=\"flex h-full flex-col\"><div class=\"flex items-center justify-between border-b border-neutral-800 px-4 py-2\"><div class=\"flex items-center space-x-3\"><label class=\"text-xs text-neutral-400\">Port</label> <select id=\"serial-port\" class=\"bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs\"><option value=\"/dev/ttyS1\">/dev/ttyS1</option> <option value=\"/dev/ttyS2\">/dev/ttyS2</option></select> <label class=\"text-xs text-neutral-400\">Baud</label> <input id=\"serial-baud\" type=\"number\" value=\"115200\" class=\"bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs w-24\"> <label class=\"text-xs text-neutral-400\">Parity</label> <select id=\"serial-parity\" class=\"bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs\"><option value=\"none\">None</option> <option value=\"even\">Even</option> <option value=\"odd\">Odd</option></select> <label class=\"text-xs text-neutral-400\">Flow</label> <select id=\"serial-flow\" class=\"bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs\"><option value=\"none\">None</option> <option value=\"soft\">Software</option> <option value=\"hard\">Hardware</option></select> <label class=\"text-xs text-neutral-400\">Data</label> <select id=\"serial-databits\" class=\"bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs\"><option value=\"8\">8</option> <option value=\"7\">7</option> <option value=\"6\">6</option> <option value=\"5\">5</option></select> <label class=\"text-xs text-neutral-400\">Stop</label> <select id=\"serial-stopbits\" class=\"bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs\"><option value=\"1\">1</option> <option value=\"2\">2</option></select></div><div class=\"flex items-center space-x-2\"><span id=\"conn-status\" class=\"text-xs text-neutral-500\">Disconnected</span> <button class=\"btn btn-green text-xs\" onclick=\"connectSerial()\" id=\"btn-connect\">Connect</button> <button class=\"btn btn-neutral text-xs\" onclick=\"disconnectSerial()\" id=\"btn-disconnect\" disabled>Disconnect</button></div></div><div id=\"terminal\" class=\"min-h-0 flex-1 p-1\"></div></div><script type=\"module\">\n\t\t\timport { Terminal } from 'https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/+esm';\n\t\t\timport { FitAddon } from 'https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/+esm';\n\t\t\timport { AttachAddon } from 'https://cdn.jsdelivr.net/npm/@xterm/addon-attach@0.11.0/+esm';\n\n\t\t\tlet term = null;\n\t\t\tlet ws = null;\n\t\t\tlet picocomRunning = false;\n\n\t\t\tfunction getWsUrl() {\n\t\t\t\tconst proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';\n\t\t\t\treturn proto + '//' + window.location.host;\n\t\t\t}\n\n\t\t\twindow.connectSerial = function() {\n\t\t\t\tif (ws) disconnectSerial();\n\n\t\t\t\tterm = new Terminal({ cursorBlink: true });\n\t\t\t\tconst fitAddon = new FitAddon();\n\t\t\t\tterm.loadAddon(fitAddon);\n\t\t\t\tconst el = document.getElementById('terminal');\n\t\t\t\tel.innerHTML = '';\n\t\t\t\tterm.open(el);\n\t\t\t\tfitAddon.fit();\n\n\t\t\t\tconst url = getWsUrl() + '/api/vm/terminal';\n\t\t\t\tws = new WebSocket(url);\n\t\t\t\tdocument.getElementById('conn-status').textContent = 'Connecting...';\n\t\t\t\tdocument.getElementById('btn-connect').disabled = true;\n\n\t\t\t\tws.onopen = () => {\n\t\t\t\t\tconst attachAddon = new AttachAddon(ws);\n\t\t\t\t\tterm.loadAddon(attachAddon);\n\t\t\t\t\tconst windowSize = { rows: term.rows, cols: term.cols };\n\t\t\t\t\tws.send(new Blob([JSON.stringify(windowSize)], { type: 'application/json' }));\n\n\t\t\t\t\tsetTimeout(() => {\n\t\t\t\t\t\tconst port = document.getElementById('serial-port').value;\n\t\t\t\t\t\tconst baud = document.getElementById('serial-baud').value;\n\t\t\t\t\t\tconst parity = document.getElementById('serial-parity').value;\n\t\t\t\t\t\tconst flow = document.getElementById('serial-flow').value;\n\t\t\t\t\t\tconst dataBits = document.getElementById('serial-databits').value;\n\t\t\t\t\t\tconst stopBits = document.getElementById('serial-stopbits').value;\n\t\t\t\t\t\tws.send(`picocom ${port} --baud ${baud} --parity ${parity} --flow ${flow} --databits ${dataBits} --stopbits ${stopBits}\\r`);\n\t\t\t\t\t\tpicocomRunning = true;\n\t\t\t\t\t}, 300);\n\n\t\t\t\t\tdocument.getElementById('conn-status').textContent = 'Connected';\n\t\t\t\t\tdocument.getElementById('btn-disconnect').disabled = false;\n\t\t\t\t};\n\n\t\t\t\tws.onclose = () => {\n\t\t\t\t\tdocument.getElementById('conn-status').textContent = 'Disconnected';\n\t\t\t\t\tdocument.getElementById('btn-connect').disabled = false;\n\t\t\t\t\tdocument.getElementById('btn-disconnect').disabled = true;\n\t\t\t\t\tpicocomRunning = false;\n\t\t\t\t};\n\n\t\t\t\tws.onerror = () => {\n\t\t\t\t\tdocument.getElementById('conn-status').textContent = 'Error';\n\t\t\t\t\tdocument.getElementById('btn-connect').disabled = false;\n\t\t\t\t};\n\n\t\t\t\tconst resizeHandler = () => {\n\t\t\t\t\tfitAddon.fit();\n\t\t\t\t\tif (ws && ws.readyState === WebSocket.OPEN) {\n\t\t\t\t\t\tws.send(new Blob([JSON.stringify({ rows: term.rows, cols: term.cols })], { type: 'application/json' }));\n\t\t\t\t\t}\n\t\t\t\t};\n\t\t\t\twindow.addEventListener('resize', resizeHandler);\n\t\t\t\tws._resizeHandler = resizeHandler;\n\t\t\t};\n\n\t\t\twindow.disconnectSerial = function() {\n\t\t\t\tif (ws && picocomRunning) {\n\t\t\t\t\tws.send('\\x01\\x18'); // Ctrl-A, Ctrl-X to exit picocom\n\t\t\t\t\tpicocomRunning = false;\n\t\t\t\t}\n\t\t\t\tsetTimeout(() => {\n\t\t\t\t\tif (ws && ws.readyState === WebSocket.OPEN) ws.close();\n\t\t\t\t\tws = null;\n\t\t\t\t}, 100);\n\t\t\t\tif (term) { term.dispose(); term = null; }\n\t\t\t};\n\n\t\t\t// Auto-connect on page load\n\t\t\twindow.connectSerial();\n\t\t</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("NanoKVM - Password").Render(templ.WithChildren(ctx, templ_7745c5c3_Var14), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("NanoKVM BMC - Serial Console").Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -315,8 +328,8 @@ func PasswordPage(bundlePath string) templ.Component {
 	})
 }
 
-// WifiPage serves the WiFi setup route with React island.
-func WifiPage(bundlePath string) templ.Component {
+// SettingsPage is the server-rendered settings page.
+func SettingsPage() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -332,12 +345,12 @@ func WifiPage(bundlePath string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var16 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var16 == nil {
-			templ_7745c5c3_Var16 = templ.NopComponent
+		templ_7745c5c3_Var17 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var17 == nil {
+			templ_7745c5c3_Var17 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var17 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var18 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -349,26 +362,13 @@ func WifiPage(bundlePath string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div id=\"root\"></div><script type=\"module\" src=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var18 string
-			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(bundlePath)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/pages.templ`, Line: 49, Col: 40}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\"></script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<div class=\"p-6 space-y-6 max-w-3xl mx-auto\"><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">Hostname</h2><div class=\"flex items-center space-x-3\"><input id=\"hostname\" type=\"text\" class=\"bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm flex-1\" placeholder=\"nanokvm\"> <button class=\"btn btn-blue\" onclick=\"setHostname()\">Save</button></div><p id=\"hostname-status\" class=\"text-xs text-neutral-500 mt-2\"></p></div><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">SSH Access</h2><div class=\"flex items-center space-x-3\"><span id=\"ssh-state\" class=\"text-sm text-neutral-400\">Loading...</span> <button class=\"btn btn-green\" onclick=\"toggleSSH(true)\" id=\"btn-ssh-enable\">Enable</button> <button class=\"btn btn-red\" onclick=\"toggleSSH(false)\" id=\"btn-ssh-disable\">Disable</button></div></div><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">TLS / HTTPS</h2><div class=\"flex items-center space-x-3\"><button class=\"btn btn-green\" onclick=\"setTLS(true)\">Enable TLS</button> <button class=\"btn btn-red\" onclick=\"setTLS(false)\">Disable TLS</button></div><p class=\"text-xs text-neutral-500 mt-2\">Enabling TLS requires a valid certificate and key.</p></div><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">mDNS</h2><div class=\"flex items-center space-x-3\"><span id=\"mdns-state\" class=\"text-sm text-neutral-400\">Loading...</span> <button class=\"btn btn-green\" onclick=\"toggleMdns(true)\">Enable</button> <button class=\"btn btn-red\" onclick=\"toggleMdns(false)\">Disable</button></div></div><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">Swap File</h2><div class=\"flex items-center space-x-3\"><span class=\"text-sm text-neutral-400\">Size (MB):</span> <input id=\"swap-size\" type=\"number\" value=\"0\" class=\"bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm w-24\"> <button class=\"btn btn-blue\" onclick=\"setSwap()\">Save</button></div><p id=\"swap-status\" class=\"text-xs text-neutral-500 mt-2\"></p></div><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">System</h2><div class=\"flex items-center space-x-3\"><button class=\"btn btn-red\" onclick=\"if(confirm('Reboot the BMC?')) rebootSystem()\">Reboot BMC</button></div></div></div><script>\n\t\t\tconst token = localStorage.getItem('nano-kvm-token') || '';\n\t\t\tconst headers = { 'Content-Type': 'application/json', 'token': token };\n\n\t\t\tasync function apiGet(url) {\n\t\t\t\tconst r = await fetch(url, { headers: { 'token': token } });\n\t\t\t\treturn r.json();\n\t\t\t}\n\t\t\tasync function apiPost(url, body) {\n\t\t\t\tconst r = await fetch(url, { method: 'POST', headers, body: body ? JSON.stringify(body) : undefined });\n\t\t\t\treturn r.json();\n\t\t\t}\n\n\t\t\t// Load initial state\n\t\t\t(async function() {\n\t\t\t\ttry {\n\t\t\t\t\tconst h = await apiGet('/api/vm/hostname');\n\t\t\t\t\tif (h.code === 0) document.getElementById('hostname').value = h.data.hostname || '';\n\t\t\t\t} catch(e) {}\n\n\t\t\t\ttry {\n\t\t\t\t\tconst s = await apiGet('/api/vm/ssh');\n\t\t\t\t\tdocument.getElementById('ssh-state').textContent = s.data?.enabled ? 'Enabled' : 'Disabled';\n\t\t\t\t} catch(e) {}\n\n\t\t\t\ttry {\n\t\t\t\t\tconst m = await apiGet('/api/vm/mdns');\n\t\t\t\t\tdocument.getElementById('mdns-state').textContent = m.data?.enabled ? 'Enabled' : 'Disabled';\n\t\t\t\t} catch(e) {}\n\n\t\t\t\ttry {\n\t\t\t\t\tconst sw = await apiGet('/api/vm/swap');\n\t\t\t\t\tif (sw.code === 0) document.getElementById('swap-size').value = sw.data?.size || 0;\n\t\t\t\t} catch(e) {}\n\t\t\t})();\n\n\t\t\tasync function setHostname() {\n\t\t\t\tconst hostname = document.getElementById('hostname').value;\n\t\t\t\tconst r = await apiPost('/api/vm/hostname', { hostname });\n\t\t\t\tdocument.getElementById('hostname-status').textContent = r.code === 0 ? 'Saved' : 'Failed';\n\t\t\t}\n\n\t\t\tasync function toggleSSH(enable) {\n\t\t\t\tconst url = enable ? '/api/vm/ssh/enable' : '/api/vm/ssh/disable';\n\t\t\t\tawait apiPost(url);\n\t\t\t\tdocument.getElementById('ssh-state').textContent = enable ? 'Enabled' : 'Disabled';\n\t\t\t}\n\n\t\t\tasync function setTLS(enabled) {\n\t\t\t\tawait apiPost('/api/vm/tls', { enabled });\n\t\t\t\talert('TLS ' + (enabled ? 'enabled' : 'disabled') + '. Page may reload.');\n\t\t\t}\n\n\t\t\tasync function toggleMdns(enable) {\n\t\t\t\tconst url = enable ? '/api/vm/mdns/enable' : '/api/vm/mdns/disable';\n\t\t\t\tawait apiPost(url);\n\t\t\t\tdocument.getElementById('mdns-state').textContent = enable ? 'Enabled' : 'Disabled';\n\t\t\t}\n\n\t\t\tasync function setSwap() {\n\t\t\t\tconst size = parseInt(document.getElementById('swap-size').value) || 0;\n\t\t\t\tconst r = await apiPost('/api/vm/swap', { size });\n\t\t\t\tdocument.getElementById('swap-status').textContent = r.code === 0 ? 'Saved' : 'Failed';\n\t\t\t}\n\n\t\t\tasync function rebootSystem() {\n\t\t\t\tawait apiPost('/api/vm/system/reboot');\n\t\t\t}\n\t\t</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("NanoKVM - WiFi").Render(templ.WithChildren(ctx, templ_7745c5c3_Var17), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("NanoKVM BMC - Settings").Render(templ.WithChildren(ctx, templ_7745c5c3_Var18), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
