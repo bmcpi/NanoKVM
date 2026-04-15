@@ -1,28 +1,296 @@
 package templates
 
-// IndexPage is the main SPA entry point.
-// It renders the HTML shell with a #root div for React to mount into,
-// then loads the Vite-built JS bundle.
-templ IndexPage(bundlePath string) {
-	@layout("NanoKVM BMC") {
-		<div id="root"></div>
-		<script type="module" src={ bundlePath }></script>
-	}
-}
-
-// LoginPage serves the login route with React island.
-templ LoginPage(bundlePath string) {
+// LoginPage is the server-rendered login page.
+templ LoginPage() {
 	@layout("NanoKVM - Login") {
-		<div id="root"></div>
-		<script type="module" src={ bundlePath }></script>
+		<script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
+		<div class="flex h-full w-full flex-col items-center justify-center">
+			<form id="login-form" class="w-full max-w-sm space-y-4 px-4" onsubmit="return handleLogin(event)">
+				<div class="flex flex-col items-center pb-4">
+					<img
+						id="logo"
+						src="/sipeed.ico"
+						alt="NanoKVM"
+						class="h-16 w-16 cursor-pointer"
+						onclick="this.classList.add('animate-spin'); setTimeout(() => this.classList.remove('animate-spin'), 1000)"
+					/>
+				</div>
+
+				<div>
+					<input
+						id="username"
+						name="username"
+						type="text"
+						required
+						minlength="1"
+						placeholder="Username"
+						class="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm placeholder-neutral-500 focus:border-blue-600 focus:outline-none"
+					/>
+				</div>
+
+				<div>
+					<input
+						id="password"
+						name="password"
+						type="password"
+						required
+						minlength="1"
+						placeholder="Password"
+						class="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm placeholder-neutral-500 focus:border-blue-600 focus:outline-none"
+					/>
+				</div>
+
+				<div id="login-error" class="text-sm text-red-500" style="min-height:1.25rem"></div>
+
+				<button
+					id="login-btn"
+					type="submit"
+					class="btn btn-blue w-full py-2"
+				>
+					Sign In
+				</button>
+
+				<div class="flex justify-end text-sm">
+					<span
+						class="cursor-pointer text-neutral-400 underline underline-offset-4 hover:text-neutral-200"
+						onclick="document.getElementById('tips-modal').classList.remove('hidden')"
+					>
+						Forgot Password?
+					</span>
+				</div>
+			</form>
+		</div>
+
+		<!-- Forgot Password Modal -->
+		<div id="tips-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 hidden" onclick="if(event.target===this) this.classList.add('hidden')">
+			<div class="card w-full max-w-md space-y-4">
+				<h3 class="text-lg font-semibold">Forgot Password?</h3>
+				<p>To reset the password, you can:</p>
+				<p>
+					Refer to the
+					<a href="https://wiki.sipeed.com/hardware/en/kvm/NanoKVM/reset.html" target="_blank" class="text-blue-400 hover:underline">wiki</a>
+					{ "for" } reset instructions.
+				</p>
+				<ul class="list-outside list-disc pl-5 space-y-1 text-sm text-neutral-300">
+					<li>Default web account: <code class="rounded bg-neutral-800 px-1.5 py-0.5">admin/admin</code></li>
+					<li>Default SSH account: <code class="rounded bg-neutral-800 px-1.5 py-0.5">root/root</code></li>
+				</ul>
+				<div class="flex justify-center pt-4">
+					<button class="btn btn-blue" onclick="document.getElementById('tips-modal').classList.add('hidden')">OK</button>
+				</div>
+			</div>
+		</div>
+
+		<script>
+			// Redirect if already authenticated
+			(function() {
+				const token = getCookie('nano-kvm-token');
+				if (token) {
+					window.location.replace('/dashboard');
+				}
+			})();
+
+			function getCookie(name) {
+				const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+				return match ? decodeURIComponent(match[2]) : null;
+			}
+
+			function setCookie(name, value, days) {
+				const d = new Date();
+				d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+				document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/';
+			}
+
+			function encryptPassword(password) {
+				const SECRET_KEY = 'nanokvm-sipeed-2024';
+				const encrypted = CryptoJS.AES.encrypt(password, SECRET_KEY).toString();
+				return encodeURIComponent(encrypted);
+			}
+
+			let loginTimeout = null;
+
+			async function handleLogin(event) {
+				event.preventDefault();
+				const errorEl = document.getElementById('login-error');
+				const btn = document.getElementById('login-btn');
+
+				const username = document.getElementById('username').value.trim();
+				const password = document.getElementById('password').value;
+
+				if (!username || !password) {
+					errorEl.textContent = 'Username and password are required.';
+					return false;
+				}
+
+				btn.disabled = true;
+				btn.textContent = 'Signing in...';
+				errorEl.textContent = '';
+
+				try {
+					const r = await fetch('/api/auth/login', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ username, password: encryptPassword(password) })
+					});
+					const data = await r.json();
+
+					if (data.code === 0) {
+						setCookie('nano-kvm-token', data.data.token, 30);
+						window.location.replace('/dashboard');
+						return false;
+					}
+
+					let msg = 'Login failed.';
+					if (data.code === -2) msg = 'Invalid username or password.';
+					else if (data.code === -5) msg = 'Account locked. Try again later.';
+					else if (data.code === -4) msg = 'Too many failed attempts. Try again later.';
+					errorEl.textContent = msg;
+				} catch (e) {
+					errorEl.textContent = 'Connection error. Please try again.';
+				} finally {
+					btn.disabled = false;
+					btn.textContent = 'Sign In';
+					clearTimeout(loginTimeout);
+					loginTimeout = setTimeout(() => { errorEl.textContent = ''; }, 5000);
+				}
+				return false;
+			}
+		</script>
 	}
 }
 
-// PasswordPage serves the password change route with React island.
-templ PasswordPage(bundlePath string) {
-	@layout("NanoKVM - Password") {
-		<div id="root"></div>
-		<script type="module" src={ bundlePath }></script>
+// PasswordPage is the server-rendered password change page.
+templ PasswordPage() {
+	@layout("NanoKVM - Change Password") {
+		<script src="https://cdn.jsdelivr.net/npm/crypto-js@4.2.0/crypto-js.min.js"></script>
+		<div class="flex h-full w-full flex-col items-center justify-center space-y-5">
+			<h2 class="text-xl font-semibold text-neutral-100">Change Password</h2>
+
+			<form id="pw-form" class="w-full max-w-sm space-y-4 px-4" onsubmit="return handleChangePassword(event)">
+				<div>
+					<input
+						id="pw-username"
+						name="username"
+						type="text"
+						required
+						minlength="1"
+						placeholder="Username"
+						class="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm placeholder-neutral-500 focus:border-blue-600 focus:outline-none"
+					/>
+				</div>
+				<div>
+					<input
+						id="pw-password"
+						name="password"
+						type="password"
+						required
+						minlength="1"
+						placeholder="New Password"
+						class="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm placeholder-neutral-500 focus:border-blue-600 focus:outline-none"
+					/>
+				</div>
+				<div>
+					<input
+						id="pw-confirm"
+						name="password2"
+						type="password"
+						required
+						minlength="1"
+						placeholder="Confirm Password"
+						class="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm placeholder-neutral-500 focus:border-blue-600 focus:outline-none"
+					/>
+				</div>
+
+				<div id="pw-error" class="text-sm text-red-500" style="min-height:1.25rem"></div>
+
+				<div class="flex w-full space-x-2">
+					<button type="submit" class="btn btn-blue w-1/2 py-2" id="pw-ok-btn">OK</button>
+					<button type="button" class="btn btn-neutral w-1/2 py-2" onclick="window.location.replace('/dashboard')">Cancel</button>
+				</div>
+			</form>
+
+			<div class="card w-full max-w-sm mx-4">
+				<div class="flex flex-col text-sm text-neutral-300 space-y-1">
+					<p>This will change both the web login and system root password.</p>
+					<ol class="list-outside list-decimal pl-5 space-y-0.5">
+						<li>Enter a new username and password.</li>
+						<li>You will be redirected to the login page after changing.</li>
+					</ol>
+					<p class="text-red-400">Do not use special characters: <code class="rounded bg-neutral-800 px-1">' " \ /</code></p>
+				</div>
+			</div>
+		</div>
+
+		<script>
+			function encryptPassword(password) {
+				const SECRET_KEY = 'nanokvm-sipeed-2024';
+				const encrypted = CryptoJS.AES.encrypt(password, SECRET_KEY).toString();
+				return encodeURIComponent(encrypted);
+			}
+
+			function deleteCookie(name) {
+				document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+			}
+
+			let pwTimeout = null;
+
+			async function handleChangePassword(event) {
+				event.preventDefault();
+				const errorEl = document.getElementById('pw-error');
+				const btn = document.getElementById('pw-ok-btn');
+
+				const username = document.getElementById('pw-username').value.trim();
+				const password = document.getElementById('pw-password').value;
+				const confirm = document.getElementById('pw-confirm').value;
+
+				if (!username || !password || !confirm) {
+					errorEl.textContent = 'All fields are required.';
+					return false;
+				}
+
+				if (password !== confirm) {
+					errorEl.textContent = 'Passwords do not match.';
+					return false;
+				}
+
+				const forbidden = /['"\\/]/;
+				if (forbidden.test(username)) {
+					errorEl.textContent = 'Username contains invalid characters.';
+					return false;
+				}
+				if (forbidden.test(password)) {
+					errorEl.textContent = 'Password contains invalid characters.';
+					return false;
+				}
+
+				btn.disabled = true;
+				errorEl.textContent = '';
+
+				try {
+					const r = await fetch('/api/auth/password', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ username, password: encryptPassword(password) })
+					});
+					const data = await r.json();
+
+					if (data.code === 0) {
+						deleteCookie('nano-kvm-token');
+						window.location.replace('/auth/login');
+						return false;
+					}
+
+					errorEl.textContent = 'Failed to change password.';
+				} catch (e) {
+					errorEl.textContent = 'Connection error. Please try again.';
+				} finally {
+					btn.disabled = false;
+					clearTimeout(pwTimeout);
+					pwTimeout = setTimeout(() => { errorEl.textContent = ''; }, 5000);
+				}
+				return false;
+			}
+		</script>
 	}
 }
 

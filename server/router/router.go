@@ -28,14 +28,15 @@ func web(r *gin.Engine) {
 	execDir := filepath.Dir(execPath)
 	webPath := fmt.Sprintf("%s/web", execDir)
 
-	// Serve static assets (JS bundles, CSS, images, etc.) from the Vite build output.
-	r.Static("/assets", filepath.Join(webPath, "assets"))
+	// Serve static assets (favicon, etc.)
 	r.StaticFile("/sipeed.ico", filepath.Join(webPath, "sipeed.ico"))
 
-	// Determine the JS entry point from the Vite build.
-	bundlePath := findBundlePath(webPath)
+	// Root redirects to dashboard
+	r.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusFound, "/dashboard")
+	})
 
-	// Server-rendered templ pages (BMC dashboard, serial console, settings)
+	// Server-rendered templ pages
 	r.GET("/dashboard", func(c *gin.Context) {
 		render := gintemplrenderer.New(c.Request.Context(), http.StatusOK, templates.DashboardPage())
 		c.Render(http.StatusOK, render)
@@ -48,40 +49,14 @@ func web(r *gin.Engine) {
 		render := gintemplrenderer.New(c.Request.Context(), http.StatusOK, templates.SettingsPage())
 		c.Render(http.StatusOK, render)
 	})
-
-	// React SPA routes (login, password, root)
-	r.GET("/", func(c *gin.Context) {
-		render := gintemplrenderer.New(c.Request.Context(), http.StatusOK, templates.IndexPage(bundlePath))
-		c.Render(http.StatusOK, render)
-	})
 	r.GET("/auth/login", func(c *gin.Context) {
-		render := gintemplrenderer.New(c.Request.Context(), http.StatusOK, templates.LoginPage(bundlePath))
+		render := gintemplrenderer.New(c.Request.Context(), http.StatusOK, templates.LoginPage())
 		c.Render(http.StatusOK, render)
 	})
 	r.GET("/auth/password", func(c *gin.Context) {
-		render := gintemplrenderer.New(c.Request.Context(), http.StatusOK, templates.PasswordPage(bundlePath))
+		render := gintemplrenderer.New(c.Request.Context(), http.StatusOK, templates.PasswordPage())
 		c.Render(http.StatusOK, render)
 	})
-}
-
-// findBundlePath locates the Vite-built JS entry point in the assets directory.
-// Vite generates hashed filenames like /assets/index-<hash>.js.
-func findBundlePath(webPath string) string {
-	assetsDir := filepath.Join(webPath, "assets")
-	entries, err := os.ReadDir(assetsDir)
-	if err != nil {
-		log.Warnf("could not read web assets directory: %v", err)
-		return "/assets/index.js"
-	}
-
-	for _, entry := range entries {
-		name := entry.Name()
-		if filepath.Ext(name) == ".js" && len(name) > 8 && name[:5] == "index" {
-			return fmt.Sprintf("/assets/%s", name)
-		}
-	}
-
-	return "/assets/index.js"
 }
 
 func server(r *gin.Engine) {
