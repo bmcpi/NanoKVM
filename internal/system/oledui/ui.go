@@ -3,10 +3,10 @@ package oledui
 import (
 	"fmt"
 
-	"github.com/tinkerbell-community/NanoKVM/internal/kvm_system/netmon"
-	"github.com/tinkerbell-community/NanoKVM/internal/kvm_system/oled"
-	"github.com/tinkerbell-community/NanoKVM/internal/kvm_system/sysctl"
-	"github.com/tinkerbell-community/NanoKVM/internal/kvm_system/wificonfig"
+	"github.com/tinkerbell-community/NanoKVM/internal/system/netmon"
+	"github.com/tinkerbell-community/NanoKVM/internal/system/oled"
+	"github.com/tinkerbell-community/NanoKVM/internal/system/sysctl"
+	"github.com/tinkerbell-community/NanoKVM/internal/system/wificonfig"
 
 	qrcode "github.com/skip2/go-qrcode"
 )

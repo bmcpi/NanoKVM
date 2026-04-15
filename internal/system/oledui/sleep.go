@@ -4,7 +4,7 @@
 package oledui
 
 import (
-	"github.com/tinkerbell-community/NanoKVM/internal/kvm_system/sysctl"
+	"github.com/tinkerbell-community/NanoKVM/internal/system/sysctl"
 )
 
 const (
