@@ -158,6 +158,30 @@ func (b *Broker) Close() {
 	b.stopLocked()
 }
 
+// picocomFlowFlag maps config flow-control names to picocom's short form.
+func picocomFlowFlag(flow string) string {
+	switch flow {
+	case "hard", "h":
+		return "h"
+	case "soft", "xon/xoff", "x":
+		return "x"
+	default:
+		return "n"
+	}
+}
+
+// picocomParityFlag maps config parity names to picocom's short form.
+func picocomParityFlag(parity string) string {
+	switch parity {
+	case "even", "e":
+		return "e"
+	case "odd", "o":
+		return "o"
+	default:
+		return "n"
+	}
+}
+
 // startLocked starts picocom on the configured serial port.
 // Caller must hold b.mu.
 func (b *Broker) startLocked() error {
@@ -167,11 +191,15 @@ func (b *Broker) startLocked() error {
 
 	args := []string{
 		"picocom",
+		"--quiet",   // suppress startup banner
+		"--noreset", // don't reset port on exit
+		"--noinit",  // don't reinitialize port settings
+		"--nolock",  // allow shared access (broker manages concurrency)
 		"-b", baudRate,
-		"--flow", cfg.Serial.FlowControl,
+		"--flow", picocomFlowFlag(cfg.Serial.FlowControl),
 		"--databits", fmt.Sprintf("%d", cfg.Serial.DataBits),
 		"--stopbits", fmt.Sprintf("%d", cfg.Serial.StopBits),
-		"--parity", cfg.Serial.Parity,
+		"--parity", picocomParityFlag(cfg.Serial.Parity),
 		"--imap", "lfcrlf",
 		"--omap", "crlf",
 		device,

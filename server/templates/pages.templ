@@ -411,41 +411,9 @@ templ ConsolePage() {
 	@layout("NanoKVM BMC - Serial Console") {
 		<link rel="stylesheet" href="/css/xterm.min.css"/>
 		<div class="flex h-full flex-col">
-			<!-- Serial config bar -->
+			<!-- Status bar -->
 			<div class="flex items-center justify-between border-b border-neutral-800 px-4 py-2">
-				<div class="flex items-center space-x-3">
-					<label class="text-xs text-neutral-400">Port</label>
-					<select id="serial-port" class="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs">
-						<option value="/dev/ttyS1">/dev/ttyS1</option>
-						<option value="/dev/ttyS2">/dev/ttyS2</option>
-					</select>
-					<label class="text-xs text-neutral-400">Baud</label>
-					<input id="serial-baud" type="number" value="115200" class="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs w-24"/>
-					<label class="text-xs text-neutral-400">Parity</label>
-					<select id="serial-parity" class="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs">
-						<option value="none">None</option>
-						<option value="even">Even</option>
-						<option value="odd">Odd</option>
-					</select>
-					<label class="text-xs text-neutral-400">Flow</label>
-					<select id="serial-flow" class="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs">
-						<option value="none">None</option>
-						<option value="soft">Software</option>
-						<option value="hard">Hardware</option>
-					</select>
-					<label class="text-xs text-neutral-400">Data</label>
-					<select id="serial-databits" class="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs">
-						<option value="8">8</option>
-						<option value="7">7</option>
-						<option value="6">6</option>
-						<option value="5">5</option>
-					</select>
-					<label class="text-xs text-neutral-400">Stop</label>
-					<select id="serial-stopbits" class="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-xs">
-						<option value="1">1</option>
-						<option value="2">2</option>
-					</select>
-				</div>
+				<span class="text-xs text-neutral-400">Serial Console (server config: /dev/ttyS1 @ 115200 8N1)</span>
 				<div class="flex items-center space-x-2">
 					<span id="conn-status" class="text-xs text-neutral-500">Disconnected</span>
 					<button class="btn btn-green text-xs" onclick="connectSerial()" id="btn-connect">Connect</button>
@@ -465,7 +433,7 @@ templ ConsolePage() {
 
 			let term = null;
 			let ws = null;
-			let picocomRunning = false;
+			let fitAddon = null;
 
 			function getWsUrl() {
 				const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -476,7 +444,7 @@ templ ConsolePage() {
 				if (ws) disconnectSerial();
 
 				term = new Terminal({ cursorBlink: true });
-				const fitAddon = new FitAddon();
+				fitAddon = new FitAddon();
 				term.loadAddon(fitAddon);
 				const el = document.getElementById('terminal');
 				el.innerHTML = '';
@@ -491,19 +459,6 @@ templ ConsolePage() {
 				ws.onopen = () => {
 					const attachAddon = new AttachAddon(ws);
 					term.loadAddon(attachAddon);
-					const windowSize = { rows: term.rows, cols: term.cols };
-					ws.send(new Blob([JSON.stringify(windowSize)], { type: 'application/json' }));
-
-					setTimeout(() => {
-						const port = document.getElementById('serial-port').value;
-						const baud = document.getElementById('serial-baud').value;
-						const parity = document.getElementById('serial-parity').value;
-						const flow = document.getElementById('serial-flow').value;
-						const dataBits = document.getElementById('serial-databits').value;
-						const stopBits = document.getElementById('serial-stopbits').value;
-						ws.send(`picocom ${port} --baud ${baud} --parity ${parity} --flow ${flow} --databits ${dataBits} --stopbits ${stopBits}\r`);
-						picocomRunning = true;
-					}, 300);
 
 					document.getElementById('conn-status').textContent = 'Connected';
 					document.getElementById('btn-disconnect').disabled = false;
@@ -513,7 +468,6 @@ templ ConsolePage() {
 					document.getElementById('conn-status').textContent = 'Disconnected';
 					document.getElementById('btn-connect').disabled = false;
 					document.getElementById('btn-disconnect').disabled = true;
-					picocomRunning = false;
 				};
 
 				ws.onerror = () => {
@@ -522,25 +476,20 @@ templ ConsolePage() {
 				};
 
 				const resizeHandler = () => {
-					fitAddon.fit();
-					if (ws && ws.readyState === WebSocket.OPEN) {
-						ws.send(new Blob([JSON.stringify({ rows: term.rows, cols: term.cols })], { type: 'application/json' }));
-					}
+					if (fitAddon) fitAddon.fit();
 				};
 				window.addEventListener('resize', resizeHandler);
 				ws._resizeHandler = resizeHandler;
 			};
 
 			window.disconnectSerial = function() {
-				if (ws && picocomRunning) {
-					ws.send('\x01\x18'); // Ctrl-A, Ctrl-X to exit picocom
-					picocomRunning = false;
+				if (ws && ws._resizeHandler) {
+					window.removeEventListener('resize', ws._resizeHandler);
 				}
-				setTimeout(() => {
-					if (ws && ws.readyState === WebSocket.OPEN) ws.close();
-					ws = null;
-				}, 100);
+				if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+				ws = null;
 				if (term) { term.dispose(); term = null; }
+				fitAddon = null;
 			};
 
 			// Auto-connect on page load
