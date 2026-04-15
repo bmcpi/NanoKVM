@@ -59,15 +59,15 @@ func ReadUSBState() int8 {
 	}
 }
 
-// ReadHostPowerState reads the host power LED GPIO.
-// Returns the GPIO value (0 or 1), or -1 on error.
+// ReadHostPowerState reads the host power GPIO pin.
+// Returns 1 if the pin is high (power on), 0 if low (power off), or -1 on error.
 func ReadHostPowerState(gpioPath string) int8 {
 	data, err := os.ReadFile(gpioPath)
 	if err != nil {
 		return -1
 	}
-	if strings.TrimSpace(string(data)) == "0" {
-		return 0
+	if strings.TrimSpace(string(data)) == "1" {
+		return 1
 	}
-	return 1
+	return 0
 }

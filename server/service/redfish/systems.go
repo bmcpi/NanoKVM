@@ -3,12 +3,11 @@ package redfish
 import (
 	"net/http"
 	"sync"
-	"time"
-
-	"github.com/tinkerbell-community/NanoKVM/server/config"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/tinkerbell-community/NanoKVM/server/service/power"
 )
 
 var (
@@ -50,46 +49,25 @@ func (s *Service) ResetSystem(c *gin.Context) {
 		return
 	}
 
-	conf := config.GetInstance().Hardware
+	ctrl := power.GetController()
+	var err error
 
 	switch req.ResetType {
 	case "On":
-		if err := writeGpio(conf.GPIOPower, 800*time.Millisecond); err != nil {
-			redfishErrorResponse(c, http.StatusInternalServerError, "power on failed")
-			return
-		}
-
+		err = ctrl.PowerOn()
 	case "ForceOff":
-		if err := writeGpio(conf.GPIOPower, 5000*time.Millisecond); err != nil {
-			redfishErrorResponse(c, http.StatusInternalServerError, "force off failed")
-			return
-		}
-
+		err = ctrl.PowerOff()
 	case "GracefulShutdown":
-		if err := writeGpio(conf.GPIOPower, 800*time.Millisecond); err != nil {
-			redfishErrorResponse(c, http.StatusInternalServerError, "graceful shutdown failed")
-			return
-		}
-
-	case "ForceRestart":
-		if err := writeGpio(conf.GPIOReset, 800*time.Millisecond); err != nil {
-			redfishErrorResponse(c, http.StatusInternalServerError, "force restart failed")
-			return
-		}
-
-	case "PowerCycle":
-		if err := writeGpio(conf.GPIOPower, 5000*time.Millisecond); err != nil {
-			redfishErrorResponse(c, http.StatusInternalServerError, "power cycle off failed")
-			return
-		}
-		time.Sleep(2 * time.Second)
-		if err := writeGpio(conf.GPIOPower, 800*time.Millisecond); err != nil {
-			redfishErrorResponse(c, http.StatusInternalServerError, "power cycle on failed")
-			return
-		}
-
+		err = ctrl.PowerOff()
+	case "ForceRestart", "PowerCycle":
+		err = ctrl.Reset()
 	default:
 		redfishErrorResponse(c, http.StatusBadRequest, "invalid ResetType: "+req.ResetType)
+		return
+	}
+
+	if err != nil {
+		redfishErrorResponse(c, http.StatusInternalServerError, req.ResetType+" failed: "+err.Error())
 		return
 	}
 
@@ -125,8 +103,8 @@ func (s *Service) PatchSystem(c *gin.Context) {
 func buildSystemResource() gin.H {
 	powerState := "Off"
 
-	conf := config.GetInstance().Hardware
-	on, err := readGpio(conf.GPIOPowerLED)
+	ctrl := power.GetController()
+	on, err := ctrl.State()
 	if err == nil && on {
 		powerState = "On"
 	}

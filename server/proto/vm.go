@@ -20,8 +20,7 @@ type GetHardwareRsp struct {
 }
 
 type SetGpioReq struct {
-	Type     string `validate:"required"`  // reset / power
-	Duration uint   `validate:"omitempty"` // press time (unit: milliseconds)
+	Action string `validate:"required"` // on / off / reset / forceoff
 }
 
 type GetGpioRsp struct {

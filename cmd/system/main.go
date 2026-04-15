@@ -69,7 +69,7 @@ func main() {
 		}
 	}()
 
-	ui := oledui.New(display, netMon, wifiCfg, hw.GPIOPowerLED)
+	ui := oledui.New(display, netMon, wifiCfg, hw.GPIOPower)
 
 	// Main loop: ~1 Hz tick matching the C++ STATE_DELAY.
 	ticker := time.NewTicker(1 * time.Second)

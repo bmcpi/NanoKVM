@@ -61,7 +61,7 @@ type UI struct {
 	qrSwapTimer int
 	showQR      bool
 
-	// GPIO sysfs value path for the host power LED.
+	// GPIO sysfs value path for the host power pin (1 = on, 0 = off).
 	powerGPIOPath string
 
 	// Tracks whether the current page/subPage has been drawn at least once.

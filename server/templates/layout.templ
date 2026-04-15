@@ -77,17 +77,21 @@ templ layout(title string) {
 							<div class="dropdown-menu left">
 								<div class="dropdown-section">
 									<div class="dropdown-section-label">Power Actions</div>
-									<button class="dropdown-item" onclick="powerAction('power', 800); closeDropdowns()">
+									<button class="dropdown-item" onclick="powerAction('on'); closeDropdowns()">
 										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="12"/></svg>
-										Power On / Off
+										Power On
 									</button>
-									<button class="dropdown-item" onclick="powerAction('reset', 800); closeDropdowns()">
+									<button class="dropdown-item" onclick="powerAction('off'); closeDropdowns()">
+										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="12" y1="3" x2="12" y2="12"/></svg>
+										Power Off
+									</button>
+									<button class="dropdown-item" onclick="powerAction('reset'); closeDropdowns()">
 										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
 										Reset
 									</button>
-									<button class="dropdown-item danger" onclick="if(confirm('Force power off?')){powerAction('power', 5000); closeDropdowns()}">
+									<button class="dropdown-item danger" onclick="if(confirm('Force power off?')){powerAction('forceoff'); closeDropdowns()}">
 										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>
-										Force Off (5s hold)
+										Force Off
 									</button>
 								</div>
 								<div class="dropdown-section">
@@ -231,9 +235,9 @@ templ layout(title string) {
 				pollPower();
 				setInterval(pollPower, 5000);
 
-				async function powerAction(type, duration) {
+				async function powerAction(action) {
 					try {
-						await fetch('/api/vm/gpio', { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({type, duration}) });
+						await fetch('/api/vm/gpio', { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({action}) });
 					} catch(e) { console.error(e); }
 					setTimeout(pollPower, 2000);
 				}
