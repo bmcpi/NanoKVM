@@ -1,11 +1,10 @@
 package router
 
 import (
-	"fmt"
+	"io/fs"
 	"net/http"
-	"os"
-	"path/filepath"
 
+	"NanoKVM-Server/assets"
 	"NanoKVM-Server/gintemplrenderer"
 	"NanoKVM-Server/templates"
 
@@ -20,16 +19,24 @@ func Init(r *gin.Engine) {
 }
 
 func web(r *gin.Engine) {
-	execPath, err := os.Executable()
-	if err != nil {
-		panic("invalid executable path")
-	}
+	// Serve embedded static assets
+	cssFS, _ := fs.Sub(assets.CSS, "css")
+	jsFS, _ := fs.Sub(assets.JS, "js")
+	imgFS, _ := fs.Sub(assets.Img, "img")
 
-	execDir := filepath.Dir(execPath)
-	webPath := fmt.Sprintf("%s/web", execDir)
+	r.StaticFS("/css", http.FS(cssFS))
+	r.StaticFS("/js", http.FS(jsFS))
+	r.StaticFS("/img", http.FS(imgFS))
 
-	// Serve static assets (favicon, etc.)
-	r.StaticFile("/sipeed.ico", filepath.Join(webPath, "sipeed.ico"))
+	// Favicon shortcut
+	r.GET("/sipeed.ico", func(c *gin.Context) {
+		data, err := assets.Img.ReadFile("img/sipeed.ico")
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		c.Data(http.StatusOK, "image/x-icon", data)
+	})
 
 	// Root redirects to dashboard
 	r.GET("/", func(c *gin.Context) {
