@@ -65,5 +65,25 @@ func checkDefaultValue() {
 		instance.Authentication = "enable"
 	}
 
+	// Apply serial defaults when not present in the config file.
+	if instance.Serial.Device == "" {
+		instance.Serial.Device = defaultConfig.Serial.Device
+	}
+	if instance.Serial.BaudRate == 0 {
+		instance.Serial.BaudRate = defaultConfig.Serial.BaudRate
+	}
+	if instance.Serial.Parity == "" {
+		instance.Serial.Parity = defaultConfig.Serial.Parity
+	}
+	if instance.Serial.DataBits == 0 {
+		instance.Serial.DataBits = defaultConfig.Serial.DataBits
+	}
+	if instance.Serial.StopBits == 0 {
+		instance.Serial.StopBits = defaultConfig.Serial.StopBits
+	}
+	if instance.Serial.FlowControl == "" {
+		instance.Serial.FlowControl = defaultConfig.Serial.FlowControl
+	}
+
 	instance.Hardware = getHardware()
 }
