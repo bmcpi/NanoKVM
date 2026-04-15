@@ -133,8 +133,8 @@ func (s *Server) handleASF(data []byte, addr *net.UDPAddr) {
 	// Pong payload
 	binary.BigEndian.PutUint32(resp[12:16], asfIANA)
 	// OEM-defined (4 bytes zero at resp[16:20])
-	resp[20] = 0x81 // IPMI supported
-	resp[21] = 0x00 // supported interactions
+	resp[20] = 0x81 // IPMI supported + ASF v1.0
+	resp[21] = 0x80 // security extensions (RMCP+) supported
 	// reserved 6 bytes zero at resp[22:28]
 
 	s.send(resp, addr)

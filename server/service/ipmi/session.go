@@ -185,14 +185,14 @@ func (sm *sessionManager) handleIPMI20(data []byte, addr *net.UDPAddr, srv *Serv
 func handleGetChannelAuthCap(cmdData []byte) []byte {
 	resp := make([]byte, 9)
 	resp[0] = ccOK
-	resp[1] = 0x0E       // channel 14 (current)
-	resp[2] = 0x04       // auth type support: none
-	resp[3] = 0x14       // per-message auth disabled, KG=default
-	resp[4] = 0x00       // user capabilities
-	resp[5] = 0x02       // extended: IPMI v2.0 supported
-	resp[6] = 0x00       // OEM ID byte 1
-	resp[7] = 0x00       // OEM ID byte 2
-	resp[8] = 0x00       // OEM auxiliary
+	resp[1] = 0x0E // channel 14 (current)
+	resp[2] = 0x80 // bit 7: IPMI v2.0+ extended data available
+	resp[3] = 0x10 // bit 4: per-message auth disabled, KG=default (zeros)
+	resp[4] = 0x20 // bit 5: non-null usernames enabled
+	resp[5] = 0x02 // bit 1: IPMI v2.0 connections supported
+	resp[6] = 0x00 // OEM ID byte 1
+	resp[7] = 0x00 // OEM ID byte 2
+	resp[8] = 0x00 // OEM auxiliary
 	return resp
 }
 
