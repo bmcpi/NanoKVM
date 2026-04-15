@@ -296,133 +296,90 @@ templ PasswordPage() {
 	}
 }
 
-// DashboardPage is the server-rendered BMC dashboard.
+// DashboardPage is the main BMC page with embedded serial console.
 templ DashboardPage() {
-	@layout("NanoKVM BMC - Dashboard") {
-		<div class="p-6 space-y-6">
-			<!-- Power Control -->
-			<div class="card">
-				<h2 class="text-lg font-semibold mb-4">Power Control</h2>
-				<div class="flex items-center space-x-3">
-					<button class="btn btn-blue" onclick="powerAction('power', 800)" id="btn-power">Power On/Off</button>
-					<button class="btn btn-yellow" onclick="powerAction('reset', 800)" id="btn-reset">Reset</button>
-					<button class="btn btn-red" onclick="powerAction('power', 5000)" id="btn-forceoff">Force Off</button>
-				</div>
-				<p class="text-xs text-neutral-500 mt-2">Power On/Off sends a short press. Force Off holds { "for" } 5 seconds.</p>
-			</div>
-
-			<!-- Boot Device Override -->
-			<div class="card">
-				<h2 class="text-lg font-semibold mb-4">Boot Device Override</h2>
-				<div class="flex items-center space-x-3">
-					<select id="boot-device" class="bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm">
-						<option value="None">None (Default)</option>
-						<option value="Pxe">PXE Network Boot</option>
-						<option value="Hdd">Hard Disk</option>
-						<option value="Cd">CD/DVD</option>
-						<option value="BiosSetup">BIOS Setup</option>
-					</select>
-					<button class="btn btn-neutral" onclick="setBootDevice()">Set Boot Device</button>
-				</div>
-				<p id="boot-status" class="text-xs text-neutral-500 mt-2"></p>
-			</div>
-
-			<!-- Quick Links -->
-			<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-				<a href="/console" class="card hover:border-blue-700 transition-colors">
-					<h3 class="font-semibold">Serial Console</h3>
-					<p class="text-sm text-neutral-400 mt-1">Open the serial-over-LAN console to interact with the managed system.</p>
-				</a>
-				<div class="card">
-					<h3 class="font-semibold">IPMI</h3>
-					<p class="text-sm text-neutral-400 mt-1">IPMI over LAN available on UDP port 623. Use <code class="text-neutral-300">ipmitool</code> { "for" } command-line access.</p>
-				</div>
-				<div class="card">
-					<h3 class="font-semibold">Redfish API</h3>
-					<p class="text-sm text-neutral-400 mt-1">REST API at <a href="/redfish/v1" class="text-blue-400 hover:underline">/redfish/v1</a> { "for" } programmatic management.</p>
-				</div>
-			</div>
-
-			<!-- System Information -->
-			<div class="card">
-				<h2 class="text-lg font-semibold mb-4">System Information</h2>
-				<div id="sys-info" class="grid grid-cols-2 gap-2 text-sm">
-					<span class="text-neutral-500">Loading...</span>
-				</div>
-			</div>
-		</div>
-
-		<script>
-			const token = localStorage.getItem('nano-kvm-token') || '';
-			const headers = { 'Content-Type': 'application/json', 'token': token };
-
-			async function powerAction(type, duration) {
-				document.querySelectorAll('.btn').forEach(b => b.disabled = true);
-				try {
-					await fetch('/api/vm/gpio', { method: 'POST', headers, body: JSON.stringify({type, duration}) });
-				} catch(e) { console.error(e); }
-				setTimeout(() => {
-					document.querySelectorAll('.btn').forEach(b => b.disabled = false);
-					pollPower();
-				}, 2000);
-			}
-
-			async function setBootDevice() {
-				const device = document.getElementById('boot-device').value;
-				try {
-					const r = await fetch('/redfish/v1/Systems/1', {
-						method: 'PATCH', headers,
-						body: JSON.stringify({ Boot: { BootSourceOverrideTarget: device } })
-					});
-					const data = await r.json();
-					document.getElementById('boot-status').textContent =
-						'Boot device set to: ' + (data.Boot?.BootSourceOverrideTarget || device);
-				} catch(e) {
-					document.getElementById('boot-status').textContent = 'Failed to set boot device';
-				}
-			}
-
-			async function loadSysInfo() {
-				try {
-					const r = await fetch('/api/vm/info', { headers: { 'token': token } });
-					const data = await r.json();
-					if (data.code === 0) {
-						const info = data.data;
-						const el = document.getElementById('sys-info');
-						el.innerHTML = '';
-						const fields = [
-							['Application', info.application || '-'],
-							['Image Version', info.imageVersion || '-'],
-							['Hardware', info.hardware || '-'],
-							['IP', info.ip || '-'],
-							['MAC', info.mac || '-'],
-						];
-						fields.forEach(([k,v]) => {
-							el.innerHTML += '<span class="text-neutral-500">' + k + '</span><span>' + v + '</span>';
-						});
-					}
-				} catch(e) {}
-			}
-			loadSysInfo();
-		</script>
-	}
-}
-
-// ConsolePage is the server-rendered serial console page with xterm.js.
-templ ConsolePage() {
-	@layout("NanoKVM BMC - Serial Console") {
+	@layout("NanoKVM BMC") {
 		<link rel="stylesheet" href="/css/xterm.min.css"/>
-		<div class="flex h-full flex-col">
-			<!-- Status bar -->
-			<div class="flex items-center justify-between border-b border-neutral-800 px-4 py-2">
-				<span class="text-xs text-neutral-400">Serial Console (server config: /dev/ttyS1 @ 115200 8N1)</span>
-				<div class="flex items-center space-x-2">
-					<span id="conn-status" class="text-xs text-neutral-500">Disconnected</span>
-					<button class="btn btn-green text-xs" onclick="connectSerial()" id="btn-connect">Connect</button>
-					<button class="btn btn-neutral text-xs" onclick="disconnectSerial()" id="btn-disconnect" disabled>Disconnect</button>
+		<style>
+			#console-pane { display: flex; flex-direction: column; height: 100%; }
+			#console-pane.expanded { position: fixed; inset: 0; z-index: 40; background: #0a0a0a; }
+			#terminal-wrap { flex: 1; min-height: 0; position: relative; }
+			#terminal { height: 100%; }
+			.console-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 0.375rem 0.75rem; border-bottom: 1px solid #262626; background: #111; flex-shrink: 0; }
+			.console-toolbar .label { font-size: 0.75rem; color: #737373; }
+			.console-toolbar .controls { display: flex; align-items: center; gap: 0.5rem; }
+			.toolbar-btn { background: none; border: 1px solid #404040; border-radius: 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.6875rem; color: #a3a3a3; cursor: pointer; display: flex; align-items: center; gap: 0.25rem; }
+			.toolbar-btn:hover { background: #262626; color: #e5e5e5; border-color: #525252; }
+			.toolbar-btn.active { background: #1d4ed8; border-color: #1d4ed8; color: white; }
+			.info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; }
+			.info-item { background: #111; border: 1px solid #1a1a1a; border-radius: 0.375rem; padding: 0.75rem; }
+			.info-item .info-label { font-size: 0.6875rem; color: #737373; text-transform: uppercase; letter-spacing: 0.05em; }
+			.info-item .info-value { font-size: 0.875rem; color: #e5e5e5; margin-top: 0.25rem; }
+			/* Split layout: info bar + terminal */
+			.dashboard-split { display: flex; flex-direction: column; height: 100%; }
+			.info-bar { padding: 0.75rem; border-bottom: 1px solid #1a1a1a; flex-shrink: 0; }
+			.console-area { flex: 1; min-height: 0; }
+		</style>
+
+		<div class="dashboard-split">
+			<!-- Compact info bar -->
+			<div class="info-bar">
+				<div class="info-grid" id="sys-info">
+					<div class="info-item">
+						<div class="info-label">Application</div>
+						<div class="info-value" id="info-app">—</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">Image</div>
+						<div class="info-value" id="info-image">—</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">Hardware</div>
+						<div class="info-value" id="info-hw">—</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">IP</div>
+						<div class="info-value" id="info-ip">—</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">MAC</div>
+						<div class="info-value" id="info-mac">—</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">Interfaces</div>
+						<div class="info-value">
+							<span class="text-xs text-neutral-500">IPMI :623 · Redfish <a href="/redfish/v1" class="text-blue-400 hover:underline">/redfish/v1</a></span>
+						</div>
+					</div>
 				</div>
 			</div>
-			<div id="terminal" class="min-h-0 flex-1 p-1"></div>
+
+			<!-- Serial Console Pane -->
+			<div class="console-area">
+				<div id="console-pane">
+					<div class="console-toolbar">
+						<div class="flex items-center gap-2">
+							<span class="label">Serial Console</span>
+							<span class="label" style="color:#525252">/dev/ttyS1 @ 115200 8N1</span>
+							<span id="conn-status" class="label" style="color:#ef4444">● Disconnected</span>
+						</div>
+						<div class="controls">
+							<button class="toolbar-btn" onclick="connectSerial()" id="btn-connect">Connect</button>
+							<button class="toolbar-btn" onclick="disconnectSerial()" id="btn-disconnect" disabled>Disconnect</button>
+							<button class="toolbar-btn" onclick="toggleExpand()" id="btn-expand" title="Expand console">
+								<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+								Expand
+							</button>
+							<button class="toolbar-btn" onclick="toggleFullscreen()" id="btn-fullscreen" title="Fullscreen">
+								<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+							</button>
+						</div>
+					</div>
+					<div id="terminal-wrap">
+						<div id="terminal"></div>
+					</div>
+				</div>
+			</div>
 		</div>
 
 		<script src="/js/xterm.min.js"></script>
@@ -436,6 +393,7 @@ templ ConsolePage() {
 			let term = null;
 			let ws = null;
 			let fitAddon = null;
+			let resizeHandler = null;
 
 			function getWsUrl() {
 				const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -445,7 +403,7 @@ templ ConsolePage() {
 			window.connectSerial = function() {
 				if (ws) disconnectSerial();
 
-				term = new Terminal({ cursorBlink: true });
+				term = new Terminal({ cursorBlink: true, fontSize: 13, fontFamily: 'Menlo, Monaco, "Courier New", monospace' });
 				fitAddon = new FitAddon();
 				term.loadAddon(fitAddon);
 				const el = document.getElementById('terminal');
@@ -455,177 +413,124 @@ templ ConsolePage() {
 
 				const url = getWsUrl() + '/api/vm/terminal';
 				ws = new WebSocket(url);
-				document.getElementById('conn-status').textContent = 'Connecting...';
+				document.getElementById('conn-status').textContent = '● Connecting...';
+				document.getElementById('conn-status').style.color = '#a16207';
 				document.getElementById('btn-connect').disabled = true;
 
 				ws.onopen = () => {
 					const attachAddon = new AttachAddon(ws);
 					term.loadAddon(attachAddon);
-
-					document.getElementById('conn-status').textContent = 'Connected';
+					document.getElementById('conn-status').textContent = '● Connected';
+					document.getElementById('conn-status').style.color = '#22c55e';
 					document.getElementById('btn-disconnect').disabled = false;
 				};
 
 				ws.onclose = () => {
-					document.getElementById('conn-status').textContent = 'Disconnected';
+					document.getElementById('conn-status').textContent = '● Disconnected';
+					document.getElementById('conn-status').style.color = '#ef4444';
 					document.getElementById('btn-connect').disabled = false;
 					document.getElementById('btn-disconnect').disabled = true;
 				};
 
 				ws.onerror = () => {
-					document.getElementById('conn-status').textContent = 'Error';
+					document.getElementById('conn-status').textContent = '● Error';
+					document.getElementById('conn-status').style.color = '#ef4444';
 					document.getElementById('btn-connect').disabled = false;
 				};
 
-				const resizeHandler = () => {
-					if (fitAddon) fitAddon.fit();
-				};
+				resizeHandler = () => { if (fitAddon) fitAddon.fit(); };
 				window.addEventListener('resize', resizeHandler);
-				ws._resizeHandler = resizeHandler;
 			};
 
 			window.disconnectSerial = function() {
-				if (ws && ws._resizeHandler) {
-					window.removeEventListener('resize', ws._resizeHandler);
-				}
+				if (resizeHandler) { window.removeEventListener('resize', resizeHandler); resizeHandler = null; }
 				if (ws && ws.readyState === WebSocket.OPEN) ws.close();
 				ws = null;
 				if (term) { term.dispose(); term = null; }
 				fitAddon = null;
 			};
 
-			// Auto-connect on page load
+			// Expand: console takes full viewport (within the SPA layout)
+			window.toggleExpand = function() {
+				const pane = document.getElementById('console-pane');
+				const btn = document.getElementById('btn-expand');
+				pane.classList.toggle('expanded');
+				const isExpanded = pane.classList.contains('expanded');
+				btn.textContent = isExpanded ? 'Collapse' : 'Expand';
+				btn.classList.toggle('active', isExpanded);
+				// Hide info bar when expanded
+				document.querySelector('.info-bar').style.display = isExpanded ? 'none' : '';
+				document.querySelector('header').style.display = isExpanded ? 'none' : '';
+				setTimeout(() => { if (fitAddon) fitAddon.fit(); }, 50);
+			};
+
+			// True browser fullscreen
+			window.toggleFullscreen = function() {
+				const el = document.getElementById('console-pane');
+				if (!document.fullscreenElement) {
+					el.requestFullscreen().then(() => {
+						el.classList.add('expanded');
+						setTimeout(() => { if (fitAddon) fitAddon.fit(); }, 100);
+					}).catch(() => {});
+				} else {
+					document.exitFullscreen();
+				}
+			};
+
+			document.addEventListener('fullscreenchange', () => {
+				if (!document.fullscreenElement) {
+					const pane = document.getElementById('console-pane');
+					pane.classList.remove('expanded');
+					document.querySelector('.info-bar').style.display = '';
+					document.querySelector('header').style.display = '';
+					document.getElementById('btn-expand').textContent = 'Expand';
+					document.getElementById('btn-expand').classList.remove('active');
+					setTimeout(() => { if (fitAddon) fitAddon.fit(); }, 50);
+				}
+			});
+
+			// Escape key exits expanded mode
+			document.addEventListener('keydown', (e) => {
+				if (e.key === 'Escape') {
+					const pane = document.getElementById('console-pane');
+					if (pane.classList.contains('expanded') && !document.fullscreenElement) {
+						toggleExpand();
+					}
+				}
+			});
+
+			// Load system info
+			(async function() {
+				try {
+					const r = await fetch('/api/vm/info', { headers: getAuthHeaders() });
+					const data = await r.json();
+					if (data.code === 0) {
+						const i = data.data;
+						document.getElementById('info-app').textContent = i.application || '—';
+						document.getElementById('info-image').textContent = i.imageVersion || '—';
+						document.getElementById('info-hw').textContent = i.hardware || '—';
+						document.getElementById('info-ip').textContent = i.ip || '—';
+						document.getElementById('info-mac').textContent = i.mac || '—';
+					}
+				} catch(e) {}
+			})();
+
+			// Auto-connect serial
 			window.connectSerial();
 		</script>
 	}
 }
 
-// SettingsPage is the server-rendered settings page.
+// ConsolePage redirects to the dashboard where the serial console lives.
+templ ConsolePage() {
+	@layout("NanoKVM BMC - Serial Console") {
+		<script>window.location.replace('/dashboard');</script>
+	}
+}
+
+// SettingsPage redirects to the dashboard. Settings are in the nav dropdown.
 templ SettingsPage() {
 	@layout("NanoKVM BMC - Settings") {
-		<div class="p-6 space-y-6 max-w-3xl mx-auto">
-			<div class="card">
-				<h2 class="text-lg font-semibold mb-4">Hostname</h2>
-				<div class="flex items-center space-x-3">
-					<input id="hostname" type="text" class="bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm flex-1" placeholder="nanokvm"/>
-					<button class="btn btn-blue" onclick="setHostname()">Save</button>
-				</div>
-				<p id="hostname-status" class="text-xs text-neutral-500 mt-2"></p>
-			</div>
-
-			<div class="card">
-				<h2 class="text-lg font-semibold mb-4">SSH Access</h2>
-				<div class="flex items-center space-x-3">
-					<span id="ssh-state" class="text-sm text-neutral-400">Loading...</span>
-					<button class="btn btn-green" onclick="toggleSSH(true)" id="btn-ssh-enable">Enable</button>
-					<button class="btn btn-red" onclick="toggleSSH(false)" id="btn-ssh-disable">Disable</button>
-				</div>
-			</div>
-
-			<div class="card">
-				<h2 class="text-lg font-semibold mb-4">TLS / HTTPS</h2>
-				<div class="flex items-center space-x-3">
-					<button class="btn btn-green" onclick="setTLS(true)">Enable TLS</button>
-					<button class="btn btn-red" onclick="setTLS(false)">Disable TLS</button>
-				</div>
-				<p class="text-xs text-neutral-500 mt-2">Enabling TLS requires a valid certificate and key.</p>
-			</div>
-
-			<div class="card">
-				<h2 class="text-lg font-semibold mb-4">mDNS</h2>
-				<div class="flex items-center space-x-3">
-					<span id="mdns-state" class="text-sm text-neutral-400">Loading...</span>
-					<button class="btn btn-green" onclick="toggleMdns(true)">Enable</button>
-					<button class="btn btn-red" onclick="toggleMdns(false)">Disable</button>
-				</div>
-			</div>
-
-			<div class="card">
-				<h2 class="text-lg font-semibold mb-4">Swap File</h2>
-				<div class="flex items-center space-x-3">
-					<span class="text-sm text-neutral-400">Size (MB):</span>
-					<input id="swap-size" type="number" value="0" class="bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm w-24"/>
-					<button class="btn btn-blue" onclick="setSwap()">Save</button>
-				</div>
-				<p id="swap-status" class="text-xs text-neutral-500 mt-2"></p>
-			</div>
-
-			<div class="card">
-				<h2 class="text-lg font-semibold mb-4">System</h2>
-				<div class="flex items-center space-x-3">
-					<button class="btn btn-red" onclick="if(confirm('Reboot the BMC?')) rebootSystem()">Reboot BMC</button>
-				</div>
-			</div>
-		</div>
-
-		<script>
-			const token = localStorage.getItem('nano-kvm-token') || '';
-			const headers = { 'Content-Type': 'application/json', 'token': token };
-
-			async function apiGet(url) {
-				const r = await fetch(url, { headers: { 'token': token } });
-				return r.json();
-			}
-			async function apiPost(url, body) {
-				const r = await fetch(url, { method: 'POST', headers, body: body ? JSON.stringify(body) : undefined });
-				return r.json();
-			}
-
-			// Load initial state
-			(async function() {
-				try {
-					const h = await apiGet('/api/vm/hostname');
-					if (h.code === 0) document.getElementById('hostname').value = h.data.hostname || '';
-				} catch(e) {}
-
-				try {
-					const s = await apiGet('/api/vm/ssh');
-					document.getElementById('ssh-state').textContent = s.data?.enabled ? 'Enabled' : 'Disabled';
-				} catch(e) {}
-
-				try {
-					const m = await apiGet('/api/vm/mdns');
-					document.getElementById('mdns-state').textContent = m.data?.enabled ? 'Enabled' : 'Disabled';
-				} catch(e) {}
-
-				try {
-					const sw = await apiGet('/api/vm/swap');
-					if (sw.code === 0) document.getElementById('swap-size').value = sw.data?.size || 0;
-				} catch(e) {}
-			})();
-
-			async function setHostname() {
-				const hostname = document.getElementById('hostname').value;
-				const r = await apiPost('/api/vm/hostname', { hostname });
-				document.getElementById('hostname-status').textContent = r.code === 0 ? 'Saved' : 'Failed';
-			}
-
-			async function toggleSSH(enable) {
-				const url = enable ? '/api/vm/ssh/enable' : '/api/vm/ssh/disable';
-				await apiPost(url);
-				document.getElementById('ssh-state').textContent = enable ? 'Enabled' : 'Disabled';
-			}
-
-			async function setTLS(enabled) {
-				await apiPost('/api/vm/tls', { enabled });
-				alert('TLS ' + (enabled ? 'enabled' : 'disabled') + '. Page may reload.');
-			}
-
-			async function toggleMdns(enable) {
-				const url = enable ? '/api/vm/mdns/enable' : '/api/vm/mdns/disable';
-				await apiPost(url);
-				document.getElementById('mdns-state').textContent = enable ? 'Enabled' : 'Disabled';
-			}
-
-			async function setSwap() {
-				const size = parseInt(document.getElementById('swap-size').value) || 0;
-				const r = await apiPost('/api/vm/swap', { size });
-				document.getElementById('swap-status').textContent = r.code === 0 ? 'Saved' : 'Failed';
-			}
-
-			async function rebootSystem() {
-				await apiPost('/api/vm/system/reboot');
-			}
-		</script>
+		<script>window.location.replace('/dashboard');</script>
 	}
 }

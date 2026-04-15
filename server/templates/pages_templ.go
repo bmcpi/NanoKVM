@@ -49,7 +49,7 @@ func LoginPage() templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs("for")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/pages.templ`, Line: 72, Col: 12}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `server/templates/pages.templ`, Line: 72, Col: 12}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {
@@ -117,7 +117,7 @@ func PasswordPage() templ.Component {
 	})
 }
 
-// DashboardPage is the server-rendered BMC dashboard.
+// DashboardPage is the main BMC page with embedded serial console.
 func DashboardPage() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -151,52 +151,13 @@ func DashboardPage() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"p-6 space-y-6\"><!-- Power Control --><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">Power Control</h2><div class=\"flex items-center space-x-3\"><button class=\"btn btn-blue\" onclick=\"powerAction('power', 800)\" id=\"btn-power\">Power On/Off</button> <button class=\"btn btn-yellow\" onclick=\"powerAction('reset', 800)\" id=\"btn-reset\">Reset</button> <button class=\"btn btn-red\" onclick=\"powerAction('power', 5000)\" id=\"btn-forceoff\">Force Off</button></div><p class=\"text-xs text-neutral-500 mt-2\">Power On/Off sends a short press. Force Off holds ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs("for")
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/pages.templ`, Line: 311, Col: 102}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " 5 seconds.</p></div><!-- Boot Device Override --><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">Boot Device Override</h2><div class=\"flex items-center space-x-3\"><select id=\"boot-device\" class=\"bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm\"><option value=\"None\">None (Default)</option> <option value=\"Pxe\">PXE Network Boot</option> <option value=\"Hdd\">Hard Disk</option> <option value=\"Cd\">CD/DVD</option> <option value=\"BiosSetup\">BIOS Setup</option></select> <button class=\"btn btn-neutral\" onclick=\"setBootDevice()\">Set Boot Device</button></div><p id=\"boot-status\" class=\"text-xs text-neutral-500 mt-2\"></p></div><!-- Quick Links --><div class=\"grid grid-cols-1 md:grid-cols-3 gap-4\"><a href=\"/console\" class=\"card hover:border-blue-700 transition-colors\"><h3 class=\"font-semibold\">Serial Console</h3><p class=\"text-sm text-neutral-400 mt-1\">Open the serial-over-LAN console to interact with the managed system.</p></a><div class=\"card\"><h3 class=\"font-semibold\">IPMI</h3><p class=\"text-sm text-neutral-400 mt-1\">IPMI over LAN available on UDP port 623. Use <code class=\"text-neutral-300\">ipmitool</code> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var9 string
-			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs("for")
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/pages.templ`, Line: 338, Col: 145}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, " command-line access.</p></div><div class=\"card\"><h3 class=\"font-semibold\">Redfish API</h3><p class=\"text-sm text-neutral-400 mt-1\">REST API at <a href=\"/redfish/v1\" class=\"text-blue-400 hover:underline\">/redfish/v1</a> ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var10 string
-			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs("for")
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `templates/pages.templ`, Line: 342, Col: 141}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, " programmatic management.</p></div></div><!-- System Information --><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">System Information</h2><div id=\"sys-info\" class=\"grid grid-cols-2 gap-2 text-sm\"><span class=\"text-neutral-500\">Loading...</span></div></div></div><script>\n\t\t\tconst token = localStorage.getItem('nano-kvm-token') || '';\n\t\t\tconst headers = { 'Content-Type': 'application/json', 'token': token };\n\n\t\t\tasync function powerAction(type, duration) {\n\t\t\t\tdocument.querySelectorAll('.btn').forEach(b => b.disabled = true);\n\t\t\t\ttry {\n\t\t\t\t\tawait fetch('/api/vm/gpio', { method: 'POST', headers, body: JSON.stringify({type, duration}) });\n\t\t\t\t} catch(e) { console.error(e); }\n\t\t\t\tsetTimeout(() => {\n\t\t\t\t\tdocument.querySelectorAll('.btn').forEach(b => b.disabled = false);\n\t\t\t\t\tpollPower();\n\t\t\t\t}, 2000);\n\t\t\t}\n\n\t\t\tasync function setBootDevice() {\n\t\t\t\tconst device = document.getElementById('boot-device').value;\n\t\t\t\ttry {\n\t\t\t\t\tconst r = await fetch('/redfish/v1/Systems/1', {\n\t\t\t\t\t\tmethod: 'PATCH', headers,\n\t\t\t\t\t\tbody: JSON.stringify({ Boot: { BootSourceOverrideTarget: device } })\n\t\t\t\t\t});\n\t\t\t\t\tconst data = await r.json();\n\t\t\t\t\tdocument.getElementById('boot-status').textContent =\n\t\t\t\t\t\t'Boot device set to: ' + (data.Boot?.BootSourceOverrideTarget || device);\n\t\t\t\t} catch(e) {\n\t\t\t\t\tdocument.getElementById('boot-status').textContent = 'Failed to set boot device';\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tasync function loadSysInfo() {\n\t\t\t\ttry {\n\t\t\t\t\tconst r = await fetch('/api/vm/info', { headers: { 'token': token } });\n\t\t\t\t\tconst data = await r.json();\n\t\t\t\t\tif (data.code === 0) {\n\t\t\t\t\t\tconst info = data.data;\n\t\t\t\t\t\tconst el = document.getElementById('sys-info');\n\t\t\t\t\t\tel.innerHTML = '';\n\t\t\t\t\t\tconst fields = [\n\t\t\t\t\t\t\t['Application', info.application || '-'],\n\t\t\t\t\t\t\t['Image Version', info.imageVersion || '-'],\n\t\t\t\t\t\t\t['Hardware', info.hardware || '-'],\n\t\t\t\t\t\t\t['IP', info.ip || '-'],\n\t\t\t\t\t\t\t['MAC', info.mac || '-'],\n\t\t\t\t\t\t];\n\t\t\t\t\t\tfields.forEach(([k,v]) => {\n\t\t\t\t\t\t\tel.innerHTML += '<span class=\"text-neutral-500\">' + k + '</span><span>' + v + '</span>';\n\t\t\t\t\t\t});\n\t\t\t\t\t}\n\t\t\t\t} catch(e) {}\n\t\t\t}\n\t\t\tloadSysInfo();\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<link rel=\"stylesheet\" href=\"/css/xterm.min.css\"><style>\n\t\t\t#console-pane { display: flex; flex-direction: column; height: 100%; }\n\t\t\t#console-pane.expanded { position: fixed; inset: 0; z-index: 40; background: #0a0a0a; }\n\t\t\t#terminal-wrap { flex: 1; min-height: 0; position: relative; }\n\t\t\t#terminal { height: 100%; }\n\t\t\t.console-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 0.375rem 0.75rem; border-bottom: 1px solid #262626; background: #111; flex-shrink: 0; }\n\t\t\t.console-toolbar .label { font-size: 0.75rem; color: #737373; }\n\t\t\t.console-toolbar .controls { display: flex; align-items: center; gap: 0.5rem; }\n\t\t\t.toolbar-btn { background: none; border: 1px solid #404040; border-radius: 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.6875rem; color: #a3a3a3; cursor: pointer; display: flex; align-items: center; gap: 0.25rem; }\n\t\t\t.toolbar-btn:hover { background: #262626; color: #e5e5e5; border-color: #525252; }\n\t\t\t.toolbar-btn.active { background: #1d4ed8; border-color: #1d4ed8; color: white; }\n\t\t\t.info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; }\n\t\t\t.info-item { background: #111; border: 1px solid #1a1a1a; border-radius: 0.375rem; padding: 0.75rem; }\n\t\t\t.info-item .info-label { font-size: 0.6875rem; color: #737373; text-transform: uppercase; letter-spacing: 0.05em; }\n\t\t\t.info-item .info-value { font-size: 0.875rem; color: #e5e5e5; margin-top: 0.25rem; }\n\t\t\t/* Split layout: info bar + terminal */\n\t\t\t.dashboard-split { display: flex; flex-direction: column; height: 100%; }\n\t\t\t.info-bar { padding: 0.75rem; border-bottom: 1px solid #1a1a1a; flex-shrink: 0; }\n\t\t\t.console-area { flex: 1; min-height: 0; }\n\t\t</style> <div class=\"dashboard-split\"><!-- Compact info bar --><div class=\"info-bar\"><div class=\"info-grid\" id=\"sys-info\"><div class=\"info-item\"><div class=\"info-label\">Application</div><div class=\"info-value\" id=\"info-app\">—</div></div><div class=\"info-item\"><div class=\"info-label\">Image</div><div class=\"info-value\" id=\"info-image\">—</div></div><div class=\"info-item\"><div class=\"info-label\">Hardware</div><div class=\"info-value\" id=\"info-hw\">—</div></div><div class=\"info-item\"><div class=\"info-label\">IP</div><div class=\"info-value\" id=\"info-ip\">—</div></div><div class=\"info-item\"><div class=\"info-label\">MAC</div><div class=\"info-value\" id=\"info-mac\">—</div></div><div class=\"info-item\"><div class=\"info-label\">Interfaces</div><div class=\"info-value\"><span class=\"text-xs text-neutral-500\">IPMI :623 · Redfish <a href=\"/redfish/v1\" class=\"text-blue-400 hover:underline\">/redfish/v1</a></span></div></div></div></div><!-- Serial Console Pane --><div class=\"console-area\"><div id=\"console-pane\"><div class=\"console-toolbar\"><div class=\"flex items-center gap-2\"><span class=\"label\">Serial Console</span> <span class=\"label\" style=\"color:#525252\">/dev/ttyS1 @ 115200 8N1</span> <span id=\"conn-status\" class=\"label\" style=\"color:#ef4444\">● Disconnected</span></div><div class=\"controls\"><button class=\"toolbar-btn\" onclick=\"connectSerial()\" id=\"btn-connect\">Connect</button> <button class=\"toolbar-btn\" onclick=\"disconnectSerial()\" id=\"btn-disconnect\" disabled>Disconnect</button> <button class=\"toolbar-btn\" onclick=\"toggleExpand()\" id=\"btn-expand\" title=\"Expand console\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><polyline points=\"15 3 21 3 21 9\"></polyline><polyline points=\"9 21 3 21 3 15\"></polyline><line x1=\"21\" y1=\"3\" x2=\"14\" y2=\"10\"></line><line x1=\"3\" y1=\"21\" x2=\"10\" y2=\"14\"></line></svg> Expand</button> <button class=\"toolbar-btn\" onclick=\"toggleFullscreen()\" id=\"btn-fullscreen\" title=\"Fullscreen\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3\"></path></svg></button></div></div><div id=\"terminal-wrap\"><div id=\"terminal\"></div></div></div></div></div><script src=\"/js/xterm.min.js\"></script> <script src=\"/js/xterm-addon-fit.min.js\"></script> <script src=\"/js/xterm-addon-attach.min.js\"></script> <script>\n\t\t\tconst Terminal = window.Terminal;\n\t\t\tconst FitAddon = window.FitAddon?.FitAddon || window.FitAddon;\n\t\t\tconst AttachAddon = window.AttachAddon?.AttachAddon || window.AttachAddon;\n\n\t\t\tlet term = null;\n\t\t\tlet ws = null;\n\t\t\tlet fitAddon = null;\n\t\t\tlet resizeHandler = null;\n\n\t\t\tfunction getWsUrl() {\n\t\t\t\tconst proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';\n\t\t\t\treturn proto + '//' + window.location.host;\n\t\t\t}\n\n\t\t\twindow.connectSerial = function() {\n\t\t\t\tif (ws) disconnectSerial();\n\n\t\t\t\tterm = new Terminal({ cursorBlink: true, fontSize: 13, fontFamily: 'Menlo, Monaco, \"Courier New\", monospace' });\n\t\t\t\tfitAddon = new FitAddon();\n\t\t\t\tterm.loadAddon(fitAddon);\n\t\t\t\tconst el = document.getElementById('terminal');\n\t\t\t\tel.innerHTML = '';\n\t\t\t\tterm.open(el);\n\t\t\t\tfitAddon.fit();\n\n\t\t\t\tconst url = getWsUrl() + '/api/vm/terminal';\n\t\t\t\tws = new WebSocket(url);\n\t\t\t\tdocument.getElementById('conn-status').textContent = '● Connecting...';\n\t\t\t\tdocument.getElementById('conn-status').style.color = '#a16207';\n\t\t\t\tdocument.getElementById('btn-connect').disabled = true;\n\n\t\t\t\tws.onopen = () => {\n\t\t\t\t\tconst attachAddon = new AttachAddon(ws);\n\t\t\t\t\tterm.loadAddon(attachAddon);\n\t\t\t\t\tdocument.getElementById('conn-status').textContent = '● Connected';\n\t\t\t\t\tdocument.getElementById('conn-status').style.color = '#22c55e';\n\t\t\t\t\tdocument.getElementById('btn-disconnect').disabled = false;\n\t\t\t\t};\n\n\t\t\t\tws.onclose = () => {\n\t\t\t\t\tdocument.getElementById('conn-status').textContent = '● Disconnected';\n\t\t\t\t\tdocument.getElementById('conn-status').style.color = '#ef4444';\n\t\t\t\t\tdocument.getElementById('btn-connect').disabled = false;\n\t\t\t\t\tdocument.getElementById('btn-disconnect').disabled = true;\n\t\t\t\t};\n\n\t\t\t\tws.onerror = () => {\n\t\t\t\t\tdocument.getElementById('conn-status').textContent = '● Error';\n\t\t\t\t\tdocument.getElementById('conn-status').style.color = '#ef4444';\n\t\t\t\t\tdocument.getElementById('btn-connect').disabled = false;\n\t\t\t\t};\n\n\t\t\t\tresizeHandler = () => { if (fitAddon) fitAddon.fit(); };\n\t\t\t\twindow.addEventListener('resize', resizeHandler);\n\t\t\t};\n\n\t\t\twindow.disconnectSerial = function() {\n\t\t\t\tif (resizeHandler) { window.removeEventListener('resize', resizeHandler); resizeHandler = null; }\n\t\t\t\tif (ws && ws.readyState === WebSocket.OPEN) ws.close();\n\t\t\t\tws = null;\n\t\t\t\tif (term) { term.dispose(); term = null; }\n\t\t\t\tfitAddon = null;\n\t\t\t};\n\n\t\t\t// Expand: console takes full viewport (within the SPA layout)\n\t\t\twindow.toggleExpand = function() {\n\t\t\t\tconst pane = document.getElementById('console-pane');\n\t\t\t\tconst btn = document.getElementById('btn-expand');\n\t\t\t\tpane.classList.toggle('expanded');\n\t\t\t\tconst isExpanded = pane.classList.contains('expanded');\n\t\t\t\tbtn.textContent = isExpanded ? 'Collapse' : 'Expand';\n\t\t\t\tbtn.classList.toggle('active', isExpanded);\n\t\t\t\t// Hide info bar when expanded\n\t\t\t\tdocument.querySelector('.info-bar').style.display = isExpanded ? 'none' : '';\n\t\t\t\tdocument.querySelector('header').style.display = isExpanded ? 'none' : '';\n\t\t\t\tsetTimeout(() => { if (fitAddon) fitAddon.fit(); }, 50);\n\t\t\t};\n\n\t\t\t// True browser fullscreen\n\t\t\twindow.toggleFullscreen = function() {\n\t\t\t\tconst el = document.getElementById('console-pane');\n\t\t\t\tif (!document.fullscreenElement) {\n\t\t\t\t\tel.requestFullscreen().then(() => {\n\t\t\t\t\t\tel.classList.add('expanded');\n\t\t\t\t\t\tsetTimeout(() => { if (fitAddon) fitAddon.fit(); }, 100);\n\t\t\t\t\t}).catch(() => {});\n\t\t\t\t} else {\n\t\t\t\t\tdocument.exitFullscreen();\n\t\t\t\t}\n\t\t\t};\n\n\t\t\tdocument.addEventListener('fullscreenchange', () => {\n\t\t\t\tif (!document.fullscreenElement) {\n\t\t\t\t\tconst pane = document.getElementById('console-pane');\n\t\t\t\t\tpane.classList.remove('expanded');\n\t\t\t\t\tdocument.querySelector('.info-bar').style.display = '';\n\t\t\t\t\tdocument.querySelector('header').style.display = '';\n\t\t\t\t\tdocument.getElementById('btn-expand').textContent = 'Expand';\n\t\t\t\t\tdocument.getElementById('btn-expand').classList.remove('active');\n\t\t\t\t\tsetTimeout(() => { if (fitAddon) fitAddon.fit(); }, 50);\n\t\t\t\t}\n\t\t\t});\n\n\t\t\t// Escape key exits expanded mode\n\t\t\tdocument.addEventListener('keydown', (e) => {\n\t\t\t\tif (e.key === 'Escape') {\n\t\t\t\t\tconst pane = document.getElementById('console-pane');\n\t\t\t\t\tif (pane.classList.contains('expanded') && !document.fullscreenElement) {\n\t\t\t\t\t\ttoggleExpand();\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t});\n\n\t\t\t// Load system info\n\t\t\t(async function() {\n\t\t\t\ttry {\n\t\t\t\t\tconst r = await fetch('/api/vm/info', { headers: getAuthHeaders() });\n\t\t\t\t\tconst data = await r.json();\n\t\t\t\t\tif (data.code === 0) {\n\t\t\t\t\t\tconst i = data.data;\n\t\t\t\t\t\tdocument.getElementById('info-app').textContent = i.application || '—';\n\t\t\t\t\t\tdocument.getElementById('info-image').textContent = i.imageVersion || '—';\n\t\t\t\t\t\tdocument.getElementById('info-hw').textContent = i.hardware || '—';\n\t\t\t\t\t\tdocument.getElementById('info-ip').textContent = i.ip || '—';\n\t\t\t\t\t\tdocument.getElementById('info-mac').textContent = i.mac || '—';\n\t\t\t\t\t}\n\t\t\t\t} catch(e) {}\n\t\t\t})();\n\n\t\t\t// Auto-connect serial\n\t\t\twindow.connectSerial();\n\t\t</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("NanoKVM BMC - Dashboard").Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("NanoKVM BMC").Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -204,7 +165,7 @@ func DashboardPage() templ.Component {
 	})
 }
 
-// ConsolePage is the server-rendered serial console page with xterm.js.
+// ConsolePage redirects to the dashboard where the serial console lives.
 func ConsolePage() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -221,12 +182,12 @@ func ConsolePage() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var11 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var11 == nil {
-			templ_7745c5c3_Var11 = templ.NopComponent
+		templ_7745c5c3_Var8 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var8 == nil {
+			templ_7745c5c3_Var8 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var12 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var9 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -238,13 +199,13 @@ func ConsolePage() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<link rel=\"stylesheet\" href=\"/css/xterm.min.css\"><div class=\"flex h-full flex-col\"><!-- Status bar --><div class=\"flex items-center justify-between border-b border-neutral-800 px-4 py-2\"><span class=\"text-xs text-neutral-400\">Serial Console (server config: /dev/ttyS1 @ 115200 8N1)</span><div class=\"flex items-center space-x-2\"><span id=\"conn-status\" class=\"text-xs text-neutral-500\">Disconnected</span> <button class=\"btn btn-green text-xs\" onclick=\"connectSerial()\" id=\"btn-connect\">Connect</button> <button class=\"btn btn-neutral text-xs\" onclick=\"disconnectSerial()\" id=\"btn-disconnect\" disabled>Disconnect</button></div></div><div id=\"terminal\" class=\"min-h-0 flex-1 p-1\"></div></div><script src=\"/js/xterm.min.js\"></script> <script src=\"/js/xterm-addon-fit.min.js\"></script> <script src=\"/js/xterm-addon-attach.min.js\"></script> <script>\n\t\t\tconst Terminal = window.Terminal;\n\t\t\tconst FitAddon = window.FitAddon?.FitAddon || window.FitAddon;\n\t\t\tconst AttachAddon = window.AttachAddon?.AttachAddon || window.AttachAddon;\n\n\t\t\tlet term = null;\n\t\t\tlet ws = null;\n\t\t\tlet fitAddon = null;\n\n\t\t\tfunction getWsUrl() {\n\t\t\t\tconst proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';\n\t\t\t\treturn proto + '//' + window.location.host;\n\t\t\t}\n\n\t\t\twindow.connectSerial = function() {\n\t\t\t\tif (ws) disconnectSerial();\n\n\t\t\t\tterm = new Terminal({ cursorBlink: true });\n\t\t\t\tfitAddon = new FitAddon();\n\t\t\t\tterm.loadAddon(fitAddon);\n\t\t\t\tconst el = document.getElementById('terminal');\n\t\t\t\tel.innerHTML = '';\n\t\t\t\tterm.open(el);\n\t\t\t\tfitAddon.fit();\n\n\t\t\t\tconst url = getWsUrl() + '/api/vm/terminal';\n\t\t\t\tws = new WebSocket(url);\n\t\t\t\tdocument.getElementById('conn-status').textContent = 'Connecting...';\n\t\t\t\tdocument.getElementById('btn-connect').disabled = true;\n\n\t\t\t\tws.onopen = () => {\n\t\t\t\t\tconst attachAddon = new AttachAddon(ws);\n\t\t\t\t\tterm.loadAddon(attachAddon);\n\n\t\t\t\t\tdocument.getElementById('conn-status').textContent = 'Connected';\n\t\t\t\t\tdocument.getElementById('btn-disconnect').disabled = false;\n\t\t\t\t};\n\n\t\t\t\tws.onclose = () => {\n\t\t\t\t\tdocument.getElementById('conn-status').textContent = 'Disconnected';\n\t\t\t\t\tdocument.getElementById('btn-connect').disabled = false;\n\t\t\t\t\tdocument.getElementById('btn-disconnect').disabled = true;\n\t\t\t\t};\n\n\t\t\t\tws.onerror = () => {\n\t\t\t\t\tdocument.getElementById('conn-status').textContent = 'Error';\n\t\t\t\t\tdocument.getElementById('btn-connect').disabled = false;\n\t\t\t\t};\n\n\t\t\t\tconst resizeHandler = () => {\n\t\t\t\t\tif (fitAddon) fitAddon.fit();\n\t\t\t\t};\n\t\t\t\twindow.addEventListener('resize', resizeHandler);\n\t\t\t\tws._resizeHandler = resizeHandler;\n\t\t\t};\n\n\t\t\twindow.disconnectSerial = function() {\n\t\t\t\tif (ws && ws._resizeHandler) {\n\t\t\t\t\twindow.removeEventListener('resize', ws._resizeHandler);\n\t\t\t\t}\n\t\t\t\tif (ws && ws.readyState === WebSocket.OPEN) ws.close();\n\t\t\t\tws = null;\n\t\t\t\tif (term) { term.dispose(); term = null; }\n\t\t\t\tfitAddon = null;\n\t\t\t};\n\n\t\t\t// Auto-connect on page load\n\t\t\twindow.connectSerial();\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<script>window.location.replace('/dashboard');</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("NanoKVM BMC - Serial Console").Render(templ.WithChildren(ctx, templ_7745c5c3_Var12), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("NanoKVM BMC - Serial Console").Render(templ.WithChildren(ctx, templ_7745c5c3_Var9), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -252,7 +213,7 @@ func ConsolePage() templ.Component {
 	})
 }
 
-// SettingsPage is the server-rendered settings page.
+// SettingsPage redirects to the dashboard. Settings are in the nav dropdown.
 func SettingsPage() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -269,12 +230,12 @@ func SettingsPage() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var13 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var13 == nil {
-			templ_7745c5c3_Var13 = templ.NopComponent
+		templ_7745c5c3_Var10 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var10 == nil {
+			templ_7745c5c3_Var10 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var14 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var11 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -286,13 +247,13 @@ func SettingsPage() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"p-6 space-y-6 max-w-3xl mx-auto\"><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">Hostname</h2><div class=\"flex items-center space-x-3\"><input id=\"hostname\" type=\"text\" class=\"bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm flex-1\" placeholder=\"nanokvm\"> <button class=\"btn btn-blue\" onclick=\"setHostname()\">Save</button></div><p id=\"hostname-status\" class=\"text-xs text-neutral-500 mt-2\"></p></div><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">SSH Access</h2><div class=\"flex items-center space-x-3\"><span id=\"ssh-state\" class=\"text-sm text-neutral-400\">Loading...</span> <button class=\"btn btn-green\" onclick=\"toggleSSH(true)\" id=\"btn-ssh-enable\">Enable</button> <button class=\"btn btn-red\" onclick=\"toggleSSH(false)\" id=\"btn-ssh-disable\">Disable</button></div></div><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">TLS / HTTPS</h2><div class=\"flex items-center space-x-3\"><button class=\"btn btn-green\" onclick=\"setTLS(true)\">Enable TLS</button> <button class=\"btn btn-red\" onclick=\"setTLS(false)\">Disable TLS</button></div><p class=\"text-xs text-neutral-500 mt-2\">Enabling TLS requires a valid certificate and key.</p></div><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">mDNS</h2><div class=\"flex items-center space-x-3\"><span id=\"mdns-state\" class=\"text-sm text-neutral-400\">Loading...</span> <button class=\"btn btn-green\" onclick=\"toggleMdns(true)\">Enable</button> <button class=\"btn btn-red\" onclick=\"toggleMdns(false)\">Disable</button></div></div><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">Swap File</h2><div class=\"flex items-center space-x-3\"><span class=\"text-sm text-neutral-400\">Size (MB):</span> <input id=\"swap-size\" type=\"number\" value=\"0\" class=\"bg-neutral-800 border border-neutral-700 rounded px-3 py-2 text-sm w-24\"> <button class=\"btn btn-blue\" onclick=\"setSwap()\">Save</button></div><p id=\"swap-status\" class=\"text-xs text-neutral-500 mt-2\"></p></div><div class=\"card\"><h2 class=\"text-lg font-semibold mb-4\">System</h2><div class=\"flex items-center space-x-3\"><button class=\"btn btn-red\" onclick=\"if(confirm('Reboot the BMC?')) rebootSystem()\">Reboot BMC</button></div></div></div><script>\n\t\t\tconst token = localStorage.getItem('nano-kvm-token') || '';\n\t\t\tconst headers = { 'Content-Type': 'application/json', 'token': token };\n\n\t\t\tasync function apiGet(url) {\n\t\t\t\tconst r = await fetch(url, { headers: { 'token': token } });\n\t\t\t\treturn r.json();\n\t\t\t}\n\t\t\tasync function apiPost(url, body) {\n\t\t\t\tconst r = await fetch(url, { method: 'POST', headers, body: body ? JSON.stringify(body) : undefined });\n\t\t\t\treturn r.json();\n\t\t\t}\n\n\t\t\t// Load initial state\n\t\t\t(async function() {\n\t\t\t\ttry {\n\t\t\t\t\tconst h = await apiGet('/api/vm/hostname');\n\t\t\t\t\tif (h.code === 0) document.getElementById('hostname').value = h.data.hostname || '';\n\t\t\t\t} catch(e) {}\n\n\t\t\t\ttry {\n\t\t\t\t\tconst s = await apiGet('/api/vm/ssh');\n\t\t\t\t\tdocument.getElementById('ssh-state').textContent = s.data?.enabled ? 'Enabled' : 'Disabled';\n\t\t\t\t} catch(e) {}\n\n\t\t\t\ttry {\n\t\t\t\t\tconst m = await apiGet('/api/vm/mdns');\n\t\t\t\t\tdocument.getElementById('mdns-state').textContent = m.data?.enabled ? 'Enabled' : 'Disabled';\n\t\t\t\t} catch(e) {}\n\n\t\t\t\ttry {\n\t\t\t\t\tconst sw = await apiGet('/api/vm/swap');\n\t\t\t\t\tif (sw.code === 0) document.getElementById('swap-size').value = sw.data?.size || 0;\n\t\t\t\t} catch(e) {}\n\t\t\t})();\n\n\t\t\tasync function setHostname() {\n\t\t\t\tconst hostname = document.getElementById('hostname').value;\n\t\t\t\tconst r = await apiPost('/api/vm/hostname', { hostname });\n\t\t\t\tdocument.getElementById('hostname-status').textContent = r.code === 0 ? 'Saved' : 'Failed';\n\t\t\t}\n\n\t\t\tasync function toggleSSH(enable) {\n\t\t\t\tconst url = enable ? '/api/vm/ssh/enable' : '/api/vm/ssh/disable';\n\t\t\t\tawait apiPost(url);\n\t\t\t\tdocument.getElementById('ssh-state').textContent = enable ? 'Enabled' : 'Disabled';\n\t\t\t}\n\n\t\t\tasync function setTLS(enabled) {\n\t\t\t\tawait apiPost('/api/vm/tls', { enabled });\n\t\t\t\talert('TLS ' + (enabled ? 'enabled' : 'disabled') + '. Page may reload.');\n\t\t\t}\n\n\t\t\tasync function toggleMdns(enable) {\n\t\t\t\tconst url = enable ? '/api/vm/mdns/enable' : '/api/vm/mdns/disable';\n\t\t\t\tawait apiPost(url);\n\t\t\t\tdocument.getElementById('mdns-state').textContent = enable ? 'Enabled' : 'Disabled';\n\t\t\t}\n\n\t\t\tasync function setSwap() {\n\t\t\t\tconst size = parseInt(document.getElementById('swap-size').value) || 0;\n\t\t\t\tconst r = await apiPost('/api/vm/swap', { size });\n\t\t\t\tdocument.getElementById('swap-status').textContent = r.code === 0 ? 'Saved' : 'Failed';\n\t\t\t}\n\n\t\t\tasync function rebootSystem() {\n\t\t\t\tawait apiPost('/api/vm/system/reboot');\n\t\t\t}\n\t\t</script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<script>window.location.replace('/dashboard');</script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("NanoKVM BMC - Settings").Render(templ.WithChildren(ctx, templ_7745c5c3_Var14), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("NanoKVM BMC - Settings").Render(templ.WithChildren(ctx, templ_7745c5c3_Var11), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
