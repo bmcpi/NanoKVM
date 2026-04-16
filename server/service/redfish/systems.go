@@ -2,17 +2,12 @@ package redfish
 
 import (
 	"net/http"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/tinkerbell-community/NanoKVM/server/service/firmware"
 	"github.com/tinkerbell-community/NanoKVM/server/service/power"
-)
-
-var (
-	bootOverrideTarget = "None"
-	bootMu             sync.Mutex
 )
 
 var validBootTargets = map[string]bool{
@@ -92,9 +87,16 @@ func (s *Service) PatchSystem(c *gin.Context) {
 		return
 	}
 
-	bootMu.Lock()
-	bootOverrideTarget = target
-	bootMu.Unlock()
+	// Map Redfish target to U-Boot boot_targets and persist.
+	fwCtrl := firmware.GetController()
+	ubootTargets, ok := firmware.RedfishToUBoot[target]
+	if !ok {
+		ubootTargets = ""
+	}
+
+	if err := fwCtrl.SetBootTarget(ubootTargets); err != nil {
+		log.Warnf("redfish: firmware env write failed (using in-memory fallback): %v", err)
+	}
 
 	log.Debugf("redfish boot override target set to: %s", target)
 	c.JSON(http.StatusOK, buildSystemResource())
@@ -109,11 +111,17 @@ func buildSystemResource() gin.H {
 		powerState = "On"
 	}
 
-	bootMu.Lock()
-	currentTarget := bootOverrideTarget
-	bootMu.Unlock()
+	// Read boot target from firmware env, fall back to "None".
+	currentTarget := "None"
+	fwCtrl := firmware.GetController()
+	if ubootTargets, err := fwCtrl.GetBootTarget(); err == nil {
+		if rt, ok := firmware.UBootToRedfish[ubootTargets]; ok {
+			currentTarget = rt
+		}
+	}
 
-	return gin.H{
+	// Read inventory from firmware env.
+	systemInfo := gin.H{
 		"@odata.type":    "#ComputerSystem.v1_13_0.ComputerSystem",
 		"@odata.id":      "/redfish/v1/Systems/1",
 		"@odata.context": "/redfish/v1/$metadata#ComputerSystem.ComputerSystem",
@@ -134,4 +142,19 @@ func buildSystemResource() gin.H {
 			},
 		},
 	}
+
+	if inv, err := fwCtrl.GetInventory(); err == nil {
+		if v, ok := inv["board_name"]; ok {
+			systemInfo["Model"] = v
+		}
+		if v, ok := inv["serial#"]; ok {
+			systemInfo["SerialNumber"] = v
+		}
+		if v, ok := inv["ethaddr"]; ok {
+			// Nest under EthernetInterfaces or just expose at top level.
+			systemInfo["MACAddress"] = v
+		}
+	}
+
+	return systemInfo
 }

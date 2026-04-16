@@ -1,10 +1,9 @@
 package ipmi
 
 import (
-	"sync"
-
 	log "github.com/sirupsen/logrus"
 
+	"github.com/tinkerbell-community/NanoKVM/server/service/firmware"
 	"github.com/tinkerbell-community/NanoKVM/server/service/power"
 )
 
@@ -29,13 +28,6 @@ func handleGetDeviceID() []byte {
 	resp[15] = 0x00
 	return resp
 }
-
-// In-memory boot option storage.
-var (
-	bootMu          sync.Mutex
-	bootDevice      byte // bits 5:2 boot device selector
-	bootDeviceValid bool
-)
 
 // handleGetChassisStatus reads the power state via the central controller.
 func handleGetChassisStatus() []byte {
@@ -118,7 +110,7 @@ func handleChassisControl(cmdData []byte) []byte {
 	return []byte{ccOK}
 }
 
-// handleSetSystemBootOptions stores boot device override in memory.
+// handleSetSystemBootOptions stores boot device override in firmware env.
 func handleSetSystemBootOptions(cmdData []byte) []byte {
 	if len(cmdData) < 1 {
 		return []byte{ccInvalidParam}
@@ -135,12 +127,29 @@ func handleSetSystemBootOptions(cmdData []byte) []byte {
 			return []byte{ccInvalidParam}
 		}
 
-		bootMu.Lock()
-		bootDeviceValid = cmdData[1]&0x80 != 0
-		bootDevice = cmdData[2] & 0x3C // extract bits 5:2
-		bootMu.Unlock()
+		valid := cmdData[1]&0x80 != 0
+		device := cmdData[2] & 0x3C // extract bits 5:2
 
-		log.Debugf("IPMI: set boot device=0x%02x valid=%v", bootDevice, bootDeviceValid)
+		log.Debugf("IPMI: set boot device=0x%02x valid=%v", device, valid)
+
+		// Persist to firmware env if available.
+		fwCtrl := firmware.GetController()
+		ubootTargets, ok := firmware.IPMIDeviceToUBoot[device]
+		if !ok {
+			ubootTargets = ""
+		}
+
+		if valid {
+			if err := fwCtrl.SetBootTarget(ubootTargets); err != nil {
+				log.Warnf("IPMI: firmware env write failed: %v", err)
+			}
+		} else {
+			// Clear boot override.
+			if err := fwCtrl.SetBootTarget(""); err != nil {
+				log.Warnf("IPMI: firmware env clear failed: %v", err)
+			}
+		}
+
 		return []byte{ccOK}
 
 	default:
@@ -158,10 +167,17 @@ func handleGetSystemBootOptions(cmdData []byte) []byte {
 
 	switch paramSelector {
 	case bootParamBootFlags:
-		bootMu.Lock()
-		dev := bootDevice
-		valid := bootDeviceValid
-		bootMu.Unlock()
+		// Read from firmware env.
+		fwCtrl := firmware.GetController()
+		var dev byte
+		var valid bool
+
+		if ubootTargets, err := fwCtrl.GetBootTarget(); err == nil && ubootTargets != "" {
+			if d, ok := firmware.UBootToIPMIDevice[ubootTargets]; ok {
+				dev = d
+				valid = true
+			}
+		}
 
 		resp := make([]byte, 8)
 		resp[0] = ccOK

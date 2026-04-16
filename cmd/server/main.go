@@ -12,6 +12,7 @@ import (
 	"github.com/tinkerbell-community/NanoKVM/server/logger"
 	"github.com/tinkerbell-community/NanoKVM/server/middleware"
 	"github.com/tinkerbell-community/NanoKVM/server/router"
+	"github.com/tinkerbell-community/NanoKVM/server/service/firmware"
 	"github.com/tinkerbell-community/NanoKVM/server/service/ipmi"
 
 	"github.com/gin-gonic/gin"
@@ -36,6 +37,11 @@ func initialize() {
 		log.Printf("IPMI server failed to start: %v", err)
 	} else {
 		ipmiServer = srv
+	}
+
+	// Initialize firmware controller (mount image if available).
+	if err := firmware.GetController().Init(); err != nil {
+		log.Printf("Firmware controller init: %v", err)
 	}
 
 	sigChan := make(chan os.Signal, 1)

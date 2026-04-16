@@ -45,6 +45,12 @@ var defaultConfig = &Config{
 		StopBits:    1,
 		FlowControl: "none",
 	},
+	Firmware: Firmware{
+		ImageURL:   "https://github.com/tinkerbell-community/uboot-raspberrypi/releases/download/v2026.04-rc4.1/uboot-raspberrypi-2026.04-rc4.1.img.xz",
+		ImagePath:  "/data/firmware/uboot-rpi.img",
+		MountPoint: "/mnt/firmware",
+		EnvFile:    "/mnt/firmware/uboot.env",
+	},
 }
 
 func checkDefaultValue() {
@@ -86,6 +92,20 @@ func checkDefaultValue() {
 	}
 	if instance.Serial.FlowControl == "" {
 		instance.Serial.FlowControl = defaultConfig.Serial.FlowControl
+	}
+
+	// Apply firmware defaults when not present in the config file.
+	if instance.Firmware.ImageURL == "" {
+		instance.Firmware.ImageURL = defaultConfig.Firmware.ImageURL
+	}
+	if instance.Firmware.ImagePath == "" {
+		instance.Firmware.ImagePath = defaultConfig.Firmware.ImagePath
+	}
+	if instance.Firmware.MountPoint == "" {
+		instance.Firmware.MountPoint = defaultConfig.Firmware.MountPoint
+	}
+	if instance.Firmware.EnvFile == "" {
+		instance.Firmware.EnvFile = defaultConfig.Firmware.EnvFile
 	}
 
 	instance.Hardware = getHardware()

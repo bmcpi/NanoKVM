@@ -100,4 +100,5 @@ func server(r *gin.Engine) {
 	downloadRouter(r)
 	extensionsRouter(r)
 	redfishRouter(r)
+	firmwareRouter(r)
 }

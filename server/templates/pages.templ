@@ -352,6 +352,37 @@ templ DashboardPage() {
 						</div>
 					</div>
 				</div>
+				<!-- Firmware & Board Inventory row -->
+				<div class="info-grid" id="firmware-info" style="margin-top: 0.75rem">
+					<div class="info-item">
+						<div class="info-label">Firmware</div>
+						<div class="info-value" id="info-fw-status">—</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">Board</div>
+						<div class="info-value" id="info-board">—</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">Board Serial</div>
+						<div class="info-value" id="info-board-serial">—</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">Board MAC</div>
+						<div class="info-value" id="info-board-mac">—</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">Boot Target</div>
+						<div class="info-value" id="info-boot-target">—</div>
+					</div>
+					<div class="info-item" id="fw-download-item" style="display:none">
+						<div class="info-label">Firmware Image</div>
+						<div class="info-value">
+							<button class="toolbar-btn" id="btn-fw-download" onclick="downloadFirmware()" style="font-size:0.75rem">
+								Download
+							</button>
+						</div>
+					</div>
+				</div>
 			</div>
 
 			<!-- Serial Console Pane -->
@@ -548,6 +579,77 @@ templ DashboardPage() {
 					}
 				} catch(e) {}
 			})();
+
+			// Load firmware status & inventory
+			async function loadFirmwareInfo() {
+				try {
+					const r = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
+					const st = await r.json();
+					let statusText = '';
+					if (!st.downloaded) {
+						statusText = 'Not downloaded';
+						document.getElementById('fw-download-item').style.display = '';
+					} else if (!st.mounted) {
+						statusText = 'Downloaded (not mounted)';
+					} else if (!st.envReady) {
+						statusText = 'Mounted (no env)';
+					} else {
+						statusText = 'Ready';
+						document.getElementById('fw-download-item').style.display = 'none';
+					}
+					if (st.presented) statusText += ' · USB Active';
+					document.getElementById('info-fw-status').textContent = statusText;
+				} catch(e) {
+					document.getElementById('info-fw-status').textContent = 'Unavailable';
+				}
+
+				try {
+					const r = await fetch('/api/firmware/inventory', { headers: getAuthHeaders() });
+					if (r.ok) {
+						const inv = await r.json();
+						document.getElementById('info-board').textContent = inv.board_name || '—';
+						document.getElementById('info-board-serial').textContent = inv['serial#'] || '—';
+						document.getElementById('info-board-mac').textContent = inv.ethaddr || '—';
+					}
+				} catch(e) {}
+
+				try {
+					const r = await fetch('/api/firmware/boot', { headers: getAuthHeaders() });
+					if (r.ok) {
+						const b = await r.json();
+						document.getElementById('info-boot-target').textContent = b.boot_targets || 'default';
+					}
+				} catch(e) {}
+			}
+			loadFirmwareInfo();
+
+			window.downloadFirmware = async function() {
+				const btn = document.getElementById('btn-fw-download');
+				btn.disabled = true;
+				btn.textContent = 'Downloading...';
+				try {
+					const r = await fetch('/api/firmware/download', { method: 'POST', headers: getAuthHeaders() });
+					if (r.ok) {
+						btn.textContent = 'Started...';
+						// Poll for completion.
+						const poll = setInterval(async () => {
+							const sr = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
+							const st = await sr.json();
+							if (st.downloaded) {
+								clearInterval(poll);
+								loadFirmwareInfo();
+							}
+						}, 5000);
+					} else {
+						const err = await r.json();
+						btn.textContent = err.error || 'Failed';
+						btn.disabled = false;
+					}
+				} catch(e) {
+					btn.textContent = 'Error';
+					btn.disabled = false;
+				}
+			};
 
 			// Auto-connect serial
 			window.connectSerial();

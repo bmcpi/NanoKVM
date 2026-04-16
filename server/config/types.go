@@ -12,7 +12,8 @@ type Config struct {
 	Security       Security `yaml:"security"`
 	IPMI           IPMI     `yaml:"ipmi"`
 	Redfish        Redfish  `yaml:"redfish"`
-	Serial         Serial   `yaml:"serial"`
+	Serial   Serial   `yaml:"serial"`
+	Firmware Firmware `yaml:"firmware"`
 
 	Hardware Hardware `yaml:"-"`
 }
@@ -73,4 +74,11 @@ type Serial struct {
 	DataBits    int    `yaml:"dataBits"`
 	StopBits    int    `yaml:"stopBits"`
 	FlowControl string `yaml:"flowControl"`
+}
+
+type Firmware struct {
+	ImageURL   string `yaml:"imageURL"`
+	ImagePath  string `yaml:"imagePath"`
+	MountPoint string `yaml:"mountPoint"`
+	EnvFile    string `yaml:"envFile"`
 }
