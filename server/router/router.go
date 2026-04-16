@@ -93,12 +93,8 @@ func server(r *gin.Engine) {
 	authRouter(r)
 	applicationRouter(r)
 	vmRouter(r)
-	storageRouter(r)
 	networkRouter(r)
-	picoclawRouter(r)
 	wsRouter(r)
-	downloadRouter(r)
-	extensionsRouter(r)
 	redfishRouter(r)
 	firmwareRouter(r)
 }

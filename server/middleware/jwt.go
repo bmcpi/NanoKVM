@@ -60,28 +60,6 @@ func CheckPageAuth() gin.HandlerFunc {
 	}
 }
 
-func CheckLoopbackInternalToken() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if allowByLoopbackInternalToken(c.Request) {
-			c.Next()
-			return
-		}
-
-		abortUnauthorized(c)
-	}
-}
-
-func CheckTokenOrLoopbackInternalToken() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if allowByToken(c) || allowByLoopbackInternalToken(c.Request) {
-			c.Next()
-			return
-		}
-
-		abortUnauthorized(c)
-	}
-}
-
 func allowByToken(c *gin.Context) bool {
 	conf := config.GetInstance()
 

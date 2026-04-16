@@ -86,7 +86,6 @@ func run() {
 			httpAddr,
 			httpsAddr,
 			r,
-			router.PicoclawLoopbackHTTPAllowedPaths()...,
 		); err != nil {
 			panic("start http server failed")
 		}

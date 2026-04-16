@@ -59,7 +59,9 @@ func getIPs() (ips []proto.IP) {
 }
 
 func getMdns() string {
-	if pid := getAvahiDaemonPid(); pid == "" {
+	// Check if avahi-daemon is running by looking for its PID file
+	pid, err := os.ReadFile("/var/run/avahi-daemon/pid")
+	if err != nil || strings.TrimSpace(string(pid)) == "" {
 		return ""
 	}
 

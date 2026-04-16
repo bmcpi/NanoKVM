@@ -124,19 +124,8 @@ templ layout(title string) {
 								<div class="dropdown-section">
 									<div class="dropdown-section-label">Network</div>
 									<div class="dropdown-row">
-										<label>Hostname</label>
-										<div class="flex items-center gap-1">
-											<input id="hostname" type="text" class="mini-input" style="width:120px" placeholder="nanokvm"/>
-											<button class="mini-btn btn-blue" onclick="setHostname()">Save</button>
-										</div>
-									</div>
-									<div class="dropdown-row">
 										<label>SSH</label>
 										<button id="ssh-toggle" class="toggle-btn toggle-off" onclick="toggleSSH()">Off</button>
-									</div>
-									<div class="dropdown-row">
-										<label>mDNS</label>
-										<button id="mdns-toggle" class="toggle-btn toggle-off" onclick="toggleMdns()">Off</button>
 									</div>
 								</div>
 								<div class="dropdown-section">
@@ -152,13 +141,6 @@ templ layout(title string) {
 								</div>
 								<div class="dropdown-section">
 									<div class="dropdown-section-label">System</div>
-									<div class="dropdown-row">
-										<label>Swap (MB)</label>
-										<div class="flex items-center gap-1">
-											<input id="swap-size" type="number" value="0" class="mini-input" style="width:60px"/>
-											<button class="mini-btn btn-blue" onclick="setSwap()">Save</button>
-										</div>
-									</div>
 									<button class="dropdown-item danger" onclick="if(confirm('Reboot the BMC?')){rebootSystem(); closeDropdowns()}">
 										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
 										Reboot BMC
@@ -252,10 +234,6 @@ templ layout(title string) {
 				async function apiPost(url, body) {
 					return (await fetch(url, { method: 'POST', headers: getAuthHeaders(), body: body ? JSON.stringify(body) : undefined })).json();
 				}
-				async function setHostname() {
-					const hostname = document.getElementById('hostname').value;
-					await apiPost('/api/vm/hostname', { hostname });
-				}
 				function updateToggle(id, on) {
 					const btn = document.getElementById(id);
 					if (!btn) return;
@@ -264,7 +242,6 @@ templ layout(title string) {
 				}
 
 				let sshEnabled = false;
-				let mdnsEnabled = false;
 				let tlsEnabled = false;
 
 				async function toggleSSH() {
@@ -280,26 +257,13 @@ templ layout(title string) {
 					updateToggle('tls-toggle', tlsEnabled);
 					alert('TLS ' + (enable ? 'enabled' : 'disabled') + '. Page may reload.');
 				}
-				async function toggleMdns() {
-					const enable = !mdnsEnabled;
-					await apiPost(enable ? '/api/vm/mdns/enable' : '/api/vm/mdns/disable');
-					mdnsEnabled = enable;
-					updateToggle('mdns-toggle', mdnsEnabled);
-				}
-				async function setSwap() {
-					const size = parseInt(document.getElementById('swap-size').value) || 0;
-					await apiPost('/api/vm/swap', { size });
-				}
 				async function rebootSystem() {
 					await apiPost('/api/vm/system/reboot');
 				}
 
 				// Load initial settings state
 				(async function() {
-					try { const h = await apiGet('/api/vm/hostname'); if (h.code === 0) document.getElementById('hostname').value = h.data.hostname || ''; } catch(e) {}
 					try { const s = await apiGet('/api/vm/ssh'); sshEnabled = !!(s.data?.enabled); updateToggle('ssh-toggle', sshEnabled); } catch(e) {}
-					try { const m = await apiGet('/api/vm/mdns'); mdnsEnabled = !!(m.data?.enabled); updateToggle('mdns-toggle', mdnsEnabled); } catch(e) {}
-					try { const sw = await apiGet('/api/vm/swap'); if (sw.code === 0) document.getElementById('swap-size').value = sw.data?.size || 0; } catch(e) {}
 				})();
 
 				// --- Logout ---
