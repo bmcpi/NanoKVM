@@ -56,7 +56,7 @@ func (c *Controller) Download() error {
 	return nil
 }
 
-// DownloadAndInit downloads the firmware image, then mounts and presents it.
+// DownloadAndInit downloads the firmware image, then presents it via USB gadget.
 func (c *Controller) DownloadAndInit() error {
 	if err := c.Download(); err != nil {
 		return err
@@ -64,10 +64,6 @@ func (c *Controller) DownloadAndInit() error {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
-	if err := c.mountImage(); err != nil {
-		return fmt.Errorf("mount after download: %w", err)
-	}
 
 	if err := c.presentImage(); err != nil {
 		log.Warnf("firmware: USB gadget present failed: %v", err)

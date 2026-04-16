@@ -14,25 +14,27 @@ import (
 // Status describes the current state of the firmware controller.
 type Status struct {
 	Downloaded bool   `json:"downloaded"`
-	Mounted    bool   `json:"mounted"`
 	Presented  bool   `json:"presented"`
-	EnvReady   bool   `json:"envReady"`
 	ImagePath  string `json:"imagePath"`
 	MountPoint string `json:"mountPoint"`
 }
 
 // Controller manages the firmware image lifecycle.
+//
+// The image file is presented directly to the USB mass storage gadget so the
+// host (e.g. U-Boot) can boot from it. The controller does NOT keep the image
+// permanently mounted; instead it mounts on demand for env read/write
+// operations and unmounts immediately afterwards. This avoids conflicts
+// between the gadget's file-backed I/O and a local filesystem mount.
 type Controller struct {
-	mu sync.RWMutex
+	mu sync.Mutex
 
 	imageURL   string
 	imagePath  string
 	mountPoint string
 	envFile    string
 
-	mounted   bool
 	presented bool
-	loopDev   string // loop device path (e.g. /dev/loop0)
 }
 
 var (
@@ -54,8 +56,9 @@ func GetController() *Controller {
 	return instance
 }
 
-// Init checks whether the firmware image is already available and attempts
-// to mount/present it. Call once at server startup.
+// Init checks whether the firmware image is already available and presents
+// it via the USB gadget. The image is NOT mounted permanently — env
+// operations mount on demand. Call once at server startup.
 func (c *Controller) Init() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -65,12 +68,7 @@ func (c *Controller) Init() error {
 		return nil
 	}
 
-	log.Info("firmware: image found, mounting")
-	if err := c.mountImage(); err != nil {
-		return fmt.Errorf("firmware init mount: %w", err)
-	}
-
-	log.Info("firmware: presenting via USB gadget")
+	log.Info("firmware: image found, presenting via USB gadget")
 	if err := c.presentImage(); err != nil {
 		log.Warnf("firmware: USB gadget present failed (may not be available in this environment): %v", err)
 	}
@@ -80,36 +78,45 @@ func (c *Controller) Init() error {
 
 // GetStatus returns the current lifecycle state.
 func (c *Controller) GetStatus() Status {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	envReady := false
-	if c.mounted {
-		if _, err := os.Stat(c.envFile); err == nil {
-			envReady = true
-		}
-	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
 	return Status{
 		Downloaded: c.imageExists(),
-		Mounted:    c.mounted,
 		Presented:  c.presented,
-		EnvReady:   envReady,
 		ImagePath:  c.imagePath,
 		MountPoint: c.mountPoint,
 	}
 }
 
+// withMount temporarily mounts the firmware image, calls fn, then unmounts.
+// This is the only way env operations access the filesystem to avoid
+// conflicts with the USB gadget's file-backed I/O path. Must be called
+// with c.mu held.
+func (c *Controller) withMount(fn func() error) error {
+	if err := c.mountImage(); err != nil {
+		return fmt.Errorf("mount: %w", err)
+	}
+	defer func() {
+		if err := c.unmountImage(); err != nil {
+			log.Warnf("firmware: deferred unmount failed: %v", err)
+		}
+	}()
+	return fn()
+}
+
 // LoadEnv reads and parses the U-Boot environment file.
 func (c *Controller) LoadEnv() (*ubootenv.Env, error) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	if !c.mounted {
-		return nil, fmt.Errorf("firmware image not mounted")
-	}
-
-	return ubootenv.LoadFile(c.envFile)
+	var env *ubootenv.Env
+	err := c.withMount(func() error {
+		var e error
+		env, e = ubootenv.LoadFile(c.envFile)
+		return e
+	})
+	return env, err
 }
 
 // SaveEnv serializes and writes the U-Boot environment file atomically.
@@ -117,11 +124,9 @@ func (c *Controller) SaveEnv(env *ubootenv.Env) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if !c.mounted {
-		return fmt.Errorf("firmware image not mounted")
-	}
-
-	return env.SaveFile(c.envFile)
+	return c.withMount(func() error {
+		return env.SaveFile(c.envFile)
+	})
 }
 
 // GetBootTarget reads the current boot target from the U-Boot environment.
@@ -140,22 +145,20 @@ func (c *Controller) SetBootTarget(targets string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if !c.mounted {
-		return fmt.Errorf("firmware image not mounted")
-	}
+	return c.withMount(func() error {
+		env, err := ubootenv.LoadFile(c.envFile)
+		if err != nil {
+			return fmt.Errorf("load env: %w", err)
+		}
 
-	env, err := ubootenv.LoadFile(c.envFile)
-	if err != nil {
-		return fmt.Errorf("load env: %w", err)
-	}
+		if targets == "" {
+			env.Delete(ubootenv.VarBootTargets)
+		} else {
+			env.Set(ubootenv.VarBootTargets, targets)
+		}
 
-	if targets == "" {
-		env.Delete(ubootenv.VarBootTargets)
-	} else {
-		env.Set(ubootenv.VarBootTargets, targets)
-	}
-
-	return env.SaveFile(c.envFile)
+		return env.SaveFile(c.envFile)
+	})
 }
 
 // GetInventory returns board inventory data from the U-Boot environment.

@@ -12,26 +12,19 @@ import (
 
 // mountImage creates a loop device for the firmware image and mounts the
 // FAT partition at the configured mount point. Must be called with c.mu held.
+// This is designed for short-lived mount/unmount cycles — the image is NOT
+// kept permanently mounted so it doesn't conflict with the USB gadget.
 func (c *Controller) mountImage() error {
-	if c.mounted {
-		return nil
-	}
-
 	if err := os.MkdirAll(c.mountPoint, 0o755); err != nil {
 		return fmt.Errorf("create mount point: %w", err)
 	}
 
-	// Check if already mounted (e.g. from a previous run).
+	// If already mounted from a previous incomplete cycle, reuse it.
 	if isMounted(c.mountPoint) {
-		c.mounted = true
-		c.loopDev = c.findLoopDevForImage()
-		log.Info("firmware: already mounted at ", c.mountPoint)
+		log.Debug("firmware: mount point already in use, reusing")
 		return nil
 	}
 
-	// The image contains a partition table with a FAT partition.
-	// Use losetup with --partscan to expose partition devices, then mount
-	// the first partition.
 	loopDev, err := c.setupLoop()
 	if err != nil {
 		return err
@@ -40,22 +33,17 @@ func (c *Controller) mountImage() error {
 	// The first partition is exposed as <loop>p1.
 	partDev := loopDev + "p1"
 	if _, err := os.Stat(partDev); err != nil {
-		// No partition device — image may be a raw filesystem. Try the
-		// loop device itself as a fallback.
 		log.Warnf("firmware: %s not found, trying raw loop mount", partDev)
 		partDev = loopDev
 	}
 
-	cmd := exec.Command("mount", "-t", "vfat", "-o", "rw", partDev, c.mountPoint)
+	cmd := exec.Command("mount", "-t", "vfat", "-o", "rw,sync", partDev, c.mountPoint)
 	if output, err := cmd.CombinedOutput(); err != nil {
-		// Clean up the loop device on failure.
 		_ = exec.Command("losetup", "-d", loopDev).Run()
 		return fmt.Errorf("mount %s: %s: %w", partDev, strings.TrimSpace(string(output)), err)
 	}
 
-	c.loopDev = loopDev
-	c.mounted = true
-	log.Infof("firmware: mounted %s (%s) at %s", partDev, c.imagePath, c.mountPoint)
+	log.Debugf("firmware: mounted %s at %s", partDev, c.mountPoint)
 	return nil
 }
 
@@ -63,8 +51,6 @@ func (c *Controller) mountImage() error {
 // Returns the loop device path (e.g. "/dev/loop0").
 // Compatible with BusyBox losetup which lacks --show.
 func (c *Controller) setupLoop() (string, error) {
-	// Step 1: Find a free loop device.
-	// BusyBox: losetup -f  (prints next free device to stdout)
 	out, err := exec.Command("losetup", "-f").CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("losetup -f: %s: %w", strings.TrimSpace(string(out)), err)
@@ -74,39 +60,43 @@ func (c *Controller) setupLoop() (string, error) {
 		return "", fmt.Errorf("losetup -f returned empty device path")
 	}
 
-	// Step 2: Attach the image to that device with partition scanning.
-	// BusyBox supports: losetup [-rP] [-o OFS] {-f|LOOPDEV} FILE
 	out, err = exec.Command("losetup", "-P", dev, c.imagePath).CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("losetup -P %s %s: %s: %w", dev, c.imagePath, strings.TrimSpace(string(out)), err)
 	}
 
-	log.Infof("firmware: loop device %s for %s", dev, c.imagePath)
+	log.Debugf("firmware: loop device %s for %s", dev, c.imagePath)
 	return dev, nil
 }
 
-// unmountImage unmounts the firmware partition and detaches the loop device.
+// unmountImage unmounts the firmware partition, detaches the loop device,
+// and drops page caches so the USB gadget serves fresh data.
 // Must be called with c.mu held.
 func (c *Controller) unmountImage() error {
-	if !c.mounted {
+	if !isMounted(c.mountPoint) {
 		return nil
 	}
 
-	cmd := exec.Command("umount", c.mountPoint)
+	// Sync before unmounting to ensure all writes are flushed.
+	_ = exec.Command("sync").Run()
+
+	cmd := exec.Command("umount", "-d", c.mountPoint)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("umount: %s: %w", strings.TrimSpace(string(output)), err)
 	}
 
-	// Detach the loop device to free it.
-	if c.loopDev != "" {
-		if err := exec.Command("losetup", "-d", c.loopDev).Run(); err != nil {
-			log.Warnf("firmware: losetup -d %s: %v", c.loopDev, err)
+	// Also detach any remaining loop device for this image.
+	if loopDev := c.findLoopDevForImage(); loopDev != "" {
+		if err := exec.Command("losetup", "-d", loopDev).Run(); err != nil {
+			log.Warnf("firmware: losetup -d %s: %v", loopDev, err)
 		}
-		c.loopDev = ""
 	}
 
-	c.mounted = false
-	log.Infof("firmware: unmounted %s", c.mountPoint)
+	// Drop page caches so the gadget's f_mass_storage re-reads from disk,
+	// picking up any changes we wrote.
+	_ = os.WriteFile("/proc/sys/vm/drop_caches", []byte("3"), 0o644)
+
+	log.Debug("firmware: unmounted and flushed caches")
 	return nil
 }
 

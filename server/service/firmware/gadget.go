@@ -19,18 +19,17 @@ const (
 	gadgetUDC       = "/sys/kernel/config/usb_gadget/g0/UDC"
 )
 
-// presentImage writes the loop device path to the USB mass storage gadget
-// configfs and triggers a re-enumeration if needed.
-// Uses the loop device (block device) rather than the image file so the kernel
-// uses the device's native block size and writes are properly synchronized.
+// presentImage writes the firmware image file path to the USB mass storage
+// gadget configfs and triggers a re-enumeration if needed.
+//
+// The image file is presented directly (not a loop device). The host
+// (U-Boot) boots from this image. The BMC accesses the env partition
+// only through short-lived mount/unmount cycles, avoiding dual-access
+// conflicts with the gadget's file-backed I/O.
 // Must be called with c.mu held.
 func (c *Controller) presentImage() error {
 	if c.presented {
 		return nil
-	}
-
-	if c.loopDev == "" {
-		return fmt.Errorf("no loop device available (image not mounted?)")
 	}
 
 	// Ensure not in cdrom or read-only mode.
@@ -40,11 +39,9 @@ func (c *Controller) presentImage() error {
 	inquiry := fmt.Sprintf("%-8s%-16s%04x", "NanoKVM", "Firmware", 0x0100)
 	_ = os.WriteFile(gadgetInquiry, []byte(inquiry), 0o666)
 
-	// Present the loop device (block device), not the image file.
-	// Per Linux docs, block device backing uses the device's native block
-	// size and avoids the "BEWARE" about file-backed modification conflicts.
+	// Clear first, then set to the image file path.
 	_ = os.WriteFile(gadgetFilePath, []byte(""), 0o666)
-	if err := os.WriteFile(gadgetFilePath, []byte(c.loopDev), 0o666); err != nil {
+	if err := os.WriteFile(gadgetFilePath, []byte(c.imagePath), 0o666); err != nil {
 		return fmt.Errorf("write gadget file: %w", err)
 	}
 
@@ -57,7 +54,7 @@ func (c *Controller) presentImage() error {
 	}
 
 	c.presented = true
-	log.Infof("firmware: presented %s (loop %s) via USB gadget", c.imagePath, c.loopDev)
+	log.Infof("firmware: presented %s via USB gadget", c.imagePath)
 	return nil
 }
 
