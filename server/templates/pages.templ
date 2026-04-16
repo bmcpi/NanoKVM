@@ -363,16 +363,40 @@ templ DashboardPage() {
 						<div class="info-value" id="info-board">—</div>
 					</div>
 					<div class="info-item">
-						<div class="info-label">Board Serial</div>
+						<div class="info-label">Vendor</div>
+						<div class="info-value" id="info-vendor">—</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">CPU / SoC</div>
+						<div class="info-value" id="info-cpu">—</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">Serial</div>
 						<div class="info-value" id="info-board-serial">—</div>
 					</div>
 					<div class="info-item">
-						<div class="info-label">Board MAC</div>
+						<div class="info-label">Revision</div>
+						<div class="info-value" id="info-board-rev">—</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">MAC</div>
 						<div class="info-value" id="info-board-mac">—</div>
 					</div>
 					<div class="info-item">
-						<div class="info-label">Boot Target</div>
+						<div class="info-label">Device Tree</div>
+						<div class="info-value" id="info-fdtfile">—</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">U-Boot</div>
+						<div class="info-value" id="info-uboot-ver">—</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">Boot Targets</div>
 						<div class="info-value" id="info-boot-target">—</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">Boot Methods</div>
+						<div class="info-value" id="info-bootmeths">—</div>
 					</div>
 					<div class="info-item" id="fw-download-item" style="display:none">
 						<div class="info-label">Firmware Image</div>
@@ -617,8 +641,14 @@ templ DashboardPage() {
 					if (r.ok) {
 						const inv = await r.json();
 						document.getElementById('info-board').textContent = inv.board_name || '—';
+						document.getElementById('info-vendor').textContent = inv.vendor || '—';
+						document.getElementById('info-cpu').textContent = (inv.cpu || '—') + (inv.soc ? ' / ' + inv.soc : '');
 						document.getElementById('info-board-serial').textContent = inv['serial#'] || '—';
+						document.getElementById('info-board-rev').textContent = inv.board_revision || '—';
 						document.getElementById('info-board-mac').textContent = inv.ethaddr || '—';
+						document.getElementById('info-fdtfile').textContent = inv.fdtfile || '—';
+						document.getElementById('info-uboot-ver').textContent = inv.ver || '—';
+						document.getElementById('info-bootmeths').textContent = inv.bootmeths || '—';
 					}
 				} catch(e) {}
 

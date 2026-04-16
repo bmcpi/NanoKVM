@@ -255,30 +255,49 @@ func TestSetBootTargets(t *testing.T) {
 func TestGetInventory(t *testing.T) {
 	env := &Env{
 		Vars: map[string]string{
-			VarBoardName:     "rpi5",
-			VarSerial:        "ABC123",
-			VarEthAddr:       "dc:a6:32:00:11:22",
-			"bootcmd":        "run distro_bootcmd",
+			"board_name":     "rpi",
+			"board_revision": "0xE04171",
+			"serial#":        "06c539f8c815f14f",
+			"ethaddr":        "88:a2:9e:87:77:6b",
+			"usbethaddr":     "88:a2:9e:87:77:6b",
+			"fdtfile":        "broadcom/bcm2712-d-rpi-5-b.dtb",
+			"arch":           "arm",
+			"cpu":            "armv8",
+			"soc":            "bcm283x",
+			"vendor":         "raspberrypi",
+			"ver":            "U-Boot 2026.04-dirty (Apr 15 2026 - 11:19:05 +0000)",
+			"boot_targets":   "usb0 mmc nvme",
+			"bootmeths":      "extlinux efi script pxe efi_mgr",
+			"board":          "rpi",
+			"board_rev":      "0x17",
+			"bootcmd":        "bootflow scan -lb",
 			"some_other_var": "irrelevant",
 		},
 		Size: DefaultEnvSize,
 	}
 
 	inv := env.GetInventory()
-	if len(inv) != 3 {
-		t.Fatalf("expected 3 inventory items, got %d: %v", len(inv), inv)
+	// inventoryKeys has 15 entries; env has 15 of them plus 2 non-inventory vars
+	if len(inv) != 15 {
+		t.Fatalf("expected 15 inventory items, got %d: %v", len(inv), inv)
 	}
-	if inv[VarBoardName] != "rpi5" {
-		t.Errorf("board_name: got %q", inv[VarBoardName])
+	if inv["board_name"] != "rpi" {
+		t.Errorf("board_name: got %q", inv["board_name"])
 	}
-	if inv[VarSerial] != "ABC123" {
-		t.Errorf("serial#: got %q", inv[VarSerial])
+	if inv["serial#"] != "06c539f8c815f14f" {
+		t.Errorf("serial#: got %q", inv["serial#"])
 	}
-	if inv[VarEthAddr] != "dc:a6:32:00:11:22" {
-		t.Errorf("ethaddr: got %q", inv[VarEthAddr])
+	if inv["vendor"] != "raspberrypi" {
+		t.Errorf("vendor: got %q", inv["vendor"])
 	}
-	if _, ok := inv["bootcmd"]; ok {
-		t.Error("bootcmd should not be in inventory")
+	if inv["ver"] == "" {
+		t.Error("ver should be in inventory")
+	}
+	if inv["cpu"] != "armv8" {
+		t.Errorf("cpu: got %q", inv["cpu"])
+	}
+	if _, ok := inv["some_other_var"]; ok {
+		t.Error("some_other_var should not be in inventory")
 	}
 }
 

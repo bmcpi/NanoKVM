@@ -151,8 +151,16 @@ func buildSystemResource() gin.H {
 			systemInfo["SerialNumber"] = v
 		}
 		if v, ok := inv["ethaddr"]; ok {
-			// Nest under EthernetInterfaces or just expose at top level.
 			systemInfo["MACAddress"] = v
+		}
+		if v, ok := inv["vendor"]; ok {
+			systemInfo["Manufacturer"] = v
+		}
+		if v, ok := inv["cpu"]; ok {
+			systemInfo["ProcessorSummary"] = gin.H{"Model": v}
+		}
+		if v, ok := inv["ver"]; ok {
+			systemInfo["FirmwareVersion"] = v
 		}
 	}
 

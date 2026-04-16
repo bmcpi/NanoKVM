@@ -18,23 +18,43 @@ const crcSize = 4
 
 // Well-known U-Boot env variable names.
 const (
+	VarArch          = "arch"
+	VarBaudRate      = "baudrate"
+	VarBoard         = "board"
+	VarBoardName     = "board_name"
+	VarBoardRev      = "board_rev"
+	VarBoardRevision = "board_revision"
 	VarBootTargets   = "boot_targets"
 	VarBootCmd       = "bootcmd"
 	VarBootDelay     = "bootdelay"
-	VarBoardName     = "board_name"
-	VarBoardRevision = "board_revision"
-	VarSerial        = "serial#"
+	VarBootMeths     = "bootmeths"
+	VarCPU           = "cpu"
 	VarEthAddr       = "ethaddr"
+	VarUSBEthAddr    = "usbethaddr"
 	VarFDTFile       = "fdtfile"
+	VarSerial        = "serial#"
+	VarSOC           = "soc"
+	VarVendor        = "vendor"
+	VarVer           = "ver"
 )
 
 // inventoryKeys are env vars extracted by GetInventory.
 var inventoryKeys = []string{
+	VarArch,
+	VarBoard,
 	VarBoardName,
+	VarBoardRev,
 	VarBoardRevision,
-	VarSerial,
+	VarBootTargets,
+	VarBootMeths,
+	VarCPU,
 	VarEthAddr,
+	VarUSBEthAddr,
 	VarFDTFile,
+	VarSerial,
+	VarSOC,
+	VarVendor,
+	VarVer,
 }
 
 // Env represents a parsed U-Boot environment.
