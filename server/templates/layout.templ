@@ -60,6 +60,17 @@ templ layout(title string) {
 				.caret { display: inline-block; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 4px solid currentColor; transition: transform 0.15s; }
 				.dropdown-toggle.active .caret { transform: rotate(180deg); }
 			</style>
+			<script>
+				// Auth helpers — defined early so page scripts can use them.
+				function getCookie(name) {
+					const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+					return match ? decodeURIComponent(match[2]) : null;
+				}
+				function getAuthHeaders() {
+					const token = getCookie('nano-kvm-token') || '';
+					return { 'Content-Type': 'application/json', 'token': token };
+				}
+			</script>
 		</head>
 		<body>
 			<div class="flex h-screen flex-col">
@@ -180,16 +191,6 @@ templ layout(title string) {
 				document.addEventListener('click', (e) => {
 					if (!e.target.closest('.dropdown')) closeDropdowns();
 				});
-
-				// --- Auth helpers ---
-				function getCookie(name) {
-					const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-					return match ? decodeURIComponent(match[2]) : null;
-				}
-				function getAuthHeaders() {
-					const token = getCookie('nano-kvm-token') || '';
-					return { 'Content-Type': 'application/json', 'token': token };
-				}
 
 				// --- Power ---
 				async function pollPower() {

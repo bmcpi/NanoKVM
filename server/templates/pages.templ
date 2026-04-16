@@ -619,12 +619,6 @@ templ DashboardPage() {
 					if (!st.downloaded) {
 						statusText = 'Not downloaded';
 						document.getElementById('fw-download-item').style.display = '';
-					} else if (!st.mounted) {
-						statusText = 'Downloaded (not mounted)';
-						document.getElementById('fw-download-item').style.display = 'none';
-					} else if (!st.envReady) {
-						statusText = 'Mounted (no env)';
-						document.getElementById('fw-download-item').style.display = 'none';
 					} else {
 						statusText = 'Ready';
 						document.getElementById('fw-download-item').style.display = 'none';
