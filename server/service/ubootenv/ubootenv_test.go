@@ -370,6 +370,76 @@ func TestLoadFileAndSaveFile(t *testing.T) {
 	}
 }
 
+func TestParseRealEnvFile(t *testing.T) {
+	const envFile = "../../../data/uboot.env"
+	if _, err := os.Stat(envFile); err != nil {
+		t.Skipf("real env file not available: %v", err)
+	}
+
+	env, err := LoadFile(envFile)
+	if err != nil {
+		t.Fatalf("LoadFile(%s) error: %v", envFile, err)
+	}
+
+	if env.Size != DefaultEnvSize {
+		t.Errorf("unexpected size: got %d, want %d", env.Size, DefaultEnvSize)
+	}
+
+	// Verify expected keys from a real RPi 5 U-Boot environment.
+	expectedKeys := map[string]string{
+		"arch":           "arm",
+		"board":          "rpi",
+		"board_name":     "rpi",
+		"board_revision": "0xE04171",
+		"boot_targets":   "usb0 mmc nvme",
+		"cpu":            "armv8",
+		"soc":            "bcm283x",
+		"vendor":         "raspberrypi",
+	}
+	for key, want := range expectedKeys {
+		got, ok := env.Get(key)
+		if !ok {
+			t.Errorf("missing key %q in real env", key)
+			continue
+		}
+		if got != want {
+			t.Errorf("key %q: got %q, want %q", key, got, want)
+		}
+	}
+
+	// serial# and ethaddr should be present (values are device-specific).
+	for _, key := range []string{"serial#", "ethaddr", "ver", "fdtfile"} {
+		if _, ok := env.Get(key); !ok {
+			t.Errorf("expected key %q in real env", key)
+		}
+	}
+
+	// Round-trip: marshal and re-parse should produce identical vars.
+	data, err := env.Marshal()
+	if err != nil {
+		t.Fatalf("Marshal() error: %v", err)
+	}
+	env2, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse(round-trip) error: %v", err)
+	}
+	if len(env2.Vars) != len(env.Vars) {
+		t.Fatalf("round-trip var count: got %d, want %d", len(env2.Vars), len(env.Vars))
+	}
+	for k, v := range env.Vars {
+		if env2.Vars[k] != v {
+			t.Errorf("round-trip key %q: got %q, want %q", k, env2.Vars[k], v)
+		}
+	}
+
+	// Inventory should return the expected subset.
+	inv := env.GetInventory()
+	if len(inv) == 0 {
+		t.Fatal("GetInventory() returned empty map for real env")
+	}
+	t.Logf("parsed %d vars, inventory %d items from real env", len(env.Vars), len(inv))
+}
+
 func TestLoadFileNotFound(t *testing.T) {
 	_, err := LoadFile("/nonexistent/path/uboot.env")
 	if err == nil {

@@ -43,6 +43,12 @@ dist/kvm_system/kvm_system:
 	@go mod tidy
 	@CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o ./dist/kvm_system/kvm_system ./cmd/system
 
+dist/fw_env/fw_env:
+	@echo "Creating fw_env output directory..."
+	@mkdir -p dist/fw_env
+	@go mod tidy
+	@CGO_ENABLED=0 GOOS=linux GOARCH=riscv64 go build -o ./dist/fw_env/fw_env ./cmd/fw_env
+
 dist/kvm_system/kvm_stream:
 	@echo "Creating kvm_stream output directory..."
 	@mkdir -p dist/kvm_system
