@@ -584,6 +584,12 @@ templ DashboardPage() {
 			async function loadFirmwareInfo() {
 				try {
 					const r = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
+					if (!r.ok) {
+						document.getElementById('info-fw-status').textContent = 'Not available';
+						document.getElementById('fw-download-item').style.display = 'none';
+						console.warn('firmware status:', r.status, r.statusText);
+						return;
+					}
 					const st = await r.json();
 					let statusText = '';
 					if (!st.downloaded) {
@@ -591,8 +597,10 @@ templ DashboardPage() {
 						document.getElementById('fw-download-item').style.display = '';
 					} else if (!st.mounted) {
 						statusText = 'Downloaded (not mounted)';
+						document.getElementById('fw-download-item').style.display = 'none';
 					} else if (!st.envReady) {
 						statusText = 'Mounted (no env)';
+						document.getElementById('fw-download-item').style.display = 'none';
 					} else {
 						statusText = 'Ready';
 						document.getElementById('fw-download-item').style.display = 'none';
@@ -600,7 +608,8 @@ templ DashboardPage() {
 					if (st.presented) statusText += ' · USB Active';
 					document.getElementById('info-fw-status').textContent = statusText;
 				} catch(e) {
-					document.getElementById('info-fw-status').textContent = 'Unavailable';
+					console.error('firmware status error:', e);
+					document.getElementById('info-fw-status').textContent = 'Error';
 				}
 
 				try {

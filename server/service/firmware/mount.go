@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -23,24 +24,63 @@ func (c *Controller) mountImage() error {
 	// Check if already mounted (e.g. from a previous run).
 	if isMounted(c.mountPoint) {
 		c.mounted = true
+		c.loopDev = c.findLoopDevForImage()
 		log.Info("firmware: already mounted at ", c.mountPoint)
 		return nil
 	}
 
-	// Mount the image. The image contains a single FAT partition starting at an offset.
-	// Use losetup to find the partition offset, or mount with -o loop and let the kernel handle it.
-	// For a single-partition image, we can try direct loop mount first.
-	cmd := exec.Command("mount", "-o", "loop,rw", c.imagePath, c.mountPoint)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("mount: %s: %w", strings.TrimSpace(string(output)), err)
+	// The image contains a partition table with a FAT partition.
+	// Use losetup with --partscan to expose partition devices, then mount
+	// the first partition.
+	loopDev, err := c.setupLoop()
+	if err != nil {
+		return err
 	}
 
+	// The first partition is exposed as <loop>p1.
+	partDev := loopDev + "p1"
+	if _, err := os.Stat(partDev); err != nil {
+		// No partition device — image may be a raw filesystem. Try the
+		// loop device itself as a fallback.
+		log.Warnf("firmware: %s not found, trying raw loop mount", partDev)
+		partDev = loopDev
+	}
+
+	cmd := exec.Command("mount", "-t", "vfat", "-o", "rw", partDev, c.mountPoint)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		// Clean up the loop device on failure.
+		_ = exec.Command("losetup", "-d", loopDev).Run()
+		return fmt.Errorf("mount %s: %s: %w", partDev, strings.TrimSpace(string(output)), err)
+	}
+
+	c.loopDev = loopDev
 	c.mounted = true
-	log.Infof("firmware: mounted %s at %s", c.imagePath, c.mountPoint)
+	log.Infof("firmware: mounted %s (%s) at %s", partDev, c.imagePath, c.mountPoint)
 	return nil
 }
 
-// unmountImage unmounts the firmware partition. Must be called with c.mu held.
+// setupLoop attaches the image to a free loop device with partition scanning.
+// Returns the loop device path (e.g. "/dev/loop0").
+func (c *Controller) setupLoop() (string, error) {
+	// losetup -f --show -P <image>
+	//   -f        find a free loop device
+	//   --show    print the device path
+	//   -P        force partition scanning
+	cmd := exec.Command("losetup", "-f", "--show", "-P", c.imagePath)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("losetup: %s: %w", strings.TrimSpace(string(out)), err)
+	}
+	dev := strings.TrimSpace(string(out))
+	if dev == "" {
+		return "", fmt.Errorf("losetup returned empty device path")
+	}
+	log.Infof("firmware: loop device %s for %s", dev, c.imagePath)
+	return dev, nil
+}
+
+// unmountImage unmounts the firmware partition and detaches the loop device.
+// Must be called with c.mu held.
 func (c *Controller) unmountImage() error {
 	if !c.mounted {
 		return nil
@@ -49,6 +89,14 @@ func (c *Controller) unmountImage() error {
 	cmd := exec.Command("umount", c.mountPoint)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("umount: %s: %w", strings.TrimSpace(string(output)), err)
+	}
+
+	// Detach the loop device to free it.
+	if c.loopDev != "" {
+		if err := exec.Command("losetup", "-d", c.loopDev).Run(); err != nil {
+			log.Warnf("firmware: losetup -d %s: %v", c.loopDev, err)
+		}
+		c.loopDev = ""
 	}
 
 	c.mounted = false
@@ -83,4 +131,27 @@ func isMounted(path string) bool {
 		}
 	}
 	return false
+}
+
+// findLoopDevForImage scans /sys/block to find an existing loop device
+// backing c.imagePath. Returns "" if none found.
+func (c *Controller) findLoopDevForImage() string {
+	entries, err := os.ReadDir("/sys/block")
+	if err != nil {
+		return ""
+	}
+	for _, e := range entries {
+		if !strings.HasPrefix(e.Name(), "loop") {
+			continue
+		}
+		backingFile := filepath.Join("/sys/block", e.Name(), "loop", "backing_file")
+		data, err := os.ReadFile(backingFile)
+		if err != nil {
+			continue
+		}
+		if strings.TrimSpace(string(data)) == c.imagePath {
+			return "/dev/" + e.Name()
+		}
+	}
+	return ""
 }

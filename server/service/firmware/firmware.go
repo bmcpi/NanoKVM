@@ -32,6 +32,7 @@ type Controller struct {
 
 	mounted   bool
 	presented bool
+	loopDev   string // loop device path (e.g. /dev/loop0)
 }
 
 var (
