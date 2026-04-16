@@ -1,8 +1,9 @@
 package application
 
 const (
-	StableURL  = "https://cdn.sipeed.com/nanokvm"
-	PreviewURL = "https://cdn.sipeed.com/nanokvm/preview"
+	// GitHub repository for release downloads.
+	GitHubOwner = "tinkerbell-community"
+	GitHubRepo  = "NanoKVM"
 
 	AppDir    = "/kvmapp"
 	BackupDir = "/root/old"

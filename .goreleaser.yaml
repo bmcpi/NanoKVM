@@ -4,6 +4,11 @@ env:
   - REGISTRY={{ envOrDefault "REGISTRY" "ghcr.io" }}
   - IS_RELEASE={{ envOrDefault "IS_RELEASE" "false" }}
 
+before:
+  hooks:
+    - go mod tidy
+    - cd server && templ generate
+
 builds:
   - id: server
     env: ["CGO_ENABLED=0"]
@@ -13,38 +18,55 @@ builds:
       - linux
     goarch:
       - riscv64
-    no_unique_dist_dir: false
     ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
-    skip: false
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
 
-  - id: system
+  - id: fw_env
     env: ["CGO_ENABLED=0"]
-    main: ./cmd/system
-    binary: kvm_system
+    main: ./cmd/fw_env
+    binary: fw_env
     goos:
       - linux
     goarch:
       - riscv64
-    no_unique_dist_dir: false
     ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser
-    skip: false
+      - -s -w
 
 upx:
   - enabled: true
     ids:
       - server
-      - system
+      - fw_env
     compress: best
     lzma: true
 
+archives:
+  - id: nanokvm
+    ids:
+      - server
+      - fw_env
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - src: packaging/etc/init.d/*
+        dst: etc/init.d
+        info:
+          mode: 0755
+      - LICENSE
+      - README.md
+
 checksum:
-  name_template: "{{ .ArtifactName }}-checksums.txt"
-  split: true
+  name_template: "checksums.txt"
 
 release:
-  disable: true
+  github:
+    owner: tinkerbell-community
+    name: NanoKVM
+  draft: false
+  prerelease: auto
+  name_template: "{{ .Tag }}"
+  make_latest: true
 
 snapshot:
   version_template: "{{ .Version }}-next"

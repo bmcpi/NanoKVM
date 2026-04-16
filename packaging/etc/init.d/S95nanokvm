@@ -1,0 +1,43 @@
+#!/bin/sh
+# NanoKVM BMC Service
+
+BINARY="/kvmapp/NanoKVM-Server"
+PID_FILE="/var/run/nanokvm.pid"
+
+start() {
+    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        echo "NanoKVM already running (PID $(cat "$PID_FILE"))"
+        return 0
+    fi
+
+    echo -n "Starting NanoKVM BMC: "
+    start-stop-daemon -S -b -m -p "$PID_FILE" -x "$BINARY" && echo "OK" || echo "FAIL"
+}
+
+stop() {
+    echo -n "Stopping NanoKVM BMC: "
+    if [ -f "$PID_FILE" ]; then
+        start-stop-daemon -K -p "$PID_FILE" -x "$BINARY" && echo "OK" || echo "FAIL"
+        rm -f "$PID_FILE"
+    else
+        echo "not running"
+    fi
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        stop
+        sleep 1
+        start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac

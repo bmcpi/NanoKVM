@@ -6,8 +6,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
-	"time"
 
 	"github.com/tinkerbell-community/NanoKVM/server/proto"
 
@@ -15,28 +15,33 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// githubRelease is the subset of GitHub's release API response we need.
+type githubRelease struct {
+	TagName string        `json:"tag_name"`
+	Assets  []githubAsset `json:"assets"`
+}
+
+type githubAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+	Size               int64  `json:"size"`
+}
+
+// Latest holds the resolved release metadata for an update.
 type Latest struct {
-	Version string `json:"version"`
-	Name    string `json:"name"`
-	Sha512  string `json:"sha512"`
-	Size    uint   `json:"size"`
-	Url     string `json:"url"`
+	Version string
+	Name    string
+	Url     string
+	Size    int64
 }
 
 func (s *Service) GetVersion(c *gin.Context) {
 	var rsp proto.Response
 
-	// current version
-	currentVersion := "1.0.0"
-
-	versionFile := fmt.Sprintf("%s/version", AppDir)
-	if version, err := os.ReadFile(versionFile); err == nil {
-		currentVersion = strings.ReplaceAll(string(version), "\n", "")
-	}
+	currentVersion := currentAppVersion()
 
 	log.Debugf("current version: %s", currentVersion)
 
-	// latest version
 	latestVersion := ""
 	latest, err := getLatest()
 	if err == nil && latest != nil {
@@ -49,42 +54,81 @@ func (s *Service) GetVersion(c *gin.Context) {
 	})
 }
 
-func getLatest() (*Latest, error) {
-	baseURL := StableURL
-	if isPreviewEnabled() {
-		baseURL = PreviewURL
+// currentAppVersion returns the running application version.
+// It first checks for a build-time version variable, then falls back to a
+// version file on disk.
+var Version = "dev"
+
+func currentAppVersion() string {
+	if Version != "dev" && Version != "" {
+		return Version
 	}
 
-	url := fmt.Sprintf("%s/latest.json?now=%d", baseURL, time.Now().Unix())
+	versionFile := fmt.Sprintf("%s/version", AppDir)
+	if data, err := os.ReadFile(versionFile); err == nil {
+		v := strings.TrimSpace(string(data))
+		if v != "" {
+			return v
+		}
+	}
 
-	resp, err := http.Get(url)
+	return Version
+}
+
+func getLatest() (*Latest, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", GitHubOwner, GitHubRepo)
+
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Debugf("failed to request version: %v", err)
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Debugf("failed to request latest release: %v", err)
 		return nil, err
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Errorf("failed to read response: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("read response: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Errorf("server responded with status code: %d", resp.StatusCode)
+		log.Debugf("github responded with status code: %d", resp.StatusCode)
 		return nil, fmt.Errorf("status code %d", resp.StatusCode)
 	}
 
-	var latest Latest
-	if err := json.Unmarshal(body, &latest); err != nil {
-		log.Errorf("failed to unmarshal response: %s", err)
-		return nil, err
+	var release githubRelease
+	if err := json.Unmarshal(body, &release); err != nil {
+		return nil, fmt.Errorf("unmarshal release: %w", err)
 	}
 
-	latest.Url = fmt.Sprintf("%s/%s", baseURL, latest.Name)
+	asset := findPlatformAsset(release.Assets)
+	if asset == nil {
+		return nil, fmt.Errorf("no matching asset for %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
 
-	log.Debugf("get application latest version: %s", latest.Version)
-	return &latest, nil
+	version := strings.TrimPrefix(release.TagName, "v")
+
+	log.Debugf("latest release: %s (%s)", version, asset.Name)
+	return &Latest{
+		Version: version,
+		Name:    asset.Name,
+		Url:     asset.BrowserDownloadURL,
+		Size:    asset.Size,
+	}, nil
+}
+
+// findPlatformAsset returns the archive asset matching the current OS/arch.
+func findPlatformAsset(assets []githubAsset) *githubAsset {
+	suffix := fmt.Sprintf("_%s_%s.tar.gz", runtime.GOOS, runtime.GOARCH)
+	for i := range assets {
+		if strings.HasSuffix(assets[i].Name, suffix) {
+			return &assets[i]
+		}
+	}
+	return nil
 }

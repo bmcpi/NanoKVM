@@ -1,0 +1,24 @@
+#!/bin/sh
+# Filesystem initialization for NanoKVM BMC
+
+case "$1" in
+    start)
+        printf "Mounting filesystems: "
+        mkdir -p /boot
+        mount -t vfat /dev/mmcblk0p1 /boot 2>/dev/null
+        mount -t configfs configfs /sys/kernel/config 2>/dev/null
+        mount -t debugfs debugfs /sys/kernel/debug 2>/dev/null
+
+        # Create data directory for firmware images and config
+        mkdir -p /data/firmware
+        mkdir -p /mnt/firmware
+
+        echo "OK"
+        ;;
+    stop)
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}"
+        exit 1
+        ;;
+esac

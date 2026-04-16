@@ -1,0 +1,20 @@
+#!/bin/sh
+# Avahi mDNS daemon for NanoKVM BMC network discovery
+
+DAEMON=/usr/sbin/avahi-daemon
+
+case "$1" in
+    start)
+        $DAEMON -c || $DAEMON -D
+        ;;
+    stop)
+        $DAEMON -c && $DAEMON -k
+        ;;
+    reload)
+        $DAEMON -c && $DAEMON -r
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|reload}"
+        exit 1
+        ;;
+esac

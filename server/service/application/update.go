@@ -1,10 +1,7 @@
 package application
 
 import (
-	"crypto/sha512"
-	"encoding/base64"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -38,9 +35,7 @@ func (s *Service) Update(c *gin.Context) {
 	rsp.OkRsp(c)
 	log.Debugf("update application success")
 
-	// Sleep for a second before restarting the device
 	time.Sleep(1 * time.Second)
-
 	_ = exec.Command("sh", "-c", "/etc/init.d/S95nanokvm restart").Run()
 }
 
@@ -51,26 +46,17 @@ func update() error {
 		_ = os.RemoveAll(CacheDir)
 	}()
 
-	// get latest information
 	latest, err := getLatest()
 	if err != nil {
 		return err
 	}
 
-	// download
 	target := fmt.Sprintf("%s/%s", CacheDir, latest.Name)
 	if err := download(latest.Url, target); err != nil {
 		log.Errorf("download app failed: %s", err)
 		return err
 	}
 
-	// check sha512
-	if err := checksum(target, latest.Sha512); err != nil {
-		log.Errorf("check sha512 failed: %s", err)
-		return err
-	}
-
-	// install
 	if err := installPackage(target); err != nil {
 		log.Errorf("failed to install package: %v", err)
 		return err
@@ -102,32 +88,4 @@ func download(url string, target string) (err error) {
 		return nil
 	}
 	return err
-}
-
-func checksum(filePath string, expectedHash string) error {
-	file, err := os.Open(filePath)
-	if err != nil {
-		log.Errorf("failed to open file %s: %v", filePath, err)
-		return err
-	}
-	defer func() {
-		_ = file.Close()
-	}()
-
-	hasher := sha512.New()
-
-	_, err = io.Copy(hasher, file)
-	if err != nil {
-		log.Errorf("failed to copy file contents to hasher: %v", err)
-		return err
-	}
-
-	hash := base64.StdEncoding.EncodeToString(hasher.Sum(nil))
-
-	if hash != expectedHash {
-		log.Errorf("invalid sha512 %s", hash)
-		return fmt.Errorf("invalid sha512 %s", hash)
-	}
-
-	return nil
 }

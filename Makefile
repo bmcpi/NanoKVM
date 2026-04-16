@@ -6,7 +6,7 @@ UID := $(shell id -u)
 GID := $(shell id -g)
 PWD := $(shell pwd)
 
-.PHONY: help templ app all clean
+.PHONY: help templ app all clean snapshot
 
 # Default target
 all: app
@@ -22,6 +22,7 @@ help:
 	@echo "  fw_env        - Build fw_env CLI tool"
 	@echo "  all           - Build app (default)"
 	@echo "  clean         - Clean build artifacts"
+	@echo "  snapshot      - Build snapshot release with goreleaser (no publish)"
 	@echo ""
 	@echo "Prerequisites:"
 	@echo "  - Docker must be installed and running"
@@ -60,3 +61,7 @@ clean:
 		echo "Removed NanoKVM-Server"; \
 	fi
 	@echo "Clean completed."
+
+# Build snapshot release using goreleaser (no publish)
+snapshot:
+	@goreleaser release --snapshot --clean --skip=publish

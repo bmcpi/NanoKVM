@@ -70,15 +70,9 @@ We offer several NanoKVM versions to suit your needs:
 ## 📂 Project Structure
 
 ``` shell
-├── kvmapp          # APP update package
-│   ├── jpg_stream  # Legacy support for direct updates from older versions
-│   ├── kvm_new_app # Triggers components for kvm_system updates
-│   ├── kvm_system  # Core KVM application
-│   ├── server      # Front-end and back-end integration
-│   └── system      # Essential system components
-├── web             # NanoKVM Front-end (UI)
-├── server          # NanoKVM Back-end (Service)
-├── support         # Auxiliary modules (Image subsystem, status, updates, OLED, HID, etc.)
+├── cmd/            # CLI entry points (server, fw_env)
+├── server/         # NanoKVM Back-end (Go + Gin)
+├── packaging/      # Release packaging (init scripts, service files)
 ├── ...
 ```
 

@@ -12,11 +12,19 @@ import (
 	"github.com/tinkerbell-community/NanoKVM/server/logger"
 	"github.com/tinkerbell-community/NanoKVM/server/middleware"
 	"github.com/tinkerbell-community/NanoKVM/server/router"
+	"github.com/tinkerbell-community/NanoKVM/server/service/application"
 	"github.com/tinkerbell-community/NanoKVM/server/service/firmware"
 	"github.com/tinkerbell-community/NanoKVM/server/service/ipmi"
 
 	"github.com/gin-gonic/gin"
 	cors "github.com/rs/cors/wrapper/gin"
+)
+
+// Set by goreleaser ldflags.
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
 )
 
 var ipmiServer *ipmi.Server
@@ -29,6 +37,11 @@ func main() {
 }
 
 func initialize() {
+	log.Printf("NanoKVM BMC %s (commit=%s, built=%s)", version, commit, date)
+
+	// Propagate build-time version to the application service.
+	application.Version = version
+
 	logger.Init()
 
 	// Start IPMI server on standard port 623
