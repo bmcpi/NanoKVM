@@ -61,20 +61,26 @@ func (c *Controller) mountImage() error {
 
 // setupLoop attaches the image to a free loop device with partition scanning.
 // Returns the loop device path (e.g. "/dev/loop0").
+// Compatible with BusyBox losetup which lacks --show.
 func (c *Controller) setupLoop() (string, error) {
-	// losetup -f --show -P <image>
-	//   -f        find a free loop device
-	//   --show    print the device path
-	//   -P        force partition scanning
-	cmd := exec.Command("losetup", "-f", "--show", "-P", c.imagePath)
-	out, err := cmd.CombinedOutput()
+	// Step 1: Find a free loop device.
+	// BusyBox: losetup -f  (prints next free device to stdout)
+	out, err := exec.Command("losetup", "-f").CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("losetup: %s: %w", strings.TrimSpace(string(out)), err)
+		return "", fmt.Errorf("losetup -f: %s: %w", strings.TrimSpace(string(out)), err)
 	}
 	dev := strings.TrimSpace(string(out))
 	if dev == "" {
-		return "", fmt.Errorf("losetup returned empty device path")
+		return "", fmt.Errorf("losetup -f returned empty device path")
 	}
+
+	// Step 2: Attach the image to that device with partition scanning.
+	// BusyBox supports: losetup [-rP] [-o OFS] {-f|LOOPDEV} FILE
+	out, err = exec.Command("losetup", "-P", dev, c.imagePath).CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("losetup -P %s %s: %s: %w", dev, c.imagePath, strings.TrimSpace(string(out)), err)
+	}
+
 	log.Infof("firmware: loop device %s for %s", dev, c.imagePath)
 	return dev, nil
 }
