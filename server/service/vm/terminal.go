@@ -20,7 +20,7 @@ const (
 )
 
 // WinSize is sent by the xterm.js client on resize. Logged but not acted
-// upon because picocom does not support PTY resize.
+// upon because the serial port has no concept of terminal dimensions.
 type WinSize struct {
 	Rows uint16 `json:"rows"`
 	Cols uint16 `json:"cols"`

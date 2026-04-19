@@ -1,15 +1,14 @@
 package serial
 
 import (
+	"bytes"
 	"fmt"
 	"io"
-	"os"
-	"os/exec"
 	"sync"
 	"sync/atomic"
 
-	"github.com/creack/pty"
 	log "github.com/sirupsen/logrus"
+	goserial "go.bug.st/serial"
 
 	"github.com/tinkerbell-community/NanoKVM/server/config"
 )
@@ -28,7 +27,7 @@ type Session struct {
 //
 //	                ┌─── WebSocket session ──► ws.WriteMessage
 //	serial port ──► │─── IPMI SOL session  ──► UDP sendData
-//	  (picocom)     └─── future session    ──► ...
+//	  (go serial)   └─── future session    ──► ...
 //	      ▲
 //	      │  writes (any session)
 //	      └── Write()
@@ -41,12 +40,11 @@ type Broker struct {
 	// multiwriter fans out serial reads to all sessions.
 	mw *MultiWriter
 
-	// stdin writes to the serial port process.
+	// stdin writes to the serial port (may be the port itself or a wrapper).
 	stdin io.Writer
 
-	// process management
-	cmd    *exec.Cmd
-	ptmx   *os.File
+	// serial port handle (native Go, no picocom)
+	port   goserial.Port
 	active bool
 	stopCh chan struct{}
 
@@ -158,72 +156,62 @@ func (b *Broker) Close() {
 	b.stopLocked()
 }
 
-// picocomFlowFlag maps config flow-control names to picocom's short form.
-func picocomFlowFlag(flow string) string {
-	switch flow {
-	case "hard", "h":
-		return "h"
-	case "soft", "xon/xoff", "x":
-		return "x"
-	default:
-		return "n"
-	}
-}
-
-// picocomParityFlag maps config parity names to picocom's short form.
-func picocomParityFlag(parity string) string {
+// mapParity converts config parity string to go.bug.st/serial parity mode.
+func mapParity(parity string) goserial.Parity {
 	switch parity {
 	case "even", "e":
-		return "e"
+		return goserial.EvenParity
 	case "odd", "o":
-		return "o"
+		return goserial.OddParity
+	case "mark", "m":
+		return goserial.MarkParity
+	case "space", "s":
+		return goserial.SpaceParity
 	default:
-		return "n"
+		return goserial.NoParity
 	}
 }
 
-// startLocked starts picocom on the configured serial port.
+// mapStopBits converts config stop bits int to go.bug.st/serial stop bits.
+func mapStopBits(bits int) goserial.StopBits {
+	switch bits {
+	case 2:
+		return goserial.TwoStopBits
+	default:
+		return goserial.OneStopBit
+	}
+}
+
+// startLocked opens the serial port with the configured parameters.
 // Caller must hold b.mu.
 func (b *Broker) startLocked() error {
 	cfg := config.GetInstance()
 	device := cfg.Serial.Device
-	baudRate := fmt.Sprintf("%d", cfg.Serial.BaudRate)
 
-	args := []string{
-		"picocom",
-		"--quiet",   // suppress startup banner
-		"--noreset", // don't reset port on exit
-		"--noinit",  // don't reinitialize port settings
-		"--nolock",  // allow shared access (broker manages concurrency)
-		"-b", baudRate,
-		"--flow", picocomFlowFlag(cfg.Serial.FlowControl),
-		"--databits", fmt.Sprintf("%d", cfg.Serial.DataBits),
-		"--stopbits", fmt.Sprintf("%d", cfg.Serial.StopBits),
-		"--parity", picocomParityFlag(cfg.Serial.Parity),
-		"--imap", "lfcrlf",
-		"--omap", "crlf",
-		device,
+	mode := &goserial.Mode{
+		BaudRate: cfg.Serial.BaudRate,
+		DataBits: cfg.Serial.DataBits,
+		Parity:   mapParity(cfg.Serial.Parity),
+		StopBits: mapStopBits(cfg.Serial.StopBits),
 	}
 
-	cmd := exec.Command(args[0], args[1:]...)
-	ptmx, err := pty.Start(cmd)
+	port, err := goserial.Open(device, mode)
 	if err != nil {
-		return fmt.Errorf("start picocom %s: %w", device, err)
+		return fmt.Errorf("open serial %s: %w", device, err)
 	}
 
-	b.cmd = cmd
-	b.ptmx = ptmx
-	b.stdin = ptmx
+	b.port = port
+	b.stdin = port
 	b.active = true
 	b.stopCh = make(chan struct{})
 
 	go b.readLoop()
 
-	log.Infof("serial: started picocom on %s @ %s baud", device, baudRate)
+	log.Infof("serial: opened %s @ %d baud (native)", device, cfg.Serial.BaudRate)
 	return nil
 }
 
-// stopLocked terminates the serial port process.
+// stopLocked closes the serial port.
 // Caller must hold b.mu.
 func (b *Broker) stopLocked() {
 	if !b.active {
@@ -233,22 +221,18 @@ func (b *Broker) stopLocked() {
 	b.active = false
 	close(b.stopCh)
 
-	if b.ptmx != nil {
-		_ = b.ptmx.Close()
+	if b.port != nil {
+		_ = b.port.Close()
 	}
-	if b.cmd != nil && b.cmd.Process != nil {
-		_ = b.cmd.Process.Kill()
-		_ = b.cmd.Wait()
-	}
-	b.ptmx = nil
-	b.cmd = nil
+	b.port = nil
 	b.stdin = nil
 
-	log.Info("serial: stopped")
+	log.Info("serial: closed")
 }
 
-// readLoop reads from the serial port PTY and fans out to all sessions
-// via the MultiWriter.
+// readLoop reads from the serial port and fans out to all sessions
+// via the MultiWriter. Performs LF→CRLF translation on input
+// (equivalent to picocom --imap lfcrlf).
 func (b *Broker) readLoop() {
 	buf := make([]byte, 4096)
 
@@ -259,7 +243,7 @@ func (b *Broker) readLoop() {
 		default:
 		}
 
-		n, err := b.ptmx.Read(buf)
+		n, err := b.port.Read(buf)
 		if err != nil {
 			select {
 			case <-b.stopCh:
@@ -270,8 +254,28 @@ func (b *Broker) readLoop() {
 		}
 
 		if n > 0 {
-			// Fan-out to all sessions. MultiWriter.Write is best-effort.
-			_, _ = b.mw.Write(buf[:n])
+			// Map LF → CRLF for terminal display (like picocom --imap lfcrlf).
+			mapped := mapLFtoCRLF(buf[:n])
+			_, _ = b.mw.Write(mapped)
 		}
 	}
+}
+
+// mapLFtoCRLF replaces bare LF (not preceded by CR) with CRLF.
+// This is equivalent to picocom's --imap lfcrlf.
+func mapLFtoCRLF(data []byte) []byte {
+	// Fast path: if no LF present, return as-is.
+	if !bytes.ContainsRune(data, '\n') {
+		return data
+	}
+
+	var out bytes.Buffer
+	out.Grow(len(data) + 16)
+	for i, b := range data {
+		if b == '\n' && (i == 0 || data[i-1] != '\r') {
+			out.WriteByte('\r')
+		}
+		out.WriteByte(b)
+	}
+	return out.Bytes()
 }

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+
+	goserial "go.bug.st/serial"
 )
 
 func TestGetBrokerNonNil(t *testing.T) {
@@ -72,7 +74,7 @@ func TestBrokerSessionCountDefault(t *testing.T) {
 	}
 }
 
-// fakePTY simulates a serial port PTY for broker tests that bypass picocom.
+// fakePTY simulates a serial port for broker tests that bypass real hardware.
 // NOT concurrency-safe; use syncWriter for concurrent tests.
 type fakePTY struct {
 	bytes.Buffer
@@ -91,7 +93,7 @@ func (sw *syncWriter) Write(p []byte) (int, error) {
 }
 
 // injectSession manually wires up a broker to appear active with a fake stdin.
-// This avoids calling startLocked() which requires picocom and a real serial device.
+// This avoids calling startLocked() which requires a real serial device.
 func injectSession(b *Broker, id string, output *bytes.Buffer) *Session {
 	sess := &Session{ID: id, output: output}
 	b.sessions.Store(id, sess)
@@ -372,5 +374,81 @@ func TestSessionFields(t *testing.T) {
 	}
 	if s.output == nil {
 		t.Fatal("Session.output is nil")
+	}
+}
+
+func TestMapLFtoCRLF(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"no LF", "hello world", "hello world"},
+		{"bare LF", "hello\nworld", "hello\r\nworld"},
+		{"already CRLF", "hello\r\nworld", "hello\r\nworld"},
+		{"multiple LF", "a\nb\nc", "a\r\nb\r\nc"},
+		{"LF at start", "\nhello", "\r\nhello"},
+		{"LF at end", "hello\n", "hello\r\n"},
+		{"empty", "", ""},
+		{"only LF", "\n", "\r\n"},
+		{"mixed", "a\r\nb\nc\r\n", "a\r\nb\r\nc\r\n"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := string(mapLFtoCRLF([]byte(tt.input)))
+			if got != tt.want {
+				t.Errorf("mapLFtoCRLF(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMapParity(t *testing.T) {
+	tests := []struct {
+		input string
+		want  goserial.Parity
+	}{
+		{"none", goserial.NoParity},
+		{"even", goserial.EvenParity},
+		{"e", goserial.EvenParity},
+		{"odd", goserial.OddParity},
+		{"o", goserial.OddParity},
+		{"mark", goserial.MarkParity},
+		{"m", goserial.MarkParity},
+		{"space", goserial.SpaceParity},
+		{"s", goserial.SpaceParity},
+		{"", goserial.NoParity},
+		{"bogus", goserial.NoParity},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := mapParity(tt.input)
+			if got != tt.want {
+				t.Errorf("mapParity(%q) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMapStopBits(t *testing.T) {
+	tests := []struct {
+		input int
+		want  goserial.StopBits
+	}{
+		{1, goserial.OneStopBit},
+		{2, goserial.TwoStopBits},
+		{0, goserial.OneStopBit},
+		{3, goserial.OneStopBit},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%d", tt.input), func(t *testing.T) {
+			got := mapStopBits(tt.input)
+			if got != tt.want {
+				t.Errorf("mapStopBits(%d) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
 	}
 }
