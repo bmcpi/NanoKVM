@@ -128,9 +128,11 @@ func handleSetSystemBootOptions(cmdData []byte) []byte {
 		}
 
 		valid := cmdData[1]&0x80 != 0
+		// Bit 6: 0 = apply to next boot only (once), 1 = apply to all future boots (persistent).
+		persistent := cmdData[1]&0x40 != 0
 		device := cmdData[2] & 0x3C // extract bits 5:2
 
-		log.Debugf("IPMI: set boot device=0x%02x valid=%v", device, valid)
+		log.Debugf("IPMI: set boot device=0x%02x valid=%v persistent=%v", device, valid, persistent)
 
 		// Persist to firmware env if available.
 		fwCtrl := firmware.GetController()
@@ -140,13 +142,22 @@ func handleSetSystemBootOptions(cmdData []byte) []byte {
 		}
 
 		if valid {
-			if err := fwCtrl.SetBootTarget(ubootTargets); err != nil {
+			var err error
+			if persistent {
+				err = fwCtrl.SetBootTarget(ubootTargets)
+			} else {
+				err = fwCtrl.SetBootTargetOnce(ubootTargets)
+			}
+			if err != nil {
 				log.Warnf("IPMI: firmware env write failed: %v", err)
 			}
 		} else {
-			// Clear boot override.
+			// Clear both override files.
 			if err := fwCtrl.SetBootTarget(""); err != nil {
-				log.Warnf("IPMI: firmware env clear failed: %v", err)
+				log.Warnf("IPMI: firmware env clear (persistent) failed: %v", err)
+			}
+			if err := fwCtrl.SetBootTargetOnce(""); err != nil {
+				log.Warnf("IPMI: firmware env clear (once) failed: %v", err)
 			}
 		}
 
@@ -167,15 +178,26 @@ func handleGetSystemBootOptions(cmdData []byte) []byte {
 
 	switch paramSelector {
 	case bootParamBootFlags:
-		// Read from firmware env.
+		// Read from firmware env — prefer persistent, fall back to once.
 		fwCtrl := firmware.GetController()
 		var dev byte
 		var valid bool
+		var persistent bool
 
 		if ubootTargets, err := fwCtrl.GetBootTarget(); err == nil && ubootTargets != "" {
 			if d, ok := firmware.UBootToIPMIDevice[ubootTargets]; ok {
 				dev = d
 				valid = true
+				persistent = true
+			}
+		}
+		if !valid {
+			if ubootTargets, err := fwCtrl.GetOnceBootTarget(); err == nil && ubootTargets != "" {
+				if d, ok := firmware.UBootToIPMIDevice[ubootTargets]; ok {
+					dev = d
+					valid = true
+					persistent = false
+				}
 			}
 		}
 
@@ -183,9 +205,14 @@ func handleGetSystemBootOptions(cmdData []byte) []byte {
 		resp[0] = ccOK
 		resp[1] = 0x01 // parameter revision
 		resp[2] = bootParamBootFlags
+		flags := byte(0)
 		if valid {
-			resp[3] = 0x80 // valid
+			flags |= 0x80 // validity bit
 		}
+		if persistent {
+			flags |= 0x40 // persistent bit
+		}
+		resp[3] = flags
 		resp[4] = dev
 		return resp
 

@@ -73,7 +73,8 @@ func (s *Service) ResetSystem(c *gin.Context) {
 func (s *Service) PatchSystem(c *gin.Context) {
 	var req struct {
 		Boot struct {
-			BootSourceOverrideTarget string `json:"BootSourceOverrideTarget"`
+			BootSourceOverrideTarget  string `json:"BootSourceOverrideTarget"`
+			BootSourceOverrideEnabled string `json:"BootSourceOverrideEnabled"` // "Once" | "Continuous" | "Disabled"
 		} `json:"Boot"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -82,23 +83,47 @@ func (s *Service) PatchSystem(c *gin.Context) {
 	}
 
 	target := req.Boot.BootSourceOverrideTarget
+	enabled := req.Boot.BootSourceOverrideEnabled
+	if enabled == "" {
+		enabled = "Once" // default to once per Redfish convention
+	}
+
+	// Disabled clears both override files regardless of target.
+	if enabled == "Disabled" || target == "None" {
+		fwCtrl := firmware.GetController()
+		if err := fwCtrl.SetBootTarget(""); err != nil {
+			log.Warnf("redfish: clear persistent boot failed: %v", err)
+		}
+		if err := fwCtrl.SetBootTargetOnce(""); err != nil {
+			log.Warnf("redfish: clear once boot failed: %v", err)
+		}
+		log.Debugf("redfish boot override cleared")
+		c.JSON(http.StatusOK, buildSystemResource())
+		return
+	}
+
 	if !validBootTargets[target] {
 		redfishErrorResponse(c, http.StatusBadRequest, "invalid BootSourceOverrideTarget: "+target)
 		return
 	}
 
-	// Map Redfish target to U-Boot boot_targets and persist.
 	fwCtrl := firmware.GetController()
 	ubootTargets, ok := firmware.RedfishToUBoot[target]
 	if !ok {
 		ubootTargets = ""
 	}
 
-	if err := fwCtrl.SetBootTarget(ubootTargets); err != nil {
-		log.Warnf("redfish: firmware env write failed (using in-memory fallback): %v", err)
+	var err error
+	if enabled == "Continuous" {
+		err = fwCtrl.SetBootTarget(ubootTargets)
+	} else {
+		err = fwCtrl.SetBootTargetOnce(ubootTargets)
+	}
+	if err != nil {
+		log.Warnf("redfish: firmware env write failed: %v", err)
 	}
 
-	log.Debugf("redfish boot override target set to: %s", target)
+	log.Debugf("redfish boot override: target=%s enabled=%s", target, enabled)
 	c.JSON(http.StatusOK, buildSystemResource())
 }
 
@@ -111,12 +136,23 @@ func buildSystemResource() gin.H {
 		powerState = "On"
 	}
 
-	// Read boot target from firmware env, fall back to "None".
+	// Read boot override from firmware env — persistent takes precedence over once.
 	currentTarget := "None"
+	overrideEnabled := "Disabled"
 	fwCtrl := firmware.GetController()
-	if ubootTargets, err := fwCtrl.GetBootTarget(); err == nil {
+
+	if ubootTargets, err := fwCtrl.GetBootTarget(); err == nil && ubootTargets != "" {
 		if rt, ok := firmware.UBootToRedfish[ubootTargets]; ok {
 			currentTarget = rt
+			overrideEnabled = "Continuous"
+		}
+	}
+	if overrideEnabled == "Disabled" {
+		if ubootTargets, err := fwCtrl.GetOnceBootTarget(); err == nil && ubootTargets != "" {
+			if rt, ok := firmware.UBootToRedfish[ubootTargets]; ok {
+				currentTarget = rt
+				overrideEnabled = "Once"
+			}
 		}
 	}
 
@@ -131,7 +167,13 @@ func buildSystemResource() gin.H {
 		"PowerState":     powerState,
 		"Boot": gin.H{
 			"BootSourceOverrideTarget":  currentTarget,
-			"BootSourceOverrideEnabled": "Once",
+			"BootSourceOverrideEnabled": overrideEnabled,
+			"BootSourceOverrideTarget@Redfish.AllowableValues": []string{
+				"None", "Pxe", "Hdd", "Cd", "BiosSetup",
+			},
+			"BootSourceOverrideEnabled@Redfish.AllowableValues": []string{
+				"Disabled", "Once", "Continuous",
+			},
 		},
 		"Actions": gin.H{
 			"#ComputerSystem.Reset": gin.H{

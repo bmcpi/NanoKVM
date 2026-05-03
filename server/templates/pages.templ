@@ -395,8 +395,29 @@ templ DashboardPage() {
 						<div class="info-value" id="info-boot-target">—</div>
 					</div>
 					<div class="info-item">
+						<div class="info-label">Boot Override</div>
+						<div class="info-value" id="info-boot-override">—</div>
+					</div>
+					<div class="info-item">
 						<div class="info-label">Boot Methods</div>
 						<div class="info-value" id="info-bootmeths">—</div>
+					</div>
+					<div class="info-item" style="grid-column:1/-1">
+						<div class="info-label">Set Boot Override</div>
+						<div class="info-value" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+							<select id="boot-target-select" style="background:#262626;color:#e5e5e5;border:1px solid #404040;border-radius:4px;padding:2px 6px;font-size:0.75rem">
+								<option value="">Default</option>
+								<option value="dhcp">PXE / Network</option>
+								<option value="mmc nvme usb">HDD / SD / NVMe</option>
+								<option value="usb0">USB / CD-ROM</option>
+							</select>
+							<select id="boot-persist-select" style="background:#262626;color:#e5e5e5;border:1px solid #404040;border-radius:4px;padding:2px 6px;font-size:0.75rem">
+								<option value="once">Once (default)</option>
+								<option value="continuous">Continuous</option>
+							</select>
+							<button class="toolbar-btn" onclick="applyBootOverride()" style="font-size:0.75rem">Apply</button>
+							<button class="toolbar-btn" onclick="clearBootOverride()" style="font-size:0.75rem;color:#ef4444;border-color:#7f1d1d">Clear</button>
+						</div>
 					</div>
 					<div class="info-item" id="fw-download-item" style="display:none">
 						<div class="info-label">Firmware Image</div>
@@ -650,11 +671,56 @@ templ DashboardPage() {
 					const r = await fetch('/api/firmware/boot', { headers: getAuthHeaders() });
 					if (r.ok) {
 						const b = await r.json();
-						document.getElementById('info-boot-target').textContent = b.boot_targets || 'default';
+						document.getElementById('info-boot-target').textContent = b.effective || 'default';
+						const override = b.once
+							? `once: ${b.once}`
+							: b.persistent
+								? `continuous: ${b.persistent}`
+								: 'none';
+						document.getElementById('info-boot-override').textContent = override;
 					}
 				} catch(e) {}
 			}
 			loadFirmwareInfo();
+
+			window.applyBootOverride = async function() {
+				const target = document.getElementById('boot-target-select').value;
+				const persistence = document.getElementById('boot-persist-select').value;
+				try {
+					const r = await fetch('/api/firmware/boot', {
+						method: 'PATCH',
+						headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+						body: JSON.stringify({ boot_targets: target, persistence }),
+					});
+					if (r.ok) {
+						loadFirmwareInfo();
+					} else {
+						const err = await r.json().catch(() => ({}));
+						alert('Failed to set boot override: ' + (err.error || r.statusText));
+					}
+				} catch(e) {
+					alert('Error: ' + e.message);
+				}
+			};
+
+			window.clearBootOverride = async function() {
+				try {
+					// Clear both persistent and once by sending empty target for each.
+					await fetch('/api/firmware/boot', {
+						method: 'PATCH',
+						headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+						body: JSON.stringify({ boot_targets: '', persistence: 'once' }),
+					});
+					await fetch('/api/firmware/boot', {
+						method: 'PATCH',
+						headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+						body: JSON.stringify({ boot_targets: '', persistence: 'continuous' }),
+					});
+					loadFirmwareInfo();
+				} catch(e) {
+					alert('Error: ' + e.message);
+				}
+			};
 
 			window.downloadFirmware = async function() {
 				const btn = document.getElementById('btn-fw-download');

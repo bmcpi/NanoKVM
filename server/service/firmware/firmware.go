@@ -1,6 +1,7 @@
 package firmware
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -135,7 +136,7 @@ func (c *Controller) LoadEnv() (*ubootenv.Env, error) {
 func (c *Controller) loadOverrideLocked(path string) (*ubootenv.Env, error) {
 	env, err := ubootenv.LoadFile(path)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return ubootenv.New(), nil
 		}
 		return nil, err
@@ -147,7 +148,7 @@ func (c *Controller) loadOverrideLocked(path string) (*ubootenv.Env, error) {
 // variables (so U-Boot doesn't try to import an empty file). Must hold c.mu.
 func (c *Controller) saveOrRemoveLocked(env *ubootenv.Env, path string) error {
 	if len(env.Vars) == 0 {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("remove %s: %w", path, err)
 		}
 		return nil
@@ -155,25 +156,56 @@ func (c *Controller) saveOrRemoveLocked(env *ubootenv.Env, path string) error {
 	return env.SaveFile(path)
 }
 
-// GetBootTarget returns the effective boot_targets value: an active
-// persistent.env override takes precedence; otherwise the value from
-// machine.env is returned. Returns an empty string when neither is set.
+// GetBootTarget returns the boot_targets value from persistent.env only.
+// Returns an empty string when no persistent override is set. This does NOT
+// fall back to machine.env to avoid mistaking a consumed once-boot value for
+// a configured persistent override.
 func (c *Controller) GetBootTarget() (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	var target string
 	err := c.withMount(func() error {
-		if pers, err := c.loadOverrideLocked(c.persistentEnv); err != nil {
+		pers, err := c.loadOverrideLocked(c.persistentEnv)
+		if err != nil {
 			return fmt.Errorf("load persistent env: %w", err)
-		} else if v, ok := pers.Get(ubootenv.VarBootTargets); ok {
-			target = v
-			return nil
 		}
+		target, _ = pers.Get(ubootenv.VarBootTargets)
+		return nil
+	})
+	return target, err
+}
 
+// GetOnceBootTarget returns the boot_targets value from once.env.
+// Returns an empty string when no one-shot override is pending.
+func (c *Controller) GetOnceBootTarget() (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	var target string
+	err := c.withMount(func() error {
+		once, err := c.loadOverrideLocked(c.onceEnv)
+		if err != nil {
+			return fmt.Errorf("load once env: %w", err)
+		}
+		target, _ = once.Get(ubootenv.VarBootTargets)
+		return nil
+	})
+	return target, err
+}
+
+// GetEffectiveBootTarget returns the boot_targets value from machine.env —
+// i.e., the value that was actually in effect for the most recent boot.
+// This is informational only; it is never written back to any override file.
+func (c *Controller) GetEffectiveBootTarget() (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	var target string
+	err := c.withMount(func() error {
 		machine, err := ubootenv.LoadFile(c.machineEnv)
 		if err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, os.ErrNotExist) {
 				return nil
 			}
 			return fmt.Errorf("load machine env: %w", err)

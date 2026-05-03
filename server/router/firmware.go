@@ -53,29 +53,46 @@ func firmwareRouter(r *gin.Engine) {
 	})
 
 	api.GET("/boot", func(c *gin.Context) {
-		target, err := ctrl.GetBootTarget()
+		persistent, err := ctrl.GetBootTarget()
 		if err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"boot_targets": target})
+		once, err := ctrl.GetOnceBootTarget()
+		if err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+			return
+		}
+		effective, _ := ctrl.GetEffectiveBootTarget() // best-effort; ignore error
+		c.JSON(http.StatusOK, gin.H{
+			"persistent": persistent,
+			"once":       once,
+			"effective":  effective,
+		})
 	})
 
 	api.PATCH("/boot", func(c *gin.Context) {
 		var req struct {
 			BootTargets string `json:"boot_targets"`
+			Persistence string `json:"persistence"` // "once" (default) or "continuous"
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 			return
 		}
 
-		if err := ctrl.SetBootTarget(req.BootTargets); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		var setErr error
+		if req.Persistence == "continuous" {
+			setErr = ctrl.SetBootTarget(req.BootTargets)
+		} else {
+			setErr = ctrl.SetBootTargetOnce(req.BootTargets)
+		}
+		if setErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": setErr.Error()})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"boot_targets": req.BootTargets})
+		c.JSON(http.StatusOK, gin.H{"boot_targets": req.BootTargets, "persistence": req.Persistence})
 	})
 
 	api.POST("/mount", func(c *gin.Context) {
