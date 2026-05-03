@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/tinkerbell-community/NanoKVM/server/config"
-	"github.com/tinkerbell-community/NanoKVM/server/gintemplrenderer"
 	"github.com/tinkerbell-community/NanoKVM/server/logger"
 	"github.com/tinkerbell-community/NanoKVM/server/middleware"
 	"github.com/tinkerbell-community/NanoKVM/server/router"
@@ -80,7 +79,7 @@ func run() {
 
 	// Configure templ renderer with fallback to Gin's default HTML renderer.
 	ginHtmlRenderer := r.HTMLRender
-	r.HTMLRender = &gintemplrenderer.HTMLTemplRenderer{FallbackHtmlRenderer: ginHtmlRenderer}
+	r.HTMLRender = &router.HTMLTemplRenderer{FallbackHtmlRenderer: ginHtmlRenderer}
 
 	router.Init(r)
 

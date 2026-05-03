@@ -6,7 +6,6 @@ import (
 
 	"github.com/tinkerbell-community/NanoKVM/server/assets"
 	"github.com/tinkerbell-community/NanoKVM/server/config"
-	"github.com/tinkerbell-community/NanoKVM/server/gintemplrenderer"
 	"github.com/tinkerbell-community/NanoKVM/server/middleware"
 	"github.com/tinkerbell-community/NanoKVM/server/templates"
 
@@ -42,7 +41,7 @@ func web(r *gin.Engine) {
 
 	// Public auth pages (no middleware)
 	r.GET("/auth/login", func(c *gin.Context) {
-		render := gintemplrenderer.New(c.Request.Context(), http.StatusOK, templates.LoginPage())
+		render := newRender(c.Request.Context(), http.StatusOK, templates.LoginPage())
 		c.Render(http.StatusOK, render)
 	})
 
@@ -72,19 +71,19 @@ func web(r *gin.Engine) {
 		c.Redirect(http.StatusFound, "/dashboard")
 	})
 	protected.GET("/dashboard", func(c *gin.Context) {
-		render := gintemplrenderer.New(c.Request.Context(), http.StatusOK, templates.DashboardPage())
+		render := newRender(c.Request.Context(), http.StatusOK, templates.DashboardPage())
 		c.Render(http.StatusOK, render)
 	})
 	protected.GET("/console", func(c *gin.Context) {
-		render := gintemplrenderer.New(c.Request.Context(), http.StatusOK, templates.ConsolePage())
+		render := newRender(c.Request.Context(), http.StatusOK, templates.ConsolePage())
 		c.Render(http.StatusOK, render)
 	})
 	protected.GET("/settings", func(c *gin.Context) {
-		render := gintemplrenderer.New(c.Request.Context(), http.StatusOK, templates.SettingsPage())
+		render := newRender(c.Request.Context(), http.StatusOK, templates.SettingsPage())
 		c.Render(http.StatusOK, render)
 	})
 	protected.GET("/auth/password", func(c *gin.Context) {
-		render := gintemplrenderer.New(c.Request.Context(), http.StatusOK, templates.PasswordPage())
+		render := newRender(c.Request.Context(), http.StatusOK, templates.PasswordPage())
 		c.Render(http.StatusOK, render)
 	})
 }
