@@ -2,7 +2,7 @@ package templates
 
 // layout renders the common HTML document shell for BMC pages.
 // Includes Tailwind CSS via CDN and a dark theme base.
-templ layout(title string) {
+templ layout(title string, showNav bool) {
 	<!DOCTYPE html>
 	<html lang="en" class="dark">
 		<head>
@@ -74,6 +74,7 @@ templ layout(title string) {
 		</head>
 		<body>
 			<div class="flex h-screen flex-col">
+				if showNav {
 				<header class="flex items-center justify-between border-b border-neutral-800 px-4 py-2">
 					<div class="flex items-center space-x-3">
 						<span class="text-sm font-bold tracking-wide">NanoKVM BMC</span>
@@ -166,10 +167,12 @@ templ layout(title string) {
 						</button>
 					</div>
 				</header>
+				}
 				<main class="min-h-0 flex-1 overflow-hidden">
 					{ children... }
 				</main>
 			</div>
+			if showNav {
 			<script>
 				// --- Dropdown logic ---
 				function toggleDropdown(id) {
@@ -274,6 +277,7 @@ templ layout(title string) {
 					window.location.replace('/auth/login');
 				}
 			</script>
+			}
 		</body>
 	</html>
 }

@@ -2,7 +2,7 @@ package templates
 
 // LoginPage is the server-rendered login page.
 templ LoginPage() {
-	@layout("NanoKVM - Login") {
+	@layout("NanoKVM - Login", false) {
 		<script src="/js/crypto-js.min.js"></script>
 		<div class="flex h-full w-full flex-col items-center justify-center">
 			<form id="login-form" class="w-full max-w-sm space-y-4 px-4" onsubmit="return handleLogin(event)">
@@ -163,7 +163,7 @@ templ LoginPage() {
 
 // PasswordPage is the server-rendered password change page.
 templ PasswordPage() {
-	@layout("NanoKVM - Change Password") {
+	@layout("NanoKVM - Change Password", true) {
 		<script src="/js/crypto-js.min.js"></script>
 		<div class="flex h-full w-full flex-col items-center justify-center space-y-5">
 			<h2 class="text-xl font-semibold text-neutral-100">Change Password</h2>
@@ -298,7 +298,7 @@ templ PasswordPage() {
 
 // DashboardPage is the main BMC page with embedded serial console.
 templ DashboardPage() {
-	@layout("NanoKVM BMC") {
+	@layout("NanoKVM BMC", true) {
 		<link rel="stylesheet" href="/css/xterm.min.css"/>
 		<style>
 			#console-pane { display: flex; flex-direction: column; height: 100%; }
@@ -692,14 +692,14 @@ templ DashboardPage() {
 
 // ConsolePage redirects to the dashboard where the serial console lives.
 templ ConsolePage() {
-	@layout("NanoKVM BMC - Serial Console") {
+	@layout("NanoKVM BMC - Serial Console", true) {
 		<script>window.location.replace('/dashboard');</script>
 	}
 }
 
 // SettingsPage redirects to the dashboard. Settings are in the nav dropdown.
 templ SettingsPage() {
-	@layout("NanoKVM BMC - Settings") {
+	@layout("NanoKVM BMC - Settings", true) {
 		<script>window.location.replace('/dashboard');</script>
 	}
 }

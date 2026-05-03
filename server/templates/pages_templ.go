@@ -61,7 +61,7 @@ func LoginPage() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("NanoKVM - Login").Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("NanoKVM - Login", false).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -109,7 +109,7 @@ func PasswordPage() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("NanoKVM - Change Password").Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("NanoKVM - Change Password", true).Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -157,7 +157,7 @@ func DashboardPage() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("NanoKVM BMC").Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("NanoKVM BMC", true).Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -205,7 +205,7 @@ func ConsolePage() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("NanoKVM BMC - Serial Console").Render(templ.WithChildren(ctx, templ_7745c5c3_Var9), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("NanoKVM BMC - Serial Console", true).Render(templ.WithChildren(ctx, templ_7745c5c3_Var9), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -253,7 +253,7 @@ func SettingsPage() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("NanoKVM BMC - Settings").Render(templ.WithChildren(ctx, templ_7745c5c3_Var11), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("NanoKVM BMC - Settings", true).Render(templ.WithChildren(ctx, templ_7745c5c3_Var11), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
