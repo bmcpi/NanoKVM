@@ -1,20 +1,20 @@
+// Package ubootenv parses and serializes U-Boot environment files in the plain
+// text format produced by `env export -t` and consumed by `env import -t`.
+//
+// The format is one variable per line as `key=value`. Lines may be continued
+// with a trailing backslash, blank lines and `#` comments are ignored, and a
+// trailing `\0` (NUL) byte that U-Boot appends is tolerated.
 package ubootenv
 
 import (
-	"encoding/binary"
+	"bufio"
+	"bytes"
 	"fmt"
-	"hash/crc32"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 )
-
-// DefaultEnvSize is the default total size of a U-Boot environment file (0x4000 = 16384 bytes).
-const DefaultEnvSize = 0x4000
-
-// crcSize is the size of the CRC32 header in bytes.
-const crcSize = 4
 
 // Well-known U-Boot env variable names.
 const (
@@ -60,10 +60,14 @@ var inventoryKeys = []string{
 // Env represents a parsed U-Boot environment.
 type Env struct {
 	Vars map[string]string
-	Size int
 }
 
-// LoadFile reads and parses a U-Boot environment from a file at the given path.
+// New returns an empty environment.
+func New() *Env {
+	return &Env{Vars: make(map[string]string)}
+}
+
+// LoadFile reads and parses a U-Boot environment text file.
 func LoadFile(path string) (*Env, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -72,13 +76,11 @@ func LoadFile(path string) (*Env, error) {
 	return Parse(data)
 }
 
-// SaveFile serializes the environment and writes it atomically to the given path.
-// It writes to a temporary file in the same directory, then renames to prevent corruption.
+// SaveFile serializes the environment and writes it atomically to the given
+// path. It writes to a temporary file in the same directory, then renames to
+// prevent corruption.
 func (e *Env) SaveFile(path string) error {
-	data, err := e.Marshal()
-	if err != nil {
-		return fmt.Errorf("marshal env: %w", err)
-	}
+	data := e.Marshal()
 
 	dir := filepath.Dir(path)
 	tmp, err := os.CreateTemp(dir, ".uboot.env.*.tmp")
@@ -117,6 +119,9 @@ func (e *Env) Get(key string) (string, bool) {
 
 // Set sets a variable value. Creates the key if it doesn't exist.
 func (e *Env) Set(key, value string) {
+	if e.Vars == nil {
+		e.Vars = make(map[string]string)
+	}
 	e.Vars[key] = value
 }
 
@@ -136,16 +141,17 @@ func (e *Env) GetBootTargets() []string {
 }
 
 // SetBootTargets sets boot_targets from a slice of target names.
+// An empty slice deletes the variable.
 func (e *Env) SetBootTargets(targets []string) {
 	if len(targets) == 0 {
 		delete(e.Vars, VarBootTargets)
 		return
 	}
-	e.Vars[VarBootTargets] = strings.Join(targets, " ")
+	e.Set(VarBootTargets, strings.Join(targets, " "))
 }
 
-// GetInventory returns a map of well-known inventory variables and their values.
-// Only variables that are present in the environment are included.
+// GetInventory returns a map of well-known inventory variables and their
+// values. Only variables that are present in the environment are included.
 func (e *Env) GetInventory() map[string]string {
 	inv := make(map[string]string)
 	for _, key := range inventoryKeys {
@@ -156,91 +162,81 @@ func (e *Env) GetInventory() map[string]string {
 	return inv
 }
 
-// Parse reads a U-Boot environment from raw bytes.
-// The expected format is:
+// Parse reads a U-Boot environment from the plain-text format produced by
+// `env export -t`:
 //
-// [4 bytes CRC32 little-endian][data...]
-//
-// Data consists of null-terminated "key=value" strings.
-// The end of variables is marked by a double null byte.
+//   - one `key=value` pair per line
+//   - blank lines and lines beginning with `#` are ignored
+//   - a trailing backslash continues the value on the next line (the newline
+//     itself becomes part of the value)
+//   - a single trailing NUL byte (appended by U-Boot in memory) is tolerated
 func Parse(data []byte) (*Env, error) {
-	if len(data) < crcSize+1 {
-		return nil, fmt.Errorf("data too short: %d bytes", len(data))
-	}
-
-	storedCRC := binary.LittleEndian.Uint32(data[:crcSize])
-	payload := data[crcSize:]
-
-	computedCRC := crc32.ChecksumIEEE(payload)
-	if storedCRC != computedCRC {
-		return nil, fmt.Errorf("CRC mismatch: stored=0x%08x computed=0x%08x", storedCRC, computedCRC)
-	}
+	// U-Boot exports include a trailing NUL terminator in memory; trim any
+	// run of NULs at the end so they don't confuse the line scanner.
+	data = bytes.TrimRight(data, "\x00")
 
 	vars := make(map[string]string)
-	pos := 0
-	for pos < len(payload) {
-		if payload[pos] == 0 {
-			break // end of environment
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	// Allow long lines (default is 64 KiB which is plenty, but be explicit).
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+
+	lineNo := 0
+	for scanner.Scan() {
+		lineNo++
+		line := scanner.Text()
+
+		// Handle backslash continuation: a line ending in an unescaped `\`
+		// joins with the following line, with a literal newline in between.
+		for strings.HasSuffix(line, `\`) && !strings.HasSuffix(line, `\\`) {
+			if !scanner.Scan() {
+				break
+			}
+			lineNo++
+			line = line[:len(line)-1] + "\n" + scanner.Text()
 		}
 
-		// Find the null terminator for this entry.
-		end := pos
-		for end < len(payload) && payload[end] != 0 {
-			end++
+		trimmed := strings.TrimLeft(line, " \t")
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
 		}
 
-		entry := string(payload[pos:end])
-		k, v, ok := strings.Cut(entry, "=")
+		k, v, ok := strings.Cut(trimmed, "=")
 		if !ok {
-			return nil, fmt.Errorf("malformed entry at offset %d: %q", crcSize+pos, entry)
+			return nil, fmt.Errorf("malformed entry on line %d: %q", lineNo, trimmed)
+		}
+		k = strings.TrimSpace(k)
+		if k == "" {
+			return nil, fmt.Errorf("empty key on line %d", lineNo)
 		}
 		vars[k] = v
-
-		pos = end + 1 // skip null terminator
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scan env: %w", err)
 	}
 
-	return &Env{
-		Vars: vars,
-		Size: len(data),
-	}, nil
+	return &Env{Vars: vars}, nil
 }
 
-// Marshal serializes the environment back to the binary format.
-// Keys are sorted for deterministic output.
-func (e *Env) Marshal() ([]byte, error) {
-	if e.Size < crcSize+2 {
-		return nil, fmt.Errorf("env size too small: %d", e.Size)
-	}
-
-	buf := make([]byte, e.Size)
-	dataSize := e.Size - crcSize
-
-	// Build the payload: sorted key=value pairs separated by null bytes.
+// Marshal serializes the environment to the plain text format. Keys are
+// sorted for deterministic output. Values containing newlines are emitted
+// using backslash continuation so they round-trip through Parse.
+func (e *Env) Marshal() []byte {
 	keys := make([]string, 0, len(e.Vars))
 	for k := range e.Vars {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 
-	pos := 0
+	var buf bytes.Buffer
 	for _, k := range keys {
-		entry := k + "=" + e.Vars[k]
-		needed := len(entry) + 1 // +1 for null terminator
-		if pos+needed+1 > dataSize {
-			return nil, fmt.Errorf("environment data exceeds available space (%d bytes)", dataSize)
-		}
-		copy(buf[crcSize+pos:], entry)
-		pos += len(entry)
-		buf[crcSize+pos] = 0 // null terminator
-		pos++
+		v := e.Vars[k]
+		// Escape embedded newlines as backslash-continuation so Parse
+		// reconstructs the exact value.
+		v = strings.ReplaceAll(v, "\n", "\\\n")
+		buf.WriteString(k)
+		buf.WriteByte('=')
+		buf.WriteString(v)
+		buf.WriteByte('\n')
 	}
-
-	// The double-null terminator is already present since the buffer is zero-initialized.
-
-	// Compute and store CRC32 over the data portion.
-	payload := buf[crcSize:]
-	checksum := crc32.ChecksumIEEE(payload)
-	binary.LittleEndian.PutUint32(buf[:crcSize], checksum)
-
-	return buf, nil
+	return buf.Bytes()
 }

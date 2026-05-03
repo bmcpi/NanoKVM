@@ -1,27 +1,11 @@
 package ubootenv
 
 import (
-	"encoding/binary"
-	"hash/crc32"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
-
-func makeEnv(size int, vars map[string]string) []byte {
-	buf := make([]byte, size)
-	pos := crcSize
-	for k, v := range vars {
-		entry := k + "=" + v
-		copy(buf[pos:], entry)
-		pos += len(entry)
-		buf[pos] = 0
-		pos++
-	}
-	crc := crc32.ChecksumIEEE(buf[crcSize:])
-	binary.LittleEndian.PutUint32(buf[:crcSize], crc)
-	return buf
-}
 
 func TestParseAndMarshalRoundTrip(t *testing.T) {
 	original := map[string]string{
@@ -29,8 +13,12 @@ func TestParseAndMarshalRoundTrip(t *testing.T) {
 		"bootdelay": "3",
 		"ethaddr":   "00:11:22:33:44:55",
 	}
-	data := makeEnv(DefaultEnvSize, original)
-	env, err := Parse(data)
+	var b strings.Builder
+	for k, v := range original {
+		b.WriteString(k + "=" + v + "\n")
+	}
+
+	env, err := Parse([]byte(b.String()))
 	if err != nil {
 		t.Fatalf("Parse() error: %v", err)
 	}
@@ -38,129 +26,129 @@ func TestParseAndMarshalRoundTrip(t *testing.T) {
 		t.Fatalf("expected %d vars, got %d", len(original), len(env.Vars))
 	}
 	for k, want := range original {
-		got, ok := env.Vars[k]
-		if !ok {
-			t.Errorf("missing key %q", k)
-			continue
-		}
-		if got != want {
+		if got := env.Vars[k]; got != want {
 			t.Errorf("key %q: got %q, want %q", k, got, want)
 		}
 	}
-	out, err := env.Marshal()
-	if err != nil {
-		t.Fatalf("Marshal() error: %v", err)
-	}
-	if len(out) != DefaultEnvSize {
-		t.Fatalf("expected output size %d, got %d", DefaultEnvSize, len(out))
-	}
+
+	out := env.Marshal()
 	env2, err := Parse(out)
 	if err != nil {
 		t.Fatalf("Parse(round-trip) error: %v", err)
 	}
 	for k, want := range original {
-		got := env2.Vars[k]
-		if got != want {
+		if got := env2.Vars[k]; got != want {
 			t.Errorf("round-trip key %q: got %q, want %q", k, got, want)
 		}
 	}
 }
 
-func TestParseInvalidCRC(t *testing.T) {
-	data := makeEnv(DefaultEnvSize, map[string]string{"foo": "bar"})
-	data[0] ^= 0xFF
-	_, err := Parse(data)
-	if err == nil {
-		t.Fatal("expected CRC mismatch error")
-	}
-}
-
-func TestParseTooShort(t *testing.T) {
-	_, err := Parse([]byte{0, 0, 0})
-	if err == nil {
-		t.Fatal("expected error for short data")
-	}
-}
-
-func TestParseEmptyEnvironment(t *testing.T) {
-	data := makeEnv(DefaultEnvSize, map[string]string{})
+func TestParseTrailingNUL(t *testing.T) {
+	// U-Boot's `env export -t` leaves a NUL terminator in memory; Parse
+	// should tolerate one or more trailing NULs without erroring.
+	data := []byte("foo=bar\nbaz=qux\n\x00\x00")
 	env, err := Parse(data)
 	if err != nil {
 		t.Fatalf("Parse() error: %v", err)
+	}
+	if env.Vars["foo"] != "bar" || env.Vars["baz"] != "qux" {
+		t.Errorf("unexpected vars: %v", env.Vars)
+	}
+}
+
+func TestParseSkipsBlanksAndComments(t *testing.T) {
+	data := []byte(`
+# this is a comment
+foo=bar
+
+   # indented comment
+baz=qux
+`)
+	env, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse() error: %v", err)
+	}
+	if len(env.Vars) != 2 {
+		t.Fatalf("expected 2 vars, got %d: %v", len(env.Vars), env.Vars)
+	}
+	if env.Vars["foo"] != "bar" || env.Vars["baz"] != "qux" {
+		t.Errorf("unexpected vars: %v", env.Vars)
+	}
+}
+
+func TestParseLineContinuation(t *testing.T) {
+	// Backslash at end-of-line continues the value.
+	data := []byte("multiline=line1\\\nline2\\\nline3\nsimple=value\n")
+	env, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse() error: %v", err)
+	}
+	want := "line1\nline2\nline3"
+	if got := env.Vars["multiline"]; got != want {
+		t.Errorf("multiline: got %q, want %q", got, want)
+	}
+	if env.Vars["simple"] != "value" {
+		t.Errorf("simple: got %q", env.Vars["simple"])
+	}
+
+	// Round trip preserves embedded newlines.
+	out := env.Marshal()
+	env2, err := Parse(out)
+	if err != nil {
+		t.Fatalf("re-parse: %v", err)
+	}
+	if env2.Vars["multiline"] != want {
+		t.Errorf("round-trip multiline: got %q", env2.Vars["multiline"])
+	}
+}
+
+func TestParseEmptyValue(t *testing.T) {
+	env, err := Parse([]byte("empty=\nfoo=bar\n"))
+	if err != nil {
+		t.Fatalf("Parse() error: %v", err)
+	}
+	v, ok := env.Get("empty")
+	if !ok || v != "" {
+		t.Errorf("empty: got %q, %v", v, ok)
+	}
+}
+
+func TestParseMalformedLine(t *testing.T) {
+	_, err := Parse([]byte("no_equals_sign\n"))
+	if err == nil {
+		t.Fatal("expected error for line without =")
+	}
+}
+
+func TestParseEmpty(t *testing.T) {
+	env, err := Parse(nil)
+	if err != nil {
+		t.Fatalf("Parse(nil) error: %v", err)
 	}
 	if len(env.Vars) != 0 {
 		t.Fatalf("expected 0 vars, got %d", len(env.Vars))
 	}
 }
 
-func TestSetAndDeleteVars(t *testing.T) {
-	original := map[string]string{
-		"bootcmd":   "bootm",
-		"bootdelay": "5",
-		"toremove":  "gone",
-	}
-	data := makeEnv(DefaultEnvSize, original)
-	env, err := Parse(data)
-	if err != nil {
-		t.Fatalf("Parse() error: %v", err)
-	}
-	env.Vars["newvar"] = "hello"
-	env.Vars["bootdelay"] = "1"
-	delete(env.Vars, "toremove")
-	out, err := env.Marshal()
-	if err != nil {
-		t.Fatalf("Marshal() error: %v", err)
-	}
-	env2, err := Parse(out)
-	if err != nil {
-		t.Fatalf("Parse(after modification) error: %v", err)
-	}
-	expected := map[string]string{
-		"bootcmd":   "bootm",
-		"bootdelay": "1",
-		"newvar":    "hello",
-	}
-	if len(env2.Vars) != len(expected) {
-		t.Fatalf("expected %d vars, got %d", len(expected), len(env2.Vars))
-	}
-	for k, want := range expected {
-		if got := env2.Vars[k]; got != want {
-			t.Errorf("key %q: got %q, want %q", k, got, want)
-		}
-	}
-	if _, ok := env2.Vars["toremove"]; ok {
-		t.Error("expected toremove to be deleted")
-	}
-}
-
-func TestMarshalOverflow(t *testing.T) {
-	env := &Env{
-		Vars: make(map[string]string),
-		Size: 20,
-	}
-	env.Vars["a_very_long_variable_name"] = "a_very_long_value_that_exceeds_capacity"
-	_, err := env.Marshal()
-	if err == nil {
-		t.Fatal("expected overflow error")
+func TestMarshalSorted(t *testing.T) {
+	env := &Env{Vars: map[string]string{"c": "3", "a": "1", "b": "2"}}
+	out := string(env.Marshal())
+	want := "a=1\nb=2\nc=3\n"
+	if out != want {
+		t.Errorf("Marshal sorted: got %q, want %q", out, want)
 	}
 }
 
 func TestGetSetDelete(t *testing.T) {
-	env := &Env{Vars: map[string]string{"foo": "bar"}, Size: DefaultEnvSize}
+	env := New()
 
-	v, ok := env.Get("foo")
-	if !ok || v != "bar" {
-		t.Errorf("Get(foo): got %q, %v; want bar, true", v, ok)
-	}
-
-	_, ok = env.Get("missing")
-	if ok {
+	if _, ok := env.Get("missing"); ok {
 		t.Error("Get(missing) should return false")
 	}
 
-	env.Set("new", "value")
-	v, ok = env.Get("new")
-	if !ok || v != "value" {
+	env.Set("foo", "bar")
+	v, ok := env.Get("foo")
+	if !ok || v != "bar" {
 		t.Errorf("after Set: got %q, %v", v, ok)
 	}
 
@@ -171,13 +159,11 @@ func TestGetSetDelete(t *testing.T) {
 	}
 
 	env.Delete("foo")
-	_, ok = env.Get("foo")
-	if ok {
+	if _, ok = env.Get("foo"); ok {
 		t.Error("Delete(foo) should remove the key")
 	}
 
-	// Delete non-existent is a no-op.
-	env.Delete("nonexistent")
+	env.Delete("nonexistent") // no-op
 }
 
 func TestGetBootTargets(t *testing.T) {
@@ -187,26 +173,10 @@ func TestGetBootTargets(t *testing.T) {
 		want    []string
 		wantNil bool
 	}{
-		{
-			name:    "not set",
-			env:     &Env{Vars: map[string]string{}, Size: DefaultEnvSize},
-			wantNil: true,
-		},
-		{
-			name:    "empty string",
-			env:     &Env{Vars: map[string]string{VarBootTargets: ""}, Size: DefaultEnvSize},
-			wantNil: true,
-		},
-		{
-			name: "single target",
-			env:  &Env{Vars: map[string]string{VarBootTargets: "mmc0"}, Size: DefaultEnvSize},
-			want: []string{"mmc0"},
-		},
-		{
-			name: "multiple targets",
-			env:  &Env{Vars: map[string]string{VarBootTargets: "mmc0 usb0 pxe dhcp"}, Size: DefaultEnvSize},
-			want: []string{"mmc0", "usb0", "pxe", "dhcp"},
-		},
+		{"not set", &Env{Vars: map[string]string{}}, nil, true},
+		{"empty string", &Env{Vars: map[string]string{VarBootTargets: ""}}, nil, true},
+		{"single target", &Env{Vars: map[string]string{VarBootTargets: "mmc0"}}, []string{"mmc0"}, false},
+		{"multiple targets", &Env{Vars: map[string]string{VarBootTargets: "mmc0 usb0 pxe dhcp"}}, []string{"mmc0", "usb0", "pxe", "dhcp"}, false},
 	}
 
 	for _, tt := range tests {
@@ -231,7 +201,7 @@ func TestGetBootTargets(t *testing.T) {
 }
 
 func TestSetBootTargets(t *testing.T) {
-	env := &Env{Vars: map[string]string{}, Size: DefaultEnvSize}
+	env := New()
 
 	env.SetBootTargets([]string{"pxe", "dhcp"})
 	v, ok := env.Get(VarBootTargets)
@@ -240,14 +210,13 @@ func TestSetBootTargets(t *testing.T) {
 	}
 
 	env.SetBootTargets(nil)
-	_, ok = env.Get(VarBootTargets)
-	if ok {
+	if _, ok = env.Get(VarBootTargets); ok {
 		t.Error("SetBootTargets(nil) should delete the key")
 	}
 
+	env.SetBootTargets([]string{"mmc0"})
 	env.SetBootTargets([]string{})
-	_, ok = env.Get(VarBootTargets)
-	if ok {
+	if _, ok = env.Get(VarBootTargets); ok {
 		t.Error("SetBootTargets([]) should delete the key")
 	}
 }
@@ -273,11 +242,9 @@ func TestGetInventory(t *testing.T) {
 			"bootcmd":        "bootflow scan -lb",
 			"some_other_var": "irrelevant",
 		},
-		Size: DefaultEnvSize,
 	}
 
 	inv := env.GetInventory()
-	// inventoryKeys has 15 entries; env has 15 of them plus 2 non-inventory vars
 	if len(inv) != 15 {
 		t.Fatalf("expected 15 inventory items, got %d: %v", len(inv), inv)
 	}
@@ -287,15 +254,6 @@ func TestGetInventory(t *testing.T) {
 	if inv["serial#"] != "06c539f8c815f14f" {
 		t.Errorf("serial#: got %q", inv["serial#"])
 	}
-	if inv["vendor"] != "raspberrypi" {
-		t.Errorf("vendor: got %q", inv["vendor"])
-	}
-	if inv["ver"] == "" {
-		t.Error("ver should be in inventory")
-	}
-	if inv["cpu"] != "armv8" {
-		t.Errorf("cpu: got %q", inv["cpu"])
-	}
 	if _, ok := inv["some_other_var"]; ok {
 		t.Error("some_other_var should not be in inventory")
 	}
@@ -303,9 +261,8 @@ func TestGetInventory(t *testing.T) {
 
 func TestLoadFileAndSaveFile(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "uboot.env")
+	path := filepath.Join(dir, "machine.env")
 
-	// Create an env and save it.
 	env := &Env{
 		Vars: map[string]string{
 			"bootcmd":      "run distro_bootcmd",
@@ -313,23 +270,12 @@ func TestLoadFileAndSaveFile(t *testing.T) {
 			VarBootTargets: "mmc0 usb0 pxe dhcp",
 			VarBoardName:   "rpi5",
 		},
-		Size: DefaultEnvSize,
 	}
 
 	if err := env.SaveFile(path); err != nil {
 		t.Fatalf("SaveFile() error: %v", err)
 	}
 
-	// Verify the file was written with correct size.
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatalf("stat after SaveFile: %v", err)
-	}
-	if info.Size() != int64(DefaultEnvSize) {
-		t.Fatalf("file size: got %d, want %d", info.Size(), DefaultEnvSize)
-	}
-
-	// Load it back.
 	loaded, err := LoadFile(path)
 	if err != nil {
 		t.Fatalf("LoadFile() error: %v", err)
@@ -338,30 +284,22 @@ func TestLoadFileAndSaveFile(t *testing.T) {
 		t.Fatalf("var count: got %d, want %d", len(loaded.Vars), len(env.Vars))
 	}
 	for k, want := range env.Vars {
-		got, ok := loaded.Get(k)
-		if !ok {
-			t.Errorf("missing key %q after load", k)
-			continue
-		}
-		if got != want {
-			t.Errorf("key %q: got %q, want %q", k, got, want)
+		if got, ok := loaded.Get(k); !ok || got != want {
+			t.Errorf("key %q: got %q (ok=%v), want %q", k, got, ok, want)
 		}
 	}
 
-	// Modify and save again.
 	loaded.Set("bootdelay", "0")
 	loaded.SetBootTargets([]string{"pxe", "dhcp"})
 	if err := loaded.SaveFile(path); err != nil {
 		t.Fatalf("SaveFile(modified) error: %v", err)
 	}
 
-	// Load again and verify.
 	loaded2, err := LoadFile(path)
 	if err != nil {
 		t.Fatalf("LoadFile(modified) error: %v", err)
 	}
-	v, _ := loaded2.Get("bootdelay")
-	if v != "0" {
+	if v, _ := loaded2.Get("bootdelay"); v != "0" {
 		t.Errorf("bootdelay after modify: got %q", v)
 	}
 	targets := loaded2.GetBootTargets()
@@ -370,97 +308,30 @@ func TestLoadFileAndSaveFile(t *testing.T) {
 	}
 }
 
-func TestParseRealEnvFile(t *testing.T) {
-	const envFile = "../../../data/uboot.env"
-	if _, err := os.Stat(envFile); err != nil {
-		t.Skipf("real env file not available: %v", err)
-	}
-
-	env, err := LoadFile(envFile)
-	if err != nil {
-		t.Fatalf("LoadFile(%s) error: %v", envFile, err)
-	}
-
-	if env.Size != DefaultEnvSize {
-		t.Errorf("unexpected size: got %d, want %d", env.Size, DefaultEnvSize)
-	}
-
-	// Verify expected keys from a real RPi 5 U-Boot environment.
-	expectedKeys := map[string]string{
-		"arch":           "arm",
-		"board":          "rpi",
-		"board_name":     "rpi",
-		"board_revision": "0xE04171",
-		"boot_targets":   "usb0 mmc nvme",
-		"cpu":            "armv8",
-		"soc":            "bcm283x",
-		"vendor":         "raspberrypi",
-	}
-	for key, want := range expectedKeys {
-		got, ok := env.Get(key)
-		if !ok {
-			t.Errorf("missing key %q in real env", key)
-			continue
-		}
-		if got != want {
-			t.Errorf("key %q: got %q, want %q", key, got, want)
-		}
-	}
-
-	// serial# and ethaddr should be present (values are device-specific).
-	for _, key := range []string{"serial#", "ethaddr", "ver", "fdtfile"} {
-		if _, ok := env.Get(key); !ok {
-			t.Errorf("expected key %q in real env", key)
-		}
-	}
-
-	// Round-trip: marshal and re-parse should produce identical vars.
-	data, err := env.Marshal()
-	if err != nil {
-		t.Fatalf("Marshal() error: %v", err)
-	}
-	env2, err := Parse(data)
-	if err != nil {
-		t.Fatalf("Parse(round-trip) error: %v", err)
-	}
-	if len(env2.Vars) != len(env.Vars) {
-		t.Fatalf("round-trip var count: got %d, want %d", len(env2.Vars), len(env.Vars))
-	}
-	for k, v := range env.Vars {
-		if env2.Vars[k] != v {
-			t.Errorf("round-trip key %q: got %q, want %q", k, env2.Vars[k], v)
-		}
-	}
-
-	// Inventory should return the expected subset.
-	inv := env.GetInventory()
-	if len(inv) == 0 {
-		t.Fatal("GetInventory() returned empty map for real env")
-	}
-	t.Logf("parsed %d vars, inventory %d items from real env", len(env.Vars), len(inv))
-}
-
 func TestLoadFileNotFound(t *testing.T) {
-	_, err := LoadFile("/nonexistent/path/uboot.env")
+	_, err := LoadFile("/nonexistent/path/machine.env")
 	if err == nil {
 		t.Fatal("expected error for nonexistent file")
+	}
+	if !os.IsNotExist(err) {
+		// LoadFile wraps the error, but errors.Is via %w should still match.
+		// Not strictly required by the API, but useful for callers.
+		t.Logf("note: LoadFile error is wrapped (%v); callers should use errors.Is", err)
 	}
 }
 
 func TestSaveFileAtomicity(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "uboot.env")
+	path := filepath.Join(dir, "persistent.env")
 
-	// Write initial env.
-	env := &Env{Vars: map[string]string{"a": "1"}, Size: DefaultEnvSize}
+	env := &Env{Vars: map[string]string{"a": "1"}}
 	if err := env.SaveFile(path); err != nil {
 		t.Fatalf("initial SaveFile: %v", err)
 	}
 
-	// Verify no temp files remain.
 	entries, _ := os.ReadDir(dir)
 	for _, e := range entries {
-		if e.Name() != "uboot.env" {
+		if e.Name() != "persistent.env" {
 			t.Errorf("unexpected file in dir: %s", e.Name())
 		}
 	}

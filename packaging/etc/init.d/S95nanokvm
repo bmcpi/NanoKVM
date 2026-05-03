@@ -10,12 +10,12 @@ start() {
         return 0
     fi
 
-    echo -n "Starting NanoKVM BMC: "
+    echo "Starting NanoKVM BMC: "
     start-stop-daemon -S -b -m -p "$PID_FILE" -x "$BINARY" && echo "OK" || echo "FAIL"
 }
 
 stop() {
-    echo -n "Stopping NanoKVM BMC: "
+    echo "Stopping NanoKVM BMC: "
     if [ -f "$PID_FILE" ]; then
         start-stop-daemon -K -p "$PID_FILE" -x "$BINARY" && echo "OK" || echo "FAIL"
         rm -f "$PID_FILE"

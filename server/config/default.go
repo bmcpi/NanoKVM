@@ -46,10 +46,12 @@ var defaultConfig = &Config{
 		FlowControl: "none",
 	},
 	Firmware: Firmware{
-		ImageURL:   "https://github.com/tinkerbell-community/uboot-raspberrypi/releases/download/v2026.04-rc4.1/uboot-raspberrypi-2026.04-rc4.1.img.xz",
-		ImagePath:  "/data/firmware/uboot-rpi.img",
-		MountPoint: "/mnt/firmware",
-		EnvFile:    "/mnt/firmware/uboot.env",
+		ImageURL:      "https://github.com/tinkerbell-community/uboot-raspberrypi/releases/download/v2026.04-rc4.1/uboot-raspberrypi-2026.04-rc4.1.img.xz",
+		ImagePath:     "/data/firmware/uboot-rpi.img",
+		MountPoint:    "/mnt/firmware",
+		MachineEnv:    "/mnt/firmware/machine.env",
+		PersistentEnv: "/mnt/firmware/persistent.env",
+		OnceEnv:       "/mnt/firmware/once.env",
 	},
 }
 
@@ -104,8 +106,14 @@ func checkDefaultValue() {
 	if instance.Firmware.MountPoint == "" {
 		instance.Firmware.MountPoint = defaultConfig.Firmware.MountPoint
 	}
-	if instance.Firmware.EnvFile == "" {
-		instance.Firmware.EnvFile = defaultConfig.Firmware.EnvFile
+	if instance.Firmware.MachineEnv == "" {
+		instance.Firmware.MachineEnv = defaultConfig.Firmware.MachineEnv
+	}
+	if instance.Firmware.PersistentEnv == "" {
+		instance.Firmware.PersistentEnv = defaultConfig.Firmware.PersistentEnv
+	}
+	if instance.Firmware.OnceEnv == "" {
+		instance.Firmware.OnceEnv = defaultConfig.Firmware.OnceEnv
 	}
 
 	instance.Hardware = getHardware()

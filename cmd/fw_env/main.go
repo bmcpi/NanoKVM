@@ -1,5 +1,15 @@
 // fw_env is a pure-Go replacement for U-Boot's fw_printenv / fw_setenv tools.
 //
+// With the new preboot model U-Boot uses three plain-text files in the FAT
+// partition:
+//
+//   - machine.env    — written by U-Boot every boot; full effective env
+//   - persistent.env — applied on every boot (write here for continuous overrides)
+//   - once.env       — applied on the next boot then deleted by U-Boot
+//
+// printenv/dump default to reading machine.env. setenv/script default to
+// writing persistent.env. Use -f to override.
+//
 // Usage:
 //
 //	fw_env printenv [-f env_file] [-n] [name ...]
@@ -13,6 +23,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -23,7 +34,10 @@ import (
 	"github.com/tinkerbell-community/NanoKVM/server/service/ubootenv"
 )
 
-const defaultEnvFile = "/mnt/firmware/uboot.env"
+const (
+	defaultMachineEnv    = "/mnt/firmware/machine.env"
+	defaultPersistentEnv = "/mnt/firmware/persistent.env"
+)
 
 func main() {
 	// Support symlink-based invocation (fw_printenv / fw_setenv).
@@ -69,7 +83,9 @@ Commands:
   dump     [-f file]                   Dump raw key=value pairs
 
 Options:
-  -f file   Path to U-Boot env file (default: `+defaultEnvFile+`)
+  -f file   Path to a U-Boot env file. Defaults:
+              printenv/dump → `+defaultMachineEnv+`
+              setenv/script → `+defaultPersistentEnv+`
   -n        Print value only (printenv, single var)
 
 Symlink support:
@@ -85,7 +101,7 @@ Script syntax:
 // cmdPrintenv implements fw_printenv.
 func cmdPrintenv(args []string) {
 	fs := flag.NewFlagSet("printenv", flag.ExitOnError)
-	envFile := fs.String("f", defaultEnvFile, "path to U-Boot env file")
+	envFile := fs.String("f", defaultMachineEnv, "path to U-Boot env file")
 	valueOnly := fs.Bool("n", false, "print value only (requires exactly one name)")
 	fs.Parse(args)
 
@@ -134,10 +150,12 @@ func printAll(env *ubootenv.Env) {
 	}
 }
 
-// cmdSetenv implements fw_setenv.
+// cmdSetenv implements fw_setenv. By default it writes to persistent.env,
+// loading the existing file (or starting from empty if it doesn't exist) so
+// repeated invocations accumulate overrides.
 func cmdSetenv(args []string) {
 	fs := flag.NewFlagSet("setenv", flag.ExitOnError)
-	envFile := fs.String("f", defaultEnvFile, "path to U-Boot env file")
+	envFile := fs.String("f", defaultPersistentEnv, "path to U-Boot env file")
 	fs.Parse(args)
 
 	if fs.NArg() < 1 {
@@ -145,7 +163,7 @@ func cmdSetenv(args []string) {
 		os.Exit(1)
 	}
 
-	env, err := ubootenv.LoadFile(*envFile)
+	env, err := loadOrEmpty(*envFile)
 	if err != nil {
 		fatal("open env", err)
 	}
@@ -168,7 +186,7 @@ func cmdSetenv(args []string) {
 // cmdScript implements fw_parse_script.
 func cmdScript(args []string) {
 	fs := flag.NewFlagSet("script", flag.ExitOnError)
-	envFile := fs.String("f", defaultEnvFile, "path to U-Boot env file")
+	envFile := fs.String("f", defaultPersistentEnv, "path to U-Boot env file")
 	fs.Parse(args)
 
 	if fs.NArg() != 1 {
@@ -176,7 +194,7 @@ func cmdScript(args []string) {
 		os.Exit(1)
 	}
 
-	env, err := ubootenv.LoadFile(*envFile)
+	env, err := loadOrEmpty(*envFile)
 	if err != nil {
 		fatal("open env", err)
 	}
@@ -224,7 +242,7 @@ func cmdScript(args []string) {
 // cmdDump prints all raw key=value pairs without formatting.
 func cmdDump(args []string) {
 	fs := flag.NewFlagSet("dump", flag.ExitOnError)
-	envFile := fs.String("f", defaultEnvFile, "path to U-Boot env file")
+	envFile := fs.String("f", defaultMachineEnv, "path to U-Boot env file")
 	fs.Parse(args)
 
 	env, err := ubootenv.LoadFile(*envFile)
@@ -232,8 +250,22 @@ func cmdDump(args []string) {
 		fatal("open env", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "## Size: %d bytes, Variables: %d\n", env.Size, len(env.Vars))
+	fmt.Fprintf(os.Stderr, "## Variables: %d\n", len(env.Vars))
 	printAll(env)
+}
+
+// loadOrEmpty loads the env file, returning an empty Env if it does not exist.
+// Useful for setenv/script targeting persistent.env or once.env which may not
+// have been created yet.
+func loadOrEmpty(path string) (*ubootenv.Env, error) {
+	env, err := ubootenv.LoadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return ubootenv.New(), nil
+		}
+		return nil, err
+	}
+	return env, nil
 }
 
 func fatal(context string, err error) {

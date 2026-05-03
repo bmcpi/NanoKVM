@@ -78,6 +78,9 @@ func readToolVersion(path, tool string) (string, error) {
 			return parts[1], nil
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("reading %s: %w", path, err)
+	}
 	return "", fmt.Errorf("%q not found in %s", tool, path)
 }
 

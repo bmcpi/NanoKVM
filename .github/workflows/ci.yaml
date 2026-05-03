@@ -1,0 +1,189 @@
+name: For each commit and PR
+on:
+  push:
+    branches:
+      - "main"
+    tags:
+      - "v**"
+  pull_request:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ghcr.io/${{ github.repository }}
+  CGO_ENABLED: 0
+  GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          args: --timeout=10m
+          version-file: .tool-versions
+
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          install-only: true
+          version-file: .tool-versions
+
+      - name: Run go mod tidy
+        run: go mod tidy
+
+      - name: Generate code and format
+        run: |
+          go generate ./...
+          golangci-lint fmt ./...
+
+      - name: Check for changes
+        run: git diff --compact-summary --exit-code
+
+      - name: Check for new files
+        run: |
+          if git status --porcelain | grep -qE '^(\?\?|A )'; then
+            echo "Error: new files present (untracked or staged)" >&2
+            exit 1
+          fi
+
+  validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Run Tests
+        if: always()
+        run: go tool gotestsum --junitfile junit.xml -- -coverprofile=coverage.txt -covermode=atomic -race -count=1 -v ./...
+        env:
+          CGO_ENABLED: 1
+
+      - name: Generate HTML coverage report
+        if: always()
+        run: go tool cover -html=coverage.txt -o coverage.html
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.txt
+            coverage.html
+            junit.xml
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: upload to codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  build-publish-container-images:
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+      - validation
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        if: |
+          github.ref == 'refs/heads/main' ||
+          startsWith(github.ref, 'refs/tags/v')
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+        if: |
+          github.ref == 'refs/heads/main' ||
+          startsWith(github.ref, 'refs/tags/v')
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Login to ghcr.io
+        uses: docker/login-action@v4
+        if: |
+          github.ref == 'refs/heads/main' ||
+          startsWith(github.ref, 'refs/tags/v')
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Cosign
+        if: |
+          github.ref == 'refs/heads/main' ||
+          startsWith(github.ref, 'refs/tags/v')
+        uses: sigstore/cosign-installer@v4.0.0
+
+      - name: Set up GoReleaser environment variables
+        id: goreleaser-env
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "args=release --clean" >> "$GITHUB_OUTPUT"
+            echo "IS_RELEASE=true" >> "$GITHUB_ENV"
+          elif [[ "$GITHUB_REF" == refs/heads/main ]]; then
+            echo "args=release --clean --skip=validate" >> "$GITHUB_OUTPUT"
+            echo "IS_RELEASE=false" >> "$GITHUB_ENV"
+          else
+            echo "args=build --clean --skip=validate" >> "$GITHUB_OUTPUT"
+            echo "IS_RELEASE=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: "${{ steps.goreleaser-env.outputs.args }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: tinkerbell
+          path: dist/*

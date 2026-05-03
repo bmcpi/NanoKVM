@@ -32,7 +32,15 @@ type Controller struct {
 	imageURL   string
 	imagePath  string
 	mountPoint string
-	envFile    string
+
+	// machineEnv is the file U-Boot writes on every boot containing the full
+	// effective environment. Read-only from our side; used for inventory and
+	// for reporting the currently-applied boot target.
+	machineEnv string
+	// persistentEnv contains overrides U-Boot imports on every boot.
+	persistentEnv string
+	// onceEnv contains one-shot overrides; U-Boot imports it then deletes it.
+	onceEnv string
 
 	presented bool
 }
@@ -47,10 +55,12 @@ func GetController() *Controller {
 	once.Do(func() {
 		cfg := config.GetInstance()
 		instance = &Controller{
-			imageURL:   cfg.Firmware.ImageURL,
-			imagePath:  cfg.Firmware.ImagePath,
-			mountPoint: cfg.Firmware.MountPoint,
-			envFile:    cfg.Firmware.EnvFile,
+			imageURL:      cfg.Firmware.ImageURL,
+			imagePath:     cfg.Firmware.ImagePath,
+			mountPoint:    cfg.Firmware.MountPoint,
+			machineEnv:    cfg.Firmware.MachineEnv,
+			persistentEnv: cfg.Firmware.PersistentEnv,
+			onceEnv:       cfg.Firmware.OnceEnv,
 		}
 	})
 	return instance
@@ -105,7 +115,8 @@ func (c *Controller) withMount(fn func() error) error {
 	return fn()
 }
 
-// LoadEnv reads and parses the U-Boot environment file.
+// LoadEnv reads and parses the machine.env file written by U-Boot on the last
+// boot. This is the source of truth for currently-effective variables.
 func (c *Controller) LoadEnv() (*ubootenv.Env, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -113,42 +124,76 @@ func (c *Controller) LoadEnv() (*ubootenv.Env, error) {
 	var env *ubootenv.Env
 	err := c.withMount(func() error {
 		var e error
-		env, e = ubootenv.LoadFile(c.envFile)
+		env, e = ubootenv.LoadFile(c.machineEnv)
 		return e
 	})
 	return env, err
 }
 
-// SaveEnv serializes and writes the U-Boot environment file atomically.
-func (c *Controller) SaveEnv(env *ubootenv.Env) error {
+// loadOverrideLocked reads an override env file (persistent.env or once.env).
+// Returns an empty Env when the file does not exist. Must hold c.mu.
+func (c *Controller) loadOverrideLocked(path string) (*ubootenv.Env, error) {
+	env, err := ubootenv.LoadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ubootenv.New(), nil
+		}
+		return nil, err
+	}
+	return env, nil
+}
+
+// saveOrRemoveLocked writes env to path, or deletes the file if env has no
+// variables (so U-Boot doesn't try to import an empty file). Must hold c.mu.
+func (c *Controller) saveOrRemoveLocked(env *ubootenv.Env, path string) error {
+	if len(env.Vars) == 0 {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove %s: %w", path, err)
+		}
+		return nil
+	}
+	return env.SaveFile(path)
+}
+
+// GetBootTarget returns the effective boot_targets value: an active
+// persistent.env override takes precedence; otherwise the value from
+// machine.env is returned. Returns an empty string when neither is set.
+func (c *Controller) GetBootTarget() (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	return c.withMount(func() error {
-		return env.SaveFile(c.envFile)
+	var target string
+	err := c.withMount(func() error {
+		if pers, err := c.loadOverrideLocked(c.persistentEnv); err != nil {
+			return fmt.Errorf("load persistent env: %w", err)
+		} else if v, ok := pers.Get(ubootenv.VarBootTargets); ok {
+			target = v
+			return nil
+		}
+
+		machine, err := ubootenv.LoadFile(c.machineEnv)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return fmt.Errorf("load machine env: %w", err)
+		}
+		target, _ = machine.Get(ubootenv.VarBootTargets)
+		return nil
 	})
+	return target, err
 }
 
-// GetBootTarget reads the current boot target from the U-Boot environment.
-// Returns the raw boot_targets string (e.g. "mmc0 usb0 pxe dhcp").
-func (c *Controller) GetBootTarget() (string, error) {
-	env, err := c.LoadEnv()
-	if err != nil {
-		return "", err
-	}
-	v, _ := env.Get(ubootenv.VarBootTargets)
-	return v, nil
-}
-
-// SetBootTarget writes a boot target string to the U-Boot environment.
+// SetBootTarget writes a continuous boot target override to persistent.env.
+// An empty targets string clears the override.
 func (c *Controller) SetBootTarget(targets string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	return c.withMount(func() error {
-		env, err := ubootenv.LoadFile(c.envFile)
+		env, err := c.loadOverrideLocked(c.persistentEnv)
 		if err != nil {
-			return fmt.Errorf("load env: %w", err)
+			return fmt.Errorf("load persistent env: %w", err)
 		}
 
 		if targets == "" {
@@ -157,11 +202,34 @@ func (c *Controller) SetBootTarget(targets string) error {
 			env.Set(ubootenv.VarBootTargets, targets)
 		}
 
-		return env.SaveFile(c.envFile)
+		return c.saveOrRemoveLocked(env, c.persistentEnv)
 	})
 }
 
-// GetInventory returns board inventory data from the U-Boot environment.
+// SetBootTargetOnce writes a one-shot boot target override to once.env. U-Boot
+// imports the file on the next boot then removes it. An empty targets string
+// clears any pending one-shot override.
+func (c *Controller) SetBootTargetOnce(targets string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.withMount(func() error {
+		env, err := c.loadOverrideLocked(c.onceEnv)
+		if err != nil {
+			return fmt.Errorf("load once env: %w", err)
+		}
+
+		if targets == "" {
+			env.Delete(ubootenv.VarBootTargets)
+		} else {
+			env.Set(ubootenv.VarBootTargets, targets)
+		}
+
+		return c.saveOrRemoveLocked(env, c.onceEnv)
+	})
+}
+
+// GetInventory returns board inventory data from machine.env.
 func (c *Controller) GetInventory() (map[string]string, error) {
 	env, err := c.LoadEnv()
 	if err != nil {
@@ -170,7 +238,7 @@ func (c *Controller) GetInventory() (map[string]string, error) {
 	return env.GetInventory(), nil
 }
 
-// GetAllEnvVars returns all U-Boot environment variables.
+// GetAllEnvVars returns all variables from machine.env.
 func (c *Controller) GetAllEnvVars() (map[string]string, error) {
 	env, err := c.LoadEnv()
 	if err != nil {

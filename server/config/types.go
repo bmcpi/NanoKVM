@@ -77,8 +77,10 @@ type Serial struct {
 }
 
 type Firmware struct {
-	ImageURL   string `yaml:"imageURL"`
-	ImagePath  string `yaml:"imagePath"`
-	MountPoint string `yaml:"mountPoint"`
-	EnvFile    string `yaml:"envFile"`
+	ImageURL       string `yaml:"imageURL"`
+	ImagePath      string `yaml:"imagePath"`
+	MountPoint     string `yaml:"mountPoint"`
+	MachineEnv     string `yaml:"machineEnv"`
+	PersistentEnv  string `yaml:"persistentEnv"`
+	OnceEnv        string `yaml:"onceEnv"`
 }
