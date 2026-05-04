@@ -2,33 +2,19 @@
 # NanoKVM BMC Service
 
 DAEMON="NanoKVM-Server"
-BINARY="/kvmapp/server/${DAEMON}"
 PID_FILE="/var/run/${DAEMON}.pid"
 LOGFILE="/var/log/${DAEMON}.log"
 
 start() {
-    if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-        echo "NanoKVM already running (PID $(cat "$PID_FILE"))"
-        return 0
-    fi
-
-    echo "Starting NanoKVM BMC: "
-
-    start-stop-daemon -S -b -m -p "$PID_FILE" -O "$LOGFILE" -x "$BINARY" && echo "OK" || echo "FAIL"
+    start-stop-daemon -S -b -m -o -p "$PID_FILE" -O "$LOGFILE" -x "/kvmapp/server/${DAEMON}" && echo "OK" || echo "FAIL"
 }
 
 stop() {
-    echo "Stopping NanoKVM BMC: "
-    if [ -f "$PID_FILE" ]; then
-        start-stop-daemon -K -p "$PID_FILE" -x "$BINARY" && echo "OK" || echo "FAIL"
-        rm -f "$PID_FILE"
-    else
-        echo "not running"
-    fi
+    start-stop-daemon -K -q -o -p "$PID_FILE" -x "/kvmapp/server/${DAEMON}" && echo "OK" || echo "FAIL"
 }
 
 status() {
-    start-stop-daemon -K -q -t -p "$PID_FILE" -x "$BINARY" && echo "NanoKVM is running (PID $(cat "$PID_FILE"))" || echo "NanoKVM is not running"
+    start-stop-daemon -K -q -t -p "$PID_FILE" -x "/kvmapp/server/${DAEMON}" && echo "NanoKVM is running (PID $(cat "$PID_FILE"))" || echo "NanoKVM is not running"
 }
 
 case "$1" in
