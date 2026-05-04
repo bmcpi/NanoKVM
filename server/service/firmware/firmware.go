@@ -1,11 +1,11 @@
 package firmware
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"sync"
 
+	"github.com/diskfs/go-diskfs/filesystem"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/tinkerbell-community/NanoKVM/server/config"
@@ -17,31 +17,25 @@ type Status struct {
 	Downloaded bool   `json:"downloaded"`
 	Presented  bool   `json:"presented"`
 	ImagePath  string `json:"imagePath"`
-	MountPoint string `json:"mountPoint"`
 }
 
 // Controller manages the firmware image lifecycle.
 //
-// The image file is presented directly to the USB mass storage gadget so the
-// host (e.g. U-Boot) can boot from it. The controller does NOT keep the image
-// permanently mounted; instead it mounts on demand for env read/write
-// operations and unmounts immediately afterwards. This avoids conflicts
-// between the gadget's file-backed I/O and a local filesystem mount.
+// The image file is presented to the USB mass storage gadget so the host
+// (e.g. U-Boot) can boot from it. All env read/write operations use
+// go-diskfs for direct FAT I/O — no kernel loop device or mount/umount is
+// needed. Writes are immediately visible to the gadget because both paths
+// share the same OS page cache for the image file.
 type Controller struct {
 	mu sync.Mutex
 
-	imageURL   string
-	imagePath  string
-	mountPoint string
+	imageURL  string
+	imagePath string
 
-	// machineEnv is the file U-Boot writes on every boot containing the full
-	// effective environment. Read-only from our side; used for inventory and
-	// for reporting the currently-applied boot target.
-	machineEnv string
-	// persistentEnv contains overrides U-Boot imports on every boot.
-	persistentEnv string
-	// onceEnv contains one-shot overrides; U-Boot imports it then deletes it.
-	onceEnv string
+	// FAT-root–relative paths (e.g. "/machine.env") derived from config.
+	machineEnvFAT    string
+	persistentEnvFAT string
+	onceEnvFAT       string
 
 	presented bool
 }
@@ -56,20 +50,18 @@ func GetController() *Controller {
 	once.Do(func() {
 		cfg := config.GetInstance()
 		instance = &Controller{
-			imageURL:      cfg.Firmware.ImageURL,
-			imagePath:     cfg.Firmware.ImagePath,
-			mountPoint:    cfg.Firmware.MountPoint,
-			machineEnv:    cfg.Firmware.MachineEnv,
-			persistentEnv: cfg.Firmware.PersistentEnv,
-			onceEnv:       cfg.Firmware.OnceEnv,
+			imageURL:         cfg.Firmware.ImageURL,
+			imagePath:        cfg.Firmware.ImagePath,
+			machineEnvFAT:    fatName(cfg.Firmware.MachineEnv),
+			persistentEnvFAT: fatName(cfg.Firmware.PersistentEnv),
+			onceEnvFAT:       fatName(cfg.Firmware.OnceEnv),
 		}
 	})
 	return instance
 }
 
 // Init checks whether the firmware image is already available and presents
-// it via the USB gadget. The image is NOT mounted permanently — env
-// operations mount on demand. Call once at server startup.
+// it via the USB gadget. Call once at server startup.
 func (c *Controller) Init() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -96,81 +88,37 @@ func (c *Controller) GetStatus() Status {
 		Downloaded: c.imageExists(),
 		Presented:  c.presented,
 		ImagePath:  c.imagePath,
-		MountPoint: c.mountPoint,
 	}
 }
 
-// withMount temporarily mounts the firmware image, calls fn, then unmounts.
-// This is the only way env operations access the filesystem to avoid
-// conflicts with the USB gadget's file-backed I/O path. Must be called
-// with c.mu held.
-func (c *Controller) withMount(fn func() error) error {
-	if err := c.mountImage(); err != nil {
-		return fmt.Errorf("mount: %w", err)
-	}
-	defer func() {
-		if err := c.unmountImage(); err != nil {
-			log.Warnf("firmware: deferred unmount failed: %v", err)
-		}
-	}()
-	return fn()
-}
-
-// LoadEnv reads and parses the machine.env file written by U-Boot on the last
-// boot. This is the source of truth for currently-effective variables.
+// LoadEnv reads and parses machine.env written by U-Boot on the last boot.
+// This is the source of truth for currently-effective variables.
 func (c *Controller) LoadEnv() (*ubootenv.Env, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	var env *ubootenv.Env
-	err := c.withMount(func() error {
+	err := c.withDisk(func(fatFS filesystem.FileSystem) error {
 		var e error
-		env, e = ubootenv.LoadFile(c.machineEnv)
+		env, e = c.readEnvFromDisk(fatFS, c.machineEnvFAT)
 		return e
 	})
 	return env, err
 }
 
-// loadOverrideLocked reads an override env file (persistent.env or once.env).
-// Returns an empty Env when the file does not exist. Must hold c.mu.
-func (c *Controller) loadOverrideLocked(path string) (*ubootenv.Env, error) {
-	env, err := ubootenv.LoadFile(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return ubootenv.New(), nil
-		}
-		return nil, err
-	}
-	return env, nil
-}
-
-// saveOrRemoveLocked writes env to path, or deletes the file if env has no
-// variables (so U-Boot doesn't try to import an empty file). Must hold c.mu.
-func (c *Controller) saveOrRemoveLocked(env *ubootenv.Env, path string) error {
-	if len(env.Vars) == 0 {
-		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("remove %s: %w", path, err)
-		}
-		return nil
-	}
-	return env.SaveFile(path)
-}
-
 // GetBootTarget returns the boot_targets value from persistent.env only.
-// Returns an empty string when no persistent override is set. This does NOT
-// fall back to machine.env to avoid mistaking a consumed once-boot value for
-// a configured persistent override.
+// Returns an empty string when no persistent override is set.
 func (c *Controller) GetBootTarget() (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	var target string
-	err := c.withMount(func() error {
-		pers, err := c.loadOverrideLocked(c.persistentEnv)
-		if err != nil {
-			return fmt.Errorf("load persistent env: %w", err)
+	err := c.withDisk(func(fatFS filesystem.FileSystem) error {
+		env, e := c.readEnvFromDisk(fatFS, c.persistentEnvFAT)
+		if e != nil {
+			return fmt.Errorf("load persistent env: %w", e)
 		}
-		target, _ = pers.Get(ubootenv.VarBootTargets)
+		target, _ = env.Get(ubootenv.VarBootTargets)
 		return nil
 	})
 	return target, err
@@ -183,81 +131,73 @@ func (c *Controller) GetOnceBootTarget() (string, error) {
 	defer c.mu.Unlock()
 
 	var target string
-	err := c.withMount(func() error {
-		once, err := c.loadOverrideLocked(c.onceEnv)
-		if err != nil {
-			return fmt.Errorf("load once env: %w", err)
+	err := c.withDisk(func(fatFS filesystem.FileSystem) error {
+		env, e := c.readEnvFromDisk(fatFS, c.onceEnvFAT)
+		if e != nil {
+			return fmt.Errorf("load once env: %w", e)
 		}
-		target, _ = once.Get(ubootenv.VarBootTargets)
+		target, _ = env.Get(ubootenv.VarBootTargets)
 		return nil
 	})
 	return target, err
 }
 
 // GetEffectiveBootTarget returns the boot_targets value from machine.env —
-// i.e., the value that was actually in effect for the most recent boot.
-// This is informational only; it is never written back to any override file.
+// the value that was actually in effect for the most recent boot.
 func (c *Controller) GetEffectiveBootTarget() (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	var target string
-	err := c.withMount(func() error {
-		machine, err := ubootenv.LoadFile(c.machineEnv)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return nil
-			}
-			return fmt.Errorf("load machine env: %w", err)
+	err := c.withDisk(func(fatFS filesystem.FileSystem) error {
+		env, e := c.readEnvFromDisk(fatFS, c.machineEnvFAT)
+		if e != nil {
+			return fmt.Errorf("load machine env: %w", e)
 		}
-		target, _ = machine.Get(ubootenv.VarBootTargets)
+		target, _ = env.Get(ubootenv.VarBootTargets)
 		return nil
 	})
 	return target, err
 }
 
-// SetBootTarget writes a continuous boot target override to persistent.env.
+// SetBootTarget writes a persistent boot target override to persistent.env.
 // An empty targets string clears the override.
 func (c *Controller) SetBootTarget(targets string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	return c.withMount(func() error {
-		env, err := c.loadOverrideLocked(c.persistentEnv)
+	return c.withDisk(func(fatFS filesystem.FileSystem) error {
+		env, err := c.readEnvFromDisk(fatFS, c.persistentEnvFAT)
 		if err != nil {
 			return fmt.Errorf("load persistent env: %w", err)
 		}
-
 		if targets == "" {
 			env.Delete(ubootenv.VarBootTargets)
 		} else {
 			env.Set(ubootenv.VarBootTargets, targets)
 		}
-
-		return c.saveOrRemoveLocked(env, c.persistentEnv)
+		return c.writeEnvOrRemoveFromDisk(fatFS, env, c.persistentEnvFAT)
 	})
 }
 
-// SetBootTargetOnce writes a one-shot boot target override to once.env. U-Boot
-// imports the file on the next boot then removes it. An empty targets string
-// clears any pending one-shot override.
+// SetBootTargetOnce writes a one-shot boot target override to once.env.
+// U-Boot imports the file on the next boot then removes it.
+// An empty targets string clears any pending one-shot override.
 func (c *Controller) SetBootTargetOnce(targets string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	return c.withMount(func() error {
-		env, err := c.loadOverrideLocked(c.onceEnv)
+	return c.withDisk(func(fatFS filesystem.FileSystem) error {
+		env, err := c.readEnvFromDisk(fatFS, c.onceEnvFAT)
 		if err != nil {
 			return fmt.Errorf("load once env: %w", err)
 		}
-
 		if targets == "" {
 			env.Delete(ubootenv.VarBootTargets)
 		} else {
 			env.Set(ubootenv.VarBootTargets, targets)
 		}
-
-		return c.saveOrRemoveLocked(env, c.onceEnv)
+		return c.writeEnvOrRemoveFromDisk(fatFS, env, c.onceEnvFAT)
 	})
 }
 

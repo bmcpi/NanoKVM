@@ -1,7 +1,10 @@
 package router
 
 import (
+	"fmt"
+	"io"
 	"net/http"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -95,21 +98,87 @@ func firmwareRouter(r *gin.Engine) {
 		c.JSON(http.StatusOK, gin.H{"boot_targets": req.BootTargets, "persistence": req.Persistence})
 	})
 
-	api.POST("/mount", func(c *gin.Context) {
-		if err := ctrl.Mount(); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// ---- file management (direct FAT I/O via go-diskfs) --------------------
+
+	// GET /api/firmware/files — list all files in the FAT root.
+	api.GET("/files", func(c *gin.Context) {
+		names, err := ctrl.ListFilesInImage()
+		if err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "mounted"})
+		c.JSON(http.StatusOK, gin.H{"files": names})
 	})
 
-	api.POST("/unmount", func(c *gin.Context) {
-		if err := ctrl.Unmount(); err != nil {
+	// GET /api/firmware/file/:name — download a file from the FAT image.
+	api.GET("/file/:name", func(c *gin.Context) {
+		name := filepath.Base(c.Param("name")) // sanitise; stay at root
+		data, err := ctrl.ReadFileFromImage(name)
+		if err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+			return
+		}
+		if data == nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("%s not found in image", name)})
+			return
+		}
+		c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, name))
+		c.Data(http.StatusOK, "application/octet-stream", data)
+	})
+
+	// PUT /api/firmware/file/:name — upload / overwrite a file in the FAT image.
+	// Accepts raw binary body (Content-Type: application/octet-stream) or
+	// multipart form field "file".
+	api.PUT("/file/:name", func(c *gin.Context) {
+		name := filepath.Base(c.Param("name"))
+
+		var data []byte
+		ct := c.ContentType()
+		if ct == "multipart/form-data" {
+			fh, err := c.FormFile("file")
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "multipart field 'file' required"})
+				return
+			}
+			f, err := fh.Open()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			defer f.Close()
+			data, err = io.ReadAll(f)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		} else {
+			var err error
+			data, err = io.ReadAll(c.Request.Body)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		}
+
+		if err := ctrl.WriteFileToImage(name, data); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "unmounted"})
+
+		c.JSON(http.StatusOK, gin.H{"file": name, "bytes": len(data)})
 	})
+
+	// DELETE /api/firmware/file/:name — remove a file from the FAT image.
+	api.DELETE("/file/:name", func(c *gin.Context) {
+		name := filepath.Base(c.Param("name"))
+		if err := ctrl.RemoveFileFromImage(name); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"file": name, "deleted": true})
+	})
+
+	// ---- gadget control ----------------------------------------------------
 
 	api.POST("/present", func(c *gin.Context) {
 		if err := ctrl.Present(); err != nil {
