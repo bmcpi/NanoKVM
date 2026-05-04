@@ -13,6 +13,16 @@ import (
 
 const cookieName = "nano-kvm-token"
 
+// authedKey is the gin.Context key set to true when the request was
+// authenticated (or when auth is globally disabled). Read it via IsAuthed.
+const authedKey = "authed"
+
+// IsAuthed reports whether the current request was authenticated. It is
+// safe to call from any handler; returns false if no auth middleware ran.
+func IsAuthed(c *gin.Context) bool {
+	return c.GetBool(authedKey)
+}
+
 type Token struct {
 	Username string `json:"username"`
 	jwt.RegisteredClaims
@@ -29,13 +39,62 @@ func CheckToken() gin.HandlerFunc {
 	}
 }
 
+// ResolveAuth inspects the JWT cookie (or auth-disabled config) and sets
+// the authedKey context flag accordingly. It NEVER redirects or aborts;
+// downstream handlers may render different content for authed vs guest.
+// If the cookie is present but invalid/expired it is cleared.
+func ResolveAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		conf := config.GetInstance()
+		if conf.Authentication == "disable" {
+			c.Set(authedKey, true)
+			c.Next()
+			return
+		}
+
+		cookie, err := c.Cookie(cookieName)
+		if err != nil || cookie == "" {
+			c.Next()
+			return
+		}
+
+		if _, err := ParseJWT(cookie); err != nil {
+			// Clear stale cookie so the browser stops sending it.
+			clearAuthCookie(c)
+			c.Next()
+			return
+		}
+
+		c.Set(authedKey, true)
+		c.Next()
+	}
+}
+
+// RequireAuth redirects unauthenticated requests to the login page.
+// It must run AFTER ResolveAuth so the authedKey flag is populated.
+func RequireAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if IsAuthed(c) {
+			c.Next()
+			return
+		}
+		c.Redirect(http.StatusFound, "/auth/login")
+		c.Abort()
+	}
+}
+
 // CheckPageAuth protects server-rendered pages by validating the JWT
 // cookie. On failure it clears the stale cookie and redirects to the
 // login page. When authentication is disabled globally it passes through.
+//
+// Equivalent to chaining ResolveAuth + RequireAuth as separate middlewares
+// on a route group; provided as a single handler for callers that register
+// middleware individually (e.g. tests, ad-hoc routes).
 func CheckPageAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		conf := config.GetInstance()
 		if conf.Authentication == "disable" {
+			c.Set(authedKey, true)
 			c.Next()
 			return
 		}
@@ -56,6 +115,7 @@ func CheckPageAuth() gin.HandlerFunc {
 			return
 		}
 
+		c.Set(authedKey, true)
 		c.Next()
 	}
 }

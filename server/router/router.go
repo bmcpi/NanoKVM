@@ -64,8 +64,19 @@ func web(r *gin.Engine) {
 		c.JSON(http.StatusOK, gin.H{"valid": true})
 	})
 
-	// Protected pages — require valid JWT cookie, redirect to login otherwise
-	protected := r.Group("/").Use(middleware.CheckPageAuth())
+	// All page routes resolve auth status (sets authed flag, never redirects).
+	pages := r.Group("/")
+	pages.Use(middleware.ResolveAuth())
+
+	// Password reset is reachable both logged-in and as a guest.
+	pages.GET("/auth/password", func(c *gin.Context) {
+		render := newRender(c.Request.Context(), http.StatusOK, templates.PasswordPage(middleware.IsAuthed(c)))
+		c.Render(http.StatusOK, render)
+	})
+
+	// Protected pages — require valid JWT cookie, redirect to login otherwise.
+	protected := pages.Group("/")
+	protected.Use(middleware.RequireAuth())
 
 	protected.GET("/", func(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/dashboard")
@@ -80,10 +91,6 @@ func web(r *gin.Engine) {
 	})
 	protected.GET("/settings", func(c *gin.Context) {
 		render := newRender(c.Request.Context(), http.StatusOK, templates.SettingsPage())
-		c.Render(http.StatusOK, render)
-	})
-	protected.GET("/auth/password", func(c *gin.Context) {
-		render := newRender(c.Request.Context(), http.StatusOK, templates.PasswordPage())
 		c.Render(http.StatusOK, render)
 	})
 }
