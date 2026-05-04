@@ -19,6 +19,9 @@ type Session struct {
 	output io.Writer // receives serial port output
 }
 
+// scrollbackSize is the maximum number of bytes retained for new-session replay.
+const scrollbackSize = 8192
+
 // Broker manages a single shared serial port connection, allowing multiple
 // concurrent sessions to read from and write to it. Modelled after the
 // tinkerbell/secondstar shared-terminal pattern.
@@ -50,6 +53,11 @@ type Broker struct {
 
 	// sessionCount is an atomic counter for fast len checks and unique ID generation.
 	sessionCount atomic.Int32
+
+	// scrollback retains the most recent serial output so new sessions can
+	// receive a replay on connect and immediately see the current terminal state.
+	scrollMu   sync.Mutex
+	scrollback []byte
 }
 
 // singleton broker instance
@@ -91,6 +99,16 @@ func (b *Broker) Connect(id string, output io.Writer) (*Session, error) {
 	b.sessions.Store(id, sess)
 	b.mw.Add(output)
 	b.sessionCount.Add(1)
+
+	// Replay scrollback so the new session immediately sees the current
+	// terminal state without sending anything to the serial port.
+	b.scrollMu.Lock()
+	replay := make([]byte, len(b.scrollback))
+	copy(replay, b.scrollback)
+	b.scrollMu.Unlock()
+	if len(replay) > 0 {
+		_, _ = output.Write(replay)
+	}
 
 	log.Infof("serial: session %q connected (%d total)", id, b.sessionCount.Load())
 	return sess, nil
@@ -227,6 +245,10 @@ func (b *Broker) stopLocked() {
 	b.port = nil
 	b.stdin = nil
 
+	b.scrollMu.Lock()
+	b.scrollback = nil
+	b.scrollMu.Unlock()
+
 	log.Info("serial: closed")
 }
 
@@ -256,8 +278,21 @@ func (b *Broker) readLoop() {
 		if n > 0 {
 			// Map LF → CRLF for terminal display (like picocom --imap lfcrlf).
 			mapped := mapLFtoCRLF(buf[:n])
+			b.appendScrollback(mapped)
 			_, _ = b.mw.Write(mapped)
 		}
+	}
+}
+
+// appendScrollback appends data to the rolling scrollback buffer, trimming
+// the oldest bytes when the buffer exceeds scrollbackSize.
+func (b *Broker) appendScrollback(data []byte) {
+	b.scrollMu.Lock()
+	defer b.scrollMu.Unlock()
+
+	b.scrollback = append(b.scrollback, data...)
+	if len(b.scrollback) > scrollbackSize {
+		b.scrollback = b.scrollback[len(b.scrollback)-scrollbackSize:]
 	}
 }
 
