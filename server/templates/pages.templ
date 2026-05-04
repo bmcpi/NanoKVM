@@ -398,6 +398,22 @@ templ DashboardPage() {
 						<div class="info-label">Boot Override</div>
 						<div class="info-value" id="info-boot-override">—</div>
 					</div>
+					<div class="info-item" style="grid-column: 1 / -1">
+						<div class="info-label">Set Boot Override</div>
+						<div class="info-value" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap">
+							<select id="boot-override-select" style="background:#1c1c1c; color:#d4d4d4; border:1px solid #404040; border-radius:4px; padding:2px 6px; font-size:0.75rem">
+								<option value="None">None (default)</option>
+								<option value="Pxe">PXE (network)</option>
+								<option value="Hdd">HDD / MMC / NVMe</option>
+								<option value="Cd">CD / USB</option>
+								<option value="BiosSetup">BIOS Setup</option>
+								<option value="UefiHttp">UEFI HTTP Boot</option>
+							</select>
+							<button class="toolbar-btn" onclick="setBootOverride(false)" style="font-size:0.75rem">Once</button>
+							<button class="toolbar-btn" onclick="setBootOverride(true)" style="font-size:0.75rem">Persistent</button>
+							<span id="boot-override-status" style="font-size:0.7rem; color:#71717a"></span>
+						</div>
+					</div>
 					<div class="info-item">
 						<div class="info-label">Boot Methods</div>
 						<div class="info-value" id="info-bootmeths">—</div>
@@ -665,7 +681,34 @@ templ DashboardPage() {
 				} catch(e) {}
 			}
 			loadFirmwareInfo();
-			window.downloadFirmware = async function() {
+			window.setBootOverride = async function(persistent) {
+				const target = document.getElementById('boot-override-select').value;
+				const status = document.getElementById('boot-override-status');
+				status.textContent = 'Applying...';
+				try {
+					const r = await fetch('/redfish/v1/Systems/1', {
+						method: 'PATCH',
+						headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							Boot: {
+								BootSourceOverrideTarget: target,
+								BootSourceOverrideEnabled: persistent ? 'Continuous' : 'Once'
+							}
+						})
+					});
+					if (r.ok) {
+						status.textContent = persistent ? 'Set (persistent)' : 'Set (once)';
+						loadFirmwareInfo();
+					} else {
+						const err = await r.json().catch(() => ({}));
+						status.textContent = 'Error: ' + (err.error?.message || r.statusText);
+					}
+				} catch(e) {
+					status.textContent = 'Error: ' + e.message;
+				}
+			};
+
+						window.downloadFirmware = async function() {
 				const btn = document.getElementById('btn-fw-download');
 				btn.disabled = true;
 				btn.textContent = 'Downloading...';

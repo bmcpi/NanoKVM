@@ -16,6 +16,7 @@ var validBootTargets = map[string]bool{
 	"Hdd":       true,
 	"Cd":        true,
 	"BiosSetup": true,
+	"UefiHttp":  true,
 }
 
 func (s *Service) GetSystemCollection(c *gin.Context) {
@@ -169,7 +170,7 @@ func buildSystemResource() gin.H {
 			"BootSourceOverrideTarget":  currentTarget,
 			"BootSourceOverrideEnabled": overrideEnabled,
 			"BootSourceOverrideTarget@Redfish.AllowableValues": []string{
-				"None", "Pxe", "Hdd", "Cd", "BiosSetup",
+				"None", "Pxe", "Hdd", "Cd", "BiosSetup", "UefiHttp",
 			},
 			"BootSourceOverrideEnabled@Redfish.AllowableValues": []string{
 				"Disabled", "Once", "Continuous",
