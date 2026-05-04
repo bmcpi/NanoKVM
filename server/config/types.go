@@ -77,8 +77,16 @@ type Serial struct {
 }
 
 type Firmware struct {
-	ImageURL      string `yaml:"imageURL"`
-	ImagePath     string `yaml:"imagePath"`
+	ImageURL  string `yaml:"imageURL"`
+	ImagePath string `yaml:"imagePath"`
+	// FirmwareDir is the local directory holding the canonical FAT root files
+	// (u-boot.bin, config.txt, RPi *.elf/*.dat firmware blobs, .dtb files,
+	// overlays/, etc.). The boot image is built from this directory; it is
+	// the source of truth, allowing each file to be versioned/edited
+	// independently of the composite .img.
+	FirmwareDir string `yaml:"firmwareDir"`
+	// MountPoint is retained for backward-compat with existing YAML files but
+	// is no longer used at runtime — env paths are derived as FAT-root names.
 	MountPoint    string `yaml:"mountPoint"`
 	MachineEnv    string `yaml:"machineEnv"`
 	PersistentEnv string `yaml:"persistentEnv"`

@@ -2,7 +2,9 @@ package firmware
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/diskfs/go-diskfs/filesystem"
@@ -14,9 +16,12 @@ import (
 
 // Status describes the current state of the firmware controller.
 type Status struct {
-	Downloaded bool   `json:"downloaded"`
-	Presented  bool   `json:"presented"`
-	ImagePath  string `json:"imagePath"`
+	ImageBuilt    bool   `json:"imageBuilt"`
+	Bootstrapped  bool   `json:"bootstrapped"`
+	Presented     bool   `json:"presented"`
+	ImagePath     string `json:"imagePath"`
+	FirmwareDir   string `json:"firmwareDir"`
+	FirmwareCount int    `json:"firmwareCount"`
 }
 
 // Controller manages the firmware image lifecycle.
@@ -29,8 +34,9 @@ type Status struct {
 type Controller struct {
 	mu sync.Mutex
 
-	imageURL  string
-	imagePath string
+	imageURL    string
+	imagePath   string
+	firmwareDir string
 
 	// FAT-root–relative paths (e.g. "/machine.env") derived from config.
 	machineEnvFAT    string
@@ -52,6 +58,7 @@ func GetController() *Controller {
 		instance = &Controller{
 			imageURL:         cfg.Firmware.ImageURL,
 			imagePath:        cfg.Firmware.ImagePath,
+			firmwareDir:      cfg.Firmware.FirmwareDir,
 			machineEnvFAT:    fatName(cfg.Firmware.MachineEnv),
 			persistentEnvFAT: fatName(cfg.Firmware.PersistentEnv),
 			onceEnvFAT:       fatName(cfg.Firmware.OnceEnv),
@@ -60,14 +67,25 @@ func GetController() *Controller {
 	return instance
 }
 
-// Init checks whether the firmware image is already available and presents
-// it via the USB gadget. Call once at server startup.
+// Init checks whether the firmware image exists and presents it via the USB
+// gadget. If the firmware-files directory already has content but no image
+// is built yet, it builds the image first.
 func (c *Controller) Init() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	hasFiles := c.firmwareDirHasFiles()
+
+	// Auto-build image if firmware files exist but image is missing.
+	if !c.imageExists() && hasFiles {
+		log.Info("firmware: image missing but firmware files present, building image")
+		if err := c.buildImageLocked(); err != nil {
+			return fmt.Errorf("auto-build image: %w", err)
+		}
+	}
+
 	if !c.imageExists() {
-		log.Info("firmware: image not found at ", c.imagePath)
+		log.Info("firmware: image not found at ", c.imagePath, " — call DownloadAndInit to bootstrap")
 		return nil
 	}
 
@@ -84,11 +102,43 @@ func (c *Controller) GetStatus() Status {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	return Status{
-		Downloaded: c.imageExists(),
-		Presented:  c.presented,
-		ImagePath:  c.imagePath,
+	count := 0
+	if entries, err := os.ReadDir(c.firmwareDir); err == nil {
+		for _, e := range entries {
+			if !e.IsDir() {
+				count++
+			}
+		}
 	}
+
+	return Status{
+		ImageBuilt:    c.imageExists(),
+		Bootstrapped:  count > 0,
+		Presented:     c.presented,
+		ImagePath:     c.imagePath,
+		FirmwareDir:   c.firmwareDir,
+		FirmwareCount: count,
+	}
+}
+
+// firmwareDirHasFiles reports whether c.firmwareDir contains at least one
+// regular file at any depth. Caller need not hold c.mu (read-only fs check).
+func (c *Controller) firmwareDirHasFiles() bool {
+	if c.firmwareDir == "" {
+		return false
+	}
+	found := false
+	_ = filepath.Walk(c.firmwareDir, func(_ string, info os.FileInfo, err error) error {
+		if err != nil || info == nil {
+			return nil
+		}
+		if !info.IsDir() {
+			found = true
+			return io.EOF // stop walking
+		}
+		return nil
+	})
+	return found
 }
 
 // LoadEnv reads and parses machine.env written by U-Boot on the last boot.

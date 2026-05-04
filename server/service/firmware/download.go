@@ -1,5 +1,15 @@
 package firmware
 
+// download.go implements the bootstrap flow:
+//   - Download the upstream U-Boot image (xz-compressed) to a staging file.
+//   - Extract its FAT root files into c.firmwareDir via go-diskfs.
+//   - Discard the staging image.
+//   - Build a fresh image at c.imagePath from c.firmwareDir.
+//
+// After bootstrap, c.firmwareDir is the source of truth — individual files
+// (u-boot.bin, config.txt, *.elf, *.dtb, overlays/) can be updated and the
+// image rebuilt without re-downloading.
+
 import (
 	"fmt"
 	"io"
@@ -13,52 +23,72 @@ import (
 
 const downloadSentinel = "/tmp/.firmware_download_in_progress"
 
-// Download fetches the firmware image from the configured URL, decompresses it,
-// and stores it at the configured image path.
-func (c *Controller) Download() error {
+// Bootstrap downloads the upstream image, extracts its FAT root files into
+// c.firmwareDir, then builds a fresh boot image. Idempotent: if c.firmwareDir
+// already has files, this re-downloads and overwrites them.
+func (c *Controller) Bootstrap() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	return c.bootstrapLocked()
+}
 
+func (c *Controller) bootstrapLocked() error {
 	// Prevent concurrent downloads.
 	if _, err := os.Stat(downloadSentinel); err == nil {
 		return fmt.Errorf("download already in progress")
 	}
-
 	if err := os.WriteFile(downloadSentinel, []byte("downloading"), 0o644); err != nil {
 		return fmt.Errorf("create sentinel: %w", err)
 	}
 	defer os.Remove(downloadSentinel)
 
-	dir := filepath.Dir(c.imagePath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if c.firmwareDir == "" {
+		return fmt.Errorf("firmwareDir not configured")
+	}
+	if err := os.MkdirAll(c.firmwareDir, 0o755); err != nil {
 		return fmt.Errorf("create firmware dir: %w", err)
 	}
 
-	xzPath := c.imagePath + ".xz"
+	// Stage download next to the firmware dir.
+	stageDir := filepath.Join(filepath.Dir(c.firmwareDir), "stage")
+	if err := os.MkdirAll(stageDir, 0o755); err != nil {
+		return fmt.Errorf("create stage dir: %w", err)
+	}
+	xzPath := filepath.Join(stageDir, "upstream.img.xz")
+	imgPath := filepath.Join(stageDir, "upstream.img")
+	defer func() {
+		_ = os.Remove(xzPath)
+		_ = os.Remove(imgPath)
+	}()
 
 	log.Infof("firmware: downloading %s", c.imageURL)
 	if err := downloadFile(c.imageURL, xzPath); err != nil {
-		os.Remove(xzPath)
 		return fmt.Errorf("download: %w", err)
 	}
 
 	log.Info("firmware: decompressing image")
-	if err := decompressXZ(xzPath, c.imagePath); err != nil {
-		os.Remove(xzPath)
-		os.Remove(c.imagePath)
+	if err := decompressXZ(xzPath, imgPath); err != nil {
 		return fmt.Errorf("decompress: %w", err)
 	}
 
-	// Clean up compressed file.
-	os.Remove(xzPath)
+	log.Info("firmware: extracting FAT root into firmware dir")
+	if err := extractImageToFirmwareDir(imgPath, c.firmwareDir); err != nil {
+		return fmt.Errorf("extract: %w", err)
+	}
 
-	log.Info("firmware: download complete")
+	log.Info("firmware: building boot image from firmware dir")
+	if err := c.buildImageLocked(); err != nil {
+		return fmt.Errorf("build: %w", err)
+	}
+
+	log.Info("firmware: bootstrap complete")
 	return nil
 }
 
-// DownloadAndInit downloads the firmware image, then presents it via USB gadget.
+// DownloadAndInit bootstraps from the upstream image, then presents via gadget.
+// Kept for API compatibility.
 func (c *Controller) DownloadAndInit() error {
-	if err := c.Download(); err != nil {
+	if err := c.Bootstrap(); err != nil {
 		return err
 	}
 
@@ -68,7 +98,6 @@ func (c *Controller) DownloadAndInit() error {
 	if err := c.presentImage(); err != nil {
 		log.Warnf("firmware: USB gadget present failed: %v", err)
 	}
-
 	return nil
 }
 
@@ -105,7 +134,6 @@ func downloadFile(url, dest string) error {
 }
 
 func decompressXZ(src, dest string) error {
-	// Use xz command to decompress: xz -d -k keeps source, writes to stdout.
 	cmd := exec.Command("xz", "-d", "-c", src)
 	outFile, err := os.Create(dest)
 	if err != nil {
@@ -119,6 +147,6 @@ func decompressXZ(src, dest string) error {
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("xz decompress: %w", err)
 	}
-
 	return outFile.Sync()
 }
+

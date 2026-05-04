@@ -125,83 +125,117 @@ func (c *Controller) writeEnvOrRemoveFromDisk(fatFS filesystem.FileSystem, env *
 }
 
 // ---- public file-level API --------------------------------------------------
+//
+// File operations target the firmware-files directory (c.firmwareDir), the
+// canonical source-of-truth for FAT root contents. Each write/delete triggers
+// a full image rebuild so the gadget serves the updated bytes. Env files
+// written via SetBootTarget bypass this and go straight into the image.
 
-// ReadFileFromImage reads a named file from the firmware image's FAT partition.
+// ReadFileFromImage reads a named file from the firmware-files directory.
 // name may be relative ("u-boot.bin") or absolute ("/u-boot.bin").
+// Returns (nil, nil) if the file does not exist.
 func (c *Controller) ReadFileFromImage(name string) ([]byte, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	fatPath := ensureSlash(name)
-	var data []byte
-	err := c.withDisk(func(fatFS filesystem.FileSystem) error {
-		var e error
-		data, e = readFromFS(fatFS, fatPath)
-		return e
-	})
-	return data, err
+	hostPath, err := c.firmwareHostPath(name)
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(hostPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return data, nil
 }
 
-// WriteFileToImage writes data to a named file in the firmware image's FAT
-// partition, creating or overwriting the file as needed.
-// After writing, a sync is issued so the USB gadget serves fresh data on the
-// host's next read.
+// WriteFileToImage writes data to a named file in the firmware-files
+// directory and rebuilds the boot image. After the rebuild, sync(1) flushes
+// the new image to disk so the USB gadget serves fresh data.
 func (c *Controller) WriteFileToImage(name string, data []byte) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	fatPath := ensureSlash(name)
-	err := c.withDisk(func(fatFS filesystem.FileSystem) error {
-		return writeToFS(fatFS, fatPath, data)
-	})
+	hostPath, err := c.firmwareHostPath(name)
 	if err != nil {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Dir(hostPath), 0o755); err != nil {
+		return fmt.Errorf("mkdir parent: %w", err)
+	}
+	if err := os.WriteFile(hostPath, data, 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", hostPath, err)
+	}
 
-	// Flush kernel page cache → disk so f_mass_storage serves the new blocks.
+	if err := c.buildImageLocked(); err != nil {
+		return fmt.Errorf("rebuild image: %w", err)
+	}
 	_ = exec.Command("sync").Run()
 
-	log.Infof("firmware: wrote %d bytes → image:%s", len(data), fatPath)
+	log.Infof("firmware: wrote %d bytes → %s (image rebuilt)", len(data), hostPath)
 	return nil
 }
 
-// RemoveFileFromImage deletes a named file from the firmware image's FAT partition.
+// RemoveFileFromImage deletes a file from the firmware-files directory and
+// rebuilds the image.
 func (c *Controller) RemoveFileFromImage(name string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	fatPath := ensureSlash(name)
-	err := c.withDisk(func(fatFS filesystem.FileSystem) error {
-		if rmErr := fatFS.Remove(fatPath); rmErr != nil && !isNotExist(rmErr) {
-			return fmt.Errorf("remove %s: %w", fatPath, rmErr)
-		}
-		return nil
-	})
+	hostPath, err := c.firmwareHostPath(name)
 	if err != nil {
 		return err
 	}
+	if err := os.Remove(hostPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove %s: %w", hostPath, err)
+	}
+
+	if err := c.buildImageLocked(); err != nil {
+		return fmt.Errorf("rebuild image: %w", err)
+	}
 	_ = exec.Command("sync").Run()
-	log.Infof("firmware: removed image:%s", fatPath)
+
+	log.Infof("firmware: removed %s (image rebuilt)", hostPath)
 	return nil
 }
 
-// ListFilesInImage returns the names of all entries in the FAT root directory.
+// ListFilesInImage returns names of all entries in the firmware-files dir
+// (root level only).
 func (c *Controller) ListFilesInImage() ([]string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	var names []string
-	err := c.withDisk(func(fatFS filesystem.FileSystem) error {
-		entries, err := fatFS.ReadDir("/")
-		if err != nil {
-			return fmt.Errorf("readdir /: %w", err)
+	if c.firmwareDir == "" {
+		return nil, fmt.Errorf("firmwareDir not configured")
+	}
+	entries, err := os.ReadDir(c.firmwareDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
 		}
-		for _, e := range entries {
-			names = append(names, e.Name())
-		}
-		return nil
-	})
-	return names, err
+		return nil, err
+	}
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	return names, nil
+}
+
+// firmwareHostPath maps a user-supplied file name to its absolute path inside
+// c.firmwareDir, rejecting traversal attempts.
+func (c *Controller) firmwareHostPath(name string) (string, error) {
+	if c.firmwareDir == "" {
+		return "", fmt.Errorf("firmwareDir not configured")
+	}
+	clean := filepath.Clean("/" + strings.TrimPrefix(name, "/"))
+	if strings.Contains(clean, "..") {
+		return "", fmt.Errorf("invalid name %q", name)
+	}
+	return filepath.Join(c.firmwareDir, clean), nil
 }
 
 func ensureSlash(p string) string {

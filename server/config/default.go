@@ -48,6 +48,7 @@ var defaultConfig = &Config{
 	Firmware: Firmware{
 		ImageURL:      "https://github.com/tinkerbell-community/uboot-raspberrypi/releases/download/v2026.04-rc4.1/uboot-raspberrypi-2026.04-rc4.1.img.xz",
 		ImagePath:     "/data/firmware/uboot-rpi.img",
+		FirmwareDir:   "/data/firmware/files",
 		MountPoint:    "/mnt/firmware",
 		MachineEnv:    "/mnt/firmware/machine.env",
 		PersistentEnv: "/mnt/firmware/persistent.env",
@@ -102,6 +103,9 @@ func checkDefaultValue() {
 	}
 	if instance.Firmware.ImagePath == "" {
 		instance.Firmware.ImagePath = defaultConfig.Firmware.ImagePath
+	}
+	if instance.Firmware.FirmwareDir == "" {
+		instance.Firmware.FirmwareDir = defaultConfig.Firmware.FirmwareDir
 	}
 	if instance.Firmware.MountPoint == "" {
 		instance.Firmware.MountPoint = defaultConfig.Firmware.MountPoint

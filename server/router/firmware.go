@@ -178,6 +178,15 @@ func firmwareRouter(r *gin.Engine) {
 		c.JSON(http.StatusOK, gin.H{"file": name, "deleted": true})
 	})
 
+	// POST /api/firmware/build — rebuild the boot image from firmware-files dir.
+	api.POST("/build", func(c *gin.Context) {
+		if err := ctrl.BuildImage(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "image rebuilt"})
+	})
+
 	// ---- gadget control ----------------------------------------------------
 
 	api.POST("/present", func(c *gin.Context) {
