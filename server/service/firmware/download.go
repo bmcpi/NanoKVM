@@ -79,7 +79,6 @@ func (c *Controller) downloadImageLocked() error {
 			log.Warnf("firmware: pre-download loop detach: %v", err)
 		}
 	}
-	c.invalidateEnvCacheLocked()
 
 	stageDir := filepath.Join(filepath.Dir(c.imagePath), "stage")
 	if err := os.MkdirAll(stageDir, 0o755); err != nil {

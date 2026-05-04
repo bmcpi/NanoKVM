@@ -26,19 +26,12 @@ import (
 	"fmt"
 	"os"
 	"sync"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/tinkerbell-community/NanoKVM/server/config"
 	"github.com/tinkerbell-community/NanoKVM/server/service/ubootenv"
 )
-
-// envCacheTTL bounds how long a cached env snapshot may be served. Reads
-// within this window return cached data without a mount. Writes invalidate
-// the cache immediately. The host can mutate machine.env at boot time
-// without our knowledge; the TTL caps that staleness.
-const envCacheTTL = 5 * time.Second
 
 // Status describes the current state of the firmware controller.
 type Status struct {
@@ -56,7 +49,6 @@ type envSnapshot struct {
 	machine    *ubootenv.Env
 	persistent *ubootenv.Env
 	once       *ubootenv.Env
-	loadedAt   time.Time
 }
 
 // Controller manages the firmware image lifecycle.
@@ -75,8 +67,6 @@ type Controller struct {
 
 	loopDev   string // persistent loop device, attached at Init
 	presented bool
-
-	envCache *envSnapshot
 }
 
 var (
@@ -184,53 +174,34 @@ func saveOrRemoveEnv(env *ubootenv.Env, path string) error {
 	return env.SaveFile(path)
 }
 
-// ---- env snapshot cache ----------------------------------------------------
+// ---- env snapshot (cache-free, page-cache-coherent reads) ----------------
 
-// invalidateEnvCacheLocked drops the cached env snapshot. Call after any
-// write that touches an env file. Must hold c.mu.
-func (c *Controller) invalidateEnvCacheLocked() {
-	c.envCache = nil
-}
-
-// envSnapshotLocked returns a current env snapshot, mounting and reading
-// the three files if the cache is empty or expired. Must hold c.mu.
+// envSnapshotLocked reads all three env files from the image without
+// mounting. Each call is a fresh read via the userspace FAT parser,
+// so it always reflects the current on-disk state (within page-cache
+// coherency with any in-flight gadget writes). Must hold c.mu.
 func (c *Controller) envSnapshotLocked() (*envSnapshot, error) {
-	if c.envCache != nil && time.Since(c.envCache.loadedAt) < envCacheTTL {
-		return c.envCache, nil
+	snap := &envSnapshot{}
+	var err error
+	if snap.machine, err = c.loadEnvFresh(c.machineEnv); err != nil {
+		return nil, fmt.Errorf("load machine env: %w", err)
 	}
-
-	snap := &envSnapshot{loadedAt: time.Now()}
-	err := c.withMount(func() error {
-		var e error
-		if snap.machine, e = loadEnvFile(c.machineEnv); e != nil {
-			return fmt.Errorf("load machine env: %w", e)
-		}
-		if snap.persistent, e = loadEnvFile(c.persistentEnv); e != nil {
-			return fmt.Errorf("load persistent env: %w", e)
-		}
-		if snap.once, e = loadEnvFile(c.onceEnv); e != nil {
-			return fmt.Errorf("load once env: %w", e)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
+	if snap.persistent, err = c.loadEnvFresh(c.persistentEnv); err != nil {
+		return nil, fmt.Errorf("load persistent env: %w", err)
 	}
-	c.envCache = snap
+	if snap.once, err = c.loadEnvFresh(c.onceEnv); err != nil {
+		return nil, fmt.Errorf("load once env: %w", err)
+	}
 	return snap, nil
 }
 
 // ---- env API ---------------------------------------------------------------
 
-// LoadEnv returns machine.env (written by U-Boot at last boot). Cached.
+// LoadEnv returns machine.env (written by U-Boot at last boot). Fresh read.
 func (c *Controller) LoadEnv() (*ubootenv.Env, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	snap, err := c.envSnapshotLocked()
-	if err != nil {
-		return nil, err
-	}
-	return snap.machine, nil
+	return c.loadEnvFresh(c.machineEnv)
 }
 
 // BootTargets bundles the three boot-target views read from the image.
@@ -241,7 +212,7 @@ type BootTargets struct {
 }
 
 // GetBootTargets returns persistent, once, and effective boot targets in
-// a single (cached) snapshot.
+// a single fresh read.
 func (c *Controller) GetBootTargets() (BootTargets, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -256,19 +227,19 @@ func (c *Controller) GetBootTargets() (BootTargets, error) {
 	return bt, nil
 }
 
-// GetBootTarget returns boot_targets from persistent.env. Cached.
+// GetBootTarget returns boot_targets from persistent.env. Fresh read.
 func (c *Controller) GetBootTarget() (string, error) {
 	bt, err := c.GetBootTargets()
 	return bt.Persistent, err
 }
 
-// GetOnceBootTarget returns boot_targets from once.env. Cached.
+// GetOnceBootTarget returns boot_targets from once.env. Fresh read.
 func (c *Controller) GetOnceBootTarget() (string, error) {
 	bt, err := c.GetBootTargets()
 	return bt.Once, err
 }
 
-// GetEffectiveBootTarget returns boot_targets from machine.env. Cached.
+// GetEffectiveBootTarget returns boot_targets from machine.env. Fresh read.
 func (c *Controller) GetEffectiveBootTarget() (string, error) {
 	bt, err := c.GetBootTargets()
 	return bt.Effective, err
@@ -278,7 +249,6 @@ func (c *Controller) GetEffectiveBootTarget() (string, error) {
 func (c *Controller) SetBootTarget(targets string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	defer c.invalidateEnvCacheLocked()
 
 	return c.withMount(func() error {
 		env, err := loadEnvFile(c.persistentEnv)
@@ -298,7 +268,6 @@ func (c *Controller) SetBootTarget(targets string) error {
 func (c *Controller) SetBootTargetOnce(targets string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	defer c.invalidateEnvCacheLocked()
 
 	return c.withMount(func() error {
 		env, err := loadEnvFile(c.onceEnv)
@@ -314,7 +283,7 @@ func (c *Controller) SetBootTargetOnce(targets string) error {
 	})
 }
 
-// GetInventory returns board inventory data from machine.env. Cached.
+// GetInventory returns board inventory data from machine.env. Fresh read.
 func (c *Controller) GetInventory() (map[string]string, error) {
 	env, err := c.LoadEnv()
 	if err != nil {
@@ -323,7 +292,7 @@ func (c *Controller) GetInventory() (map[string]string, error) {
 	return env.GetInventory(), nil
 }
 
-// GetAllEnvVars returns all variables from machine.env. Cached.
+// GetAllEnvVars returns all variables from machine.env. Fresh read.
 func (c *Controller) GetAllEnvVars() (map[string]string, error) {
 	env, err := c.LoadEnv()
 	if err != nil {
