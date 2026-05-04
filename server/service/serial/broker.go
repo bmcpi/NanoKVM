@@ -172,6 +172,10 @@ func (b *Broker) Close() {
 	})
 	b.sessionCount.Store(0)
 	b.stopLocked()
+
+	b.scrollMu.Lock()
+	b.scrollback = nil
+	b.scrollMu.Unlock()
 }
 
 // mapParity converts config parity string to go.bug.st/serial parity mode.
@@ -244,10 +248,6 @@ func (b *Broker) stopLocked() {
 	}
 	b.port = nil
 	b.stdin = nil
-
-	b.scrollMu.Lock()
-	b.scrollback = nil
-	b.scrollMu.Unlock()
 
 	log.Info("serial: closed")
 }

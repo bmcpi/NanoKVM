@@ -427,6 +427,48 @@ templ DashboardPage() {
 						</div>
 					</div>
 				</div>
+				<!-- Virtual Media row -->
+				<div class="info-grid" id="virtual-media-info" style="margin-top: 0.75rem">
+					<div class="info-item" style="grid-column: 1 / -1">
+						<div class="info-label">Virtual Media</div>
+						<div class="info-value" style="display:flex; flex-direction:column; gap:0.5rem">
+							<!-- Current state + eject -->
+							<div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap">
+								<span id="vm-status" style="font-size:0.75rem; color:#71717a">Not inserted</span>
+								<button class="toolbar-btn" id="btn-vm-eject" onclick="ejectVirtualMedia()" style="display:none; border-color:#b91c1c; color:#ef4444; font-size:0.75rem">
+									Eject
+								</button>
+							</div>
+							<!-- Select + insert existing ISO -->
+							<div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap">
+								<select id="vm-select" style="background:#1c1c1c; color:#d4d4d4; border:1px solid #404040; border-radius:4px; padding:2px 6px; font-size:0.75rem">
+									<option value="">— select ISO —</option>
+								</select>
+								<button class="toolbar-btn" onclick="insertVirtualMedia()" style="font-size:0.75rem">Insert</button>
+								<span id="vm-action-status" style="font-size:0.7rem; color:#71717a"></span>
+							</div>
+							<!-- Add ISO: tab switcher -->
+							<div style="display:flex; flex-direction:column; gap:0.375rem; border:1px solid #262626; border-radius:0.375rem; padding:0.5rem">
+								<div style="display:flex; gap:0.25rem; margin-bottom:0.25rem">
+									<button id="vm-tab-file" onclick="vmSwitchTab('file')" style="padding:2px 8px; border-radius:3px; font-size:0.6875rem; cursor:pointer; border:1px solid #1d4ed8; background:#1d4ed8; color:white">File</button>
+									<button id="vm-tab-url" onclick="vmSwitchTab('url')" style="padding:2px 8px; border-radius:3px; font-size:0.6875rem; cursor:pointer; border:1px solid #404040; background:transparent; color:#a3a3a3">URL</button>
+								</div>
+								<!-- File picker panel -->
+								<div id="vm-panel-file" style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap">
+									<input type="file" id="vm-upload-file" accept=".iso,.img" style="font-size:0.75rem; color:#a3a3a3; max-width:240px"/>
+									<button class="toolbar-btn" onclick="uploadISO()" style="font-size:0.75rem">Upload</button>
+								</div>
+								<!-- URL panel -->
+								<div id="vm-panel-url" style="display:none; align-items:center; gap:0.5rem; flex-wrap:wrap">
+									<input type="url" id="vm-url-input" placeholder="https://example.com/image.iso" style="background:#0a0a0a; border:1px solid #404040; border-radius:4px; padding:2px 8px; font-size:0.75rem; color:#e5e5e5; width:280px"/>
+									<input type="text" id="vm-url-name" placeholder="filename.iso (optional)" style="background:#0a0a0a; border:1px solid #404040; border-radius:4px; padding:2px 8px; font-size:0.75rem; color:#e5e5e5; width:160px"/>
+									<button class="toolbar-btn" onclick="fetchISO()" style="font-size:0.75rem">Fetch</button>
+								</div>
+								<span id="vm-add-status" style="font-size:0.7rem; color:#71717a"></span>
+							</div>
+						</div>
+					</div>
+				</div>
 			</div>
 
 			<!-- Serial Console Pane -->
@@ -738,6 +780,145 @@ templ DashboardPage() {
 
 			// Auto-connect serial
 			window.connectSerial();
+
+			// ---- Virtual Media -------------------------------------------------
+			async function loadVirtualMedia() {
+				try {
+					const r = await fetch('/api/firmware/media', { headers: getAuthHeaders() });
+					if (!r.ok) return;
+					const data = await r.json();
+					const sel = document.getElementById('vm-select');
+					const prev = sel.value;
+					sel.innerHTML = '<option value="">— select ISO —</option>';
+					(data.files || []).forEach(f => {
+						const o = document.createElement('option');
+						o.value = f; o.textContent = f;
+						sel.appendChild(o);
+					});
+					if (prev && data.files && data.files.includes(prev)) sel.value = prev;
+
+					const statusEl = document.getElementById('vm-status');
+					const ejectBtn = document.getElementById('btn-vm-eject');
+					if (data.inserted) {
+						statusEl.textContent = 'Inserted: ' + data.inserted;
+						statusEl.style.color = '#22c55e';
+						ejectBtn.style.display = '';
+					} else {
+						statusEl.textContent = 'Not inserted';
+						statusEl.style.color = '#71717a';
+						ejectBtn.style.display = 'none';
+					}
+				} catch(e) {}
+			}
+			loadVirtualMedia();
+
+			window.insertVirtualMedia = async function() {
+				const name = document.getElementById('vm-select').value;
+				const status = document.getElementById('vm-action-status');
+				if (!name) { status.textContent = 'Select an ISO first'; return; }
+				status.textContent = 'Inserting...';
+				try {
+					const r = await fetch('/api/firmware/media/insert', {
+						method: 'POST',
+						headers: getAuthHeaders(),
+						body: JSON.stringify({ name }),
+					});
+					if (r.ok) {
+						status.textContent = 'Inserted';
+						loadVirtualMedia();
+						loadFirmwareInfo();
+					} else {
+						const err = await r.json().catch(() => ({}));
+						status.textContent = 'Error: ' + (err.error || r.statusText);
+					}
+				} catch(e) { status.textContent = 'Error: ' + e.message; }
+			};
+
+			window.ejectVirtualMedia = async function() {
+				const status = document.getElementById('vm-action-status');
+				status.textContent = 'Ejecting...';
+				try {
+					const r = await fetch('/api/firmware/media/eject', {
+						method: 'POST',
+						headers: getAuthHeaders(),
+					});
+					if (r.ok) {
+						status.textContent = 'Ejected';
+						loadVirtualMedia();
+						loadFirmwareInfo();
+					} else {
+						const err = await r.json().catch(() => ({}));
+						status.textContent = 'Error: ' + (err.error || r.statusText);
+					}
+				} catch(e) { status.textContent = 'Error: ' + e.message; }
+			};
+
+			window.uploadISO = async function() {
+				const fileInput = document.getElementById('vm-upload-file');
+				const status = document.getElementById('vm-add-status');
+				if (!fileInput.files || !fileInput.files.length) {
+					status.textContent = 'Select a file first';
+					return;
+				}
+				const file = fileInput.files[0];
+				const token = getCookie('nano-kvm-token') || '';
+				const form = new FormData();
+				form.append('file', file);
+				status.textContent = 'Uploading…';
+				try {
+					const r = await fetch('/api/firmware/media/upload', {
+						method: 'POST',
+						headers: { 'token': token },
+						body: form,
+					});
+					if (r.ok) {
+						const d = await r.json();
+						status.textContent = 'Saved: ' + d.file;
+						fileInput.value = '';
+						loadVirtualMedia();
+					} else {
+						const err = await r.json().catch(() => ({}));
+						status.textContent = 'Error: ' + (err.error || r.statusText);
+					}
+				} catch(e) { status.textContent = 'Error: ' + e.message; }
+			};
+
+			window.fetchISO = async function() {
+				const urlInput = document.getElementById('vm-url-input');
+				const nameInput = document.getElementById('vm-url-name');
+				const status = document.getElementById('vm-add-status');
+				const isoUrl = urlInput.value.trim();
+				if (!isoUrl) { status.textContent = 'Enter a URL first'; return; }
+				status.textContent = 'Fetching…';
+				try {
+					const r = await fetch('/api/firmware/media/fetch', {
+						method: 'POST',
+						headers: getAuthHeaders(),
+						body: JSON.stringify({ url: isoUrl, name: nameInput.value.trim() || undefined }),
+					});
+					if (r.ok) {
+						const d = await r.json();
+						status.textContent = 'Saved: ' + d.file;
+						urlInput.value = '';
+						nameInput.value = '';
+						loadVirtualMedia();
+					} else {
+						const err = await r.json().catch(() => ({}));
+						status.textContent = 'Error: ' + (err.error || r.statusText);
+					}
+				} catch(e) { status.textContent = 'Error: ' + e.message; }
+			};
+
+			window.vmSwitchTab = function(tab) {
+				const isFile = tab === 'file';
+				document.getElementById('vm-panel-file').style.display = isFile ? 'flex' : 'none';
+				document.getElementById('vm-panel-url').style.display = isFile ? 'none' : 'flex';
+				const active = 'border:1px solid #1d4ed8; background:#1d4ed8; color:white';
+				const inactive = 'border:1px solid #404040; background:transparent; color:#a3a3a3';
+				document.getElementById('vm-tab-file').style.cssText += isFile ? active : inactive;
+				document.getElementById('vm-tab-url').style.cssText += isFile ? inactive : active;
+				document.getElementById('vm-add-status').textContent = '';
+			};
 		</script>
 	}
 }

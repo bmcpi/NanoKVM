@@ -59,6 +59,7 @@ type Controller struct {
 	imagePath   string
 	mountPoint  string
 	firmwareDir string
+	mediaDir    string
 
 	// Full host-OS paths under c.mountPoint for the U-Boot env files.
 	machineEnv    string
@@ -68,7 +69,8 @@ type Controller struct {
 	loopDev   string // persistent loop device, attached at Init
 	presented bool
 
-	reader *readerCache // cached read-only diskfs handle; nil = not open
+	reader  *readerCache      // cached read-only diskfs handle; nil = not open
+	vmState VirtualMediaState // current virtual media insertion state
 }
 
 var (
@@ -85,6 +87,7 @@ func GetController() *Controller {
 			imagePath:     cfg.Firmware.ImagePath,
 			mountPoint:    cfg.Firmware.MountPoint,
 			firmwareDir:   cfg.Firmware.FirmwareDir,
+			mediaDir:      cfg.Firmware.MediaDir,
 			machineEnv:    cfg.Firmware.MachineEnv,
 			persistentEnv: cfg.Firmware.PersistentEnv,
 			onceEnv:       cfg.Firmware.OnceEnv,

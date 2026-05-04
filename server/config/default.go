@@ -53,6 +53,7 @@ var defaultConfig = &Config{
 		MachineEnv:    "/mnt/firmware/machine.env",
 		PersistentEnv: "/mnt/firmware/persistent.env",
 		OnceEnv:       "/mnt/firmware/once.env",
+		MediaDir:      "/data/media",
 	},
 }
 

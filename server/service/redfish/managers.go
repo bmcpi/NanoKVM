@@ -37,6 +37,9 @@ func (s *Service) GetManager(c *gin.Context) {
 		"SerialInterfaces": gin.H{
 			"@odata.id": "/redfish/v1/Managers/1/SerialInterfaces",
 		},
+		"VirtualMedia": gin.H{
+			"@odata.id": "/redfish/v1/Managers/1/VirtualMedia",
+		},
 		"NetworkInterfaces": gin.H{
 			"@odata.id": "/redfish/v1/Managers/1/NetworkInterfaces",
 		},

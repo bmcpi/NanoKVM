@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -179,6 +182,181 @@ func firmwareRouter(r *gin.Engine) {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "synced"})
+	})
+
+	// ---- virtual media (ISO) management ------------------------------------
+
+	// GET /api/firmware/media — list available ISOs.
+	api.GET("/media", func(c *gin.Context) {
+		names, err := ctrl.ListMediaFiles()
+		if err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+			return
+		}
+		vm := ctrl.GetVirtualMediaState()
+		c.JSON(http.StatusOK, gin.H{
+			"files":    names,
+			"inserted": vm.ImageName,
+		})
+	})
+
+	// POST /api/firmware/media/upload — upload an ISO (multipart form field "file").
+	// Large files stream directly to disk; the entire body is not buffered in RAM.
+	api.POST("/media/upload", func(c *gin.Context) {
+		fh, err := c.FormFile("file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "multipart field 'file' required"})
+			return
+		}
+
+		name := filepath.Base(fh.Filename)
+		mediaDir := ctrl.GetMediaDir()
+		if mediaDir == "" {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "mediaDir not configured"})
+			return
+		}
+		if err := os.MkdirAll(mediaDir, 0o755); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		destPath := filepath.Join(mediaDir, name)
+
+		f, err := fh.Open()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		defer f.Close()
+
+		out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		written, copyErr := io.Copy(out, f)
+		syncErr := out.Sync()
+		_ = out.Close()
+		if copyErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": copyErr.Error()})
+			return
+		}
+		if syncErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": syncErr.Error()})
+			return
+		}
+
+		log.Infof("media upload: %s (%d bytes)", name, written)
+		c.JSON(http.StatusOK, gin.H{"file": name, "bytes": written})
+	})
+
+	// DELETE /api/firmware/media/:name — remove an ISO (must not be inserted).
+	api.DELETE("/media/:name", func(c *gin.Context) {
+		name := filepath.Base(c.Param("name"))
+		if err := ctrl.DeleteMediaFile(name); err != nil {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"file": name, "deleted": true})
+	})
+
+	// POST /api/firmware/media/insert — insert a named ISO as virtual media.
+	api.POST("/media/insert", func(c *gin.Context) {
+		var req struct {
+			Name string `json:"name"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil || req.Name == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
+			return
+		}
+		if err := ctrl.InsertVirtualMedia(req.Name); err != nil {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, ctrl.GetVirtualMediaState())
+	})
+
+	// POST /api/firmware/media/eject — eject virtual media and restore firmware image.
+	api.POST("/media/eject", func(c *gin.Context) {
+		if err := ctrl.EjectVirtualMedia(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"inserted": false})
+	})
+
+	// POST /api/firmware/media/fetch — download an ISO from a URL on the BMC.
+	// Body: { "url": "https://…/image.iso", "name": "image.iso" (optional) }
+	// Streams the download directly to disk; returns immediately with the filename.
+	api.POST("/media/fetch", func(c *gin.Context) {
+		var req struct {
+			URL  string `json:"url"`
+			Name string `json:"name"` // optional override for the saved filename
+		}
+		if err := c.ShouldBindJSON(&req); err != nil || req.URL == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "url required"})
+			return
+		}
+
+		// Validate URL scheme — only http/https allowed.
+		parsed, err := url.ParseRequestURI(req.URL)
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "url must be http or https"})
+			return
+		}
+
+		name := req.Name
+		if name == "" {
+			name = filepath.Base(parsed.Path)
+		}
+		name = filepath.Base(name) // strip any traversal
+		if name == "." || name == "" || strings.ContainsAny(name, "/\\") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid filename derived from URL"})
+			return
+		}
+
+		mediaDir := ctrl.GetMediaDir()
+		if mediaDir == "" {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "mediaDir not configured"})
+			return
+		}
+		if err := os.MkdirAll(mediaDir, 0o755); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		destPath := filepath.Join(mediaDir, name)
+
+		// #nosec G107 — URL already validated above to http/https only.
+		resp, err := http.Get(req.URL) //nolint:noctx
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": "fetch failed: " + err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("remote returned %d", resp.StatusCode)})
+			return
+		}
+
+		out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		written, copyErr := io.Copy(out, resp.Body)
+		syncErr := out.Sync()
+		_ = out.Close()
+		if copyErr != nil {
+			_ = os.Remove(destPath)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": copyErr.Error()})
+			return
+		}
+		if syncErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": syncErr.Error()})
+			return
+		}
+
+		log.Infof("media fetch: %s → %s (%d bytes)", req.URL, name, written)
+		c.JSON(http.StatusOK, gin.H{"file": name, "bytes": written})
 	})
 
 	// ---- gadget control ----------------------------------------------------

@@ -34,6 +34,12 @@ func redfishRouter(r *gin.Engine) {
 		api.GET("/Managers/1/SerialInterfaces/1", service.GetSerialInterface)
 		api.PATCH("/Managers/1/SerialInterfaces/1", service.PatchSerialInterface)
 
+		// Virtual Media
+		api.GET("/Managers/1/VirtualMedia", service.GetVirtualMediaCollection)
+		api.GET("/Managers/1/VirtualMedia/1", service.GetVirtualMedia)
+		api.POST("/Managers/1/VirtualMedia/1/Actions/VirtualMedia.InsertMedia", service.InsertMedia)
+		api.POST("/Managers/1/VirtualMedia/1/Actions/VirtualMedia.EjectMedia", service.EjectMedia)
+
 		// Sessions
 		api.GET("/SessionService/Sessions", service.GetSessionCollection)
 		api.DELETE("/SessionService/Sessions/:id", service.DeleteSession)

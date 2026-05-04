@@ -91,4 +91,6 @@ type Firmware struct {
 	MachineEnv    string `yaml:"machineEnv"`
 	PersistentEnv string `yaml:"persistentEnv"`
 	OnceEnv       string `yaml:"onceEnv"`
+	// MediaDir is the directory where ISO images for virtual media are stored.
+	MediaDir string `yaml:"mediaDir"`
 }
