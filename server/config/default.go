@@ -123,6 +123,9 @@ func checkDefaultValue() {
 	if instance.Firmware.OnceEnv == "" {
 		instance.Firmware.OnceEnv = defaultConfig.Firmware.OnceEnv
 	}
+	if instance.Firmware.MediaDir == "" {
+		instance.Firmware.MediaDir = defaultConfig.Firmware.MediaDir
+	}
 
 	instance.Hardware = getHardware()
 
