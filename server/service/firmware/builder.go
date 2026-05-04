@@ -21,7 +21,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	diskfslib "github.com/diskfs/go-diskfs"
 	diskpkg "github.com/diskfs/go-diskfs/disk"
@@ -33,9 +32,9 @@ import (
 const (
 	// MBR layout
 	imageBlkSize        int64 = 512
-	imagePartStartSect  int64 = 2048               // 1 MiB offset
-	imageEnvHeadroom    int64 = 16 * 1024 * 1024   // 16 MB for env writes + slack
-	imageMinSize        int64 = 256 * 1024 * 1024  // 256 MB floor
+	imagePartStartSect  int64 = 2048              // 1 MiB offset
+	imageEnvHeadroom    int64 = 16 * 1024 * 1024  // 16 MB for env writes + slack
+	imageMinSize        int64 = 256 * 1024 * 1024 // 256 MB floor
 	imageVolumeLabel          = "NANOKVMFW"
 	imageReadCopyBufSiz       = 64 * 1024
 )
@@ -120,6 +119,7 @@ func (c *Controller) buildImageLocked() error {
 	table := &mbr.Table{
 		Partitions: []*mbr.Partition{
 			{
+				Index:    1,
 				Bootable: true,
 				Type:     mbr.Fat32LBA,
 				Start:    uint32(imagePartStartSect),
@@ -236,7 +236,7 @@ func copyHostFileIntoFAT(fatFS filesystem.FileSystem, srcPath, fatPath string) e
 	}
 	defer src.Close()
 
-	dst, err := fatFS.OpenFile(fatPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+	dst, err := fatFS.OpenFile(fatPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
 	if err != nil {
 		return err
 	}
@@ -266,7 +266,7 @@ func extractImageToFirmwareDir(srcImg, destDir string) error {
 		return fmt.Errorf("get filesystem: %w", err)
 	}
 
-	count, err := extractDir(fatFS, "/", destDir)
+	count, err := extractDir(fatFS, ".", destDir)
 	if err != nil {
 		return err
 	}
@@ -286,7 +286,12 @@ func extractDir(fatFS filesystem.FileSystem, fatDir, hostDir string) (int, error
 		if name == "." || name == ".." {
 			continue
 		}
-		fatChild := strings.TrimRight(fatDir, "/") + "/" + name
+		var fatChild string
+		if fatDir == "." {
+			fatChild = name
+		} else {
+			fatChild = fatDir + "/" + name
+		}
 		hostChild := filepath.Join(hostDir, name)
 
 		if e.IsDir() {

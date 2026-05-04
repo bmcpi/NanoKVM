@@ -149,4 +149,3 @@ func decompressXZ(src, dest string) error {
 	}
 	return outFile.Sync()
 }
-

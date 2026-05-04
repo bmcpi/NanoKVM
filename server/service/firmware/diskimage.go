@@ -82,7 +82,7 @@ func readFromFS(fatFS filesystem.FileSystem, fatPath string) ([]byte, error) {
 
 // writeToFS writes data to a file on the FAT filesystem, creating or truncating.
 func writeToFS(fatFS filesystem.FileSystem, fatPath string, data []byte) error {
-	f, err := fatFS.OpenFile(fatPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+	f, err := fatFS.OpenFile(fatPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
 	if err != nil {
 		return fmt.Errorf("open %s for write: %w", fatPath, err)
 	}
@@ -93,8 +93,14 @@ func writeToFS(fatFS filesystem.FileSystem, fatPath string, data []byte) error {
 }
 
 // isNotExist returns true for go-diskfs file-not-found errors.
+// go-diskfs v1.9.1 returns plain fmt.Errorf strings rather than sentinel
+// errors, so errors.Is alone is insufficient.
 func isNotExist(err error) bool {
-	return errors.Is(err, fs.ErrNotExist) || errors.Is(err, os.ErrNotExist)
+	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, os.ErrNotExist) {
+		return true
+	}
+	s := err.Error()
+	return strings.Contains(s, "does not exist") || strings.Contains(s, "not found")
 }
 
 // ---- env helpers (used by firmware.go for boot target management) ----------
