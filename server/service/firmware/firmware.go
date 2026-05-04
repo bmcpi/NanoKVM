@@ -67,6 +67,8 @@ type Controller struct {
 
 	loopDev   string // persistent loop device, attached at Init
 	presented bool
+
+	reader *readerCache // cached read-only diskfs handle; nil = not open
 }
 
 var (
@@ -249,6 +251,7 @@ func (c *Controller) GetEffectiveBootTarget() (string, error) {
 func (c *Controller) SetBootTarget(targets string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	defer c.invalidateReaderCacheLocked()
 
 	return c.withMount(func() error {
 		env, err := loadEnvFile(c.persistentEnv)
@@ -268,6 +271,7 @@ func (c *Controller) SetBootTarget(targets string) error {
 func (c *Controller) SetBootTargetOnce(targets string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	defer c.invalidateReaderCacheLocked()
 
 	return c.withMount(func() error {
 		env, err := loadEnvFile(c.onceEnv)

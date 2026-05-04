@@ -60,6 +60,7 @@ func (c *Controller) ReadFileFromImage(name string) ([]byte, error) {
 func (c *Controller) WriteFileToImage(name string, data []byte) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	defer c.invalidateReaderCacheLocked()
 
 	return c.withMount(func() error {
 		path, err := c.imagePathFor(name)
@@ -81,6 +82,7 @@ func (c *Controller) WriteFileToImage(name string, data []byte) error {
 func (c *Controller) RemoveFileFromImage(name string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	defer c.invalidateReaderCacheLocked()
 
 	return c.withMount(func() error {
 		path, err := c.imagePathFor(name)
@@ -123,6 +125,7 @@ func (c *Controller) ListFilesInImage() ([]string, error) {
 func (c *Controller) SyncFirmwareDirToImage() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	defer c.invalidateReaderCacheLocked()
 
 	if c.firmwareDir == "" {
 		return fmt.Errorf("firmwareDir not configured")
