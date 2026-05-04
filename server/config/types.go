@@ -15,6 +15,7 @@ type Config struct {
 	Serial         Serial   `yaml:"serial"`
 	Firmware       Firmware `yaml:"firmware"`
 
+	Power    Power    `yaml:"power"`
 	Hardware Hardware `yaml:"-"`
 }
 
@@ -56,6 +57,13 @@ type Hardware struct {
 	GPIOPower    string    `yaml:"-"`
 	GPIOPowerLED string    `yaml:"-"`
 	GPIOHDDLed   string    `yaml:"-"`
+}
+
+// Power holds power-control configuration.
+// LegacyMode opts into direct-GPIO control (cuts power pin directly) instead of
+// the default button-press simulation via the power-LED header.
+type Power struct {
+	LegacyMode bool `yaml:"legacyMode"`
 }
 
 type IPMI struct {

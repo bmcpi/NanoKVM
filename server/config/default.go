@@ -55,6 +55,9 @@ var defaultConfig = &Config{
 		OnceEnv:       "/mnt/firmware/once.env",
 		MediaDir:      "/data/media",
 	},
+	Power: Power{
+		LegacyMode: false,
+	},
 }
 
 func checkDefaultValue() {

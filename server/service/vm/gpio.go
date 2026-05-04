@@ -25,8 +25,10 @@ func (s *Service) SetGpio(c *gin.Context) {
 	switch req.Action {
 	case "on":
 		err = ctrl.PowerOn()
-	case "off", "forceoff":
+	case "off":
 		err = ctrl.PowerOff()
+	case "forceoff":
+		err = ctrl.ForceOff()
 	case "reset":
 		err = ctrl.Reset()
 	default:
