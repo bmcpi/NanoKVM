@@ -8,8 +8,8 @@ const (
 	BootTargetPxe = "dhcp"
 	// BootTargetHdd forces boot from the default storage hierarchy (MMC, NVMe, USB).
 	BootTargetHdd = "mmc nvme usb"
-	// BootTargetVirtMedia forces boot from a usb1-mapped virtual block device (ISO).
-	BootTargetVirtMedia = "usb1"
+	// BootTargetVirtMedia forces boot from a usb-mapped virtual block device (ISO).
+	BootTargetVirtMedia = "usb"
 	// BootTargetUefiHttp forces UEFI HTTP boot.
 	BootTargetUefiHttp = "httpboot"
 )

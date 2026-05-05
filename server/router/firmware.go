@@ -268,7 +268,7 @@ func firmwareRouter(r *gin.Engine) {
 	})
 
 	// POST /api/firmware/media/insert — copy a staged ISO into the firmware
-	// image as vm.iso and set the usb1 boot target.
+	// image as vm.iso and set the usb boot target.
 	// Body: { "name": "alpine.iso" }
 	api.POST("/media/insert", func(c *gin.Context) {
 		var req struct {
