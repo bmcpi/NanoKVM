@@ -2,7 +2,7 @@ package application
 
 const (
 	// GitHub repository for release downloads.
-	GitHubOwner = "tinkerbell-community"
+	GitHubOwner = "BMCPi"
 	GitHubRepo  = "NanoKVM"
 
 	AppDir    = "/kvmapp"

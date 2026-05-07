@@ -82,6 +82,6 @@ require (
 )
 
 tool (
-	github.com/a-h/templ/cmd/templ
 	github.com/BMCPi/NanoKVM/tools/tailwindcss
+	github.com/a-h/templ/cmd/templ
 )

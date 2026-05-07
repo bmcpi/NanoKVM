@@ -13,7 +13,7 @@ builds:
   - id: server
     env: ["CGO_ENABLED=0"]
     main: ./cmd/server
-    binary: NanoKVM-Server
+    binary: server/NanoKVM-Server
     goos:
       - linux
     goarch:
@@ -50,7 +50,7 @@ archives:
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - src: packaging/etc/init.d/*
-        dst: etc/init.d
+        dst: system/etc/init.d
         info:
           mode: 0755
       - LICENSE
@@ -61,7 +61,7 @@ checksum:
 
 release:
   github:
-    owner: tinkerbell-community
+    owner: BMCPi
     name: NanoKVM
   draft: false
   prerelease: auto
