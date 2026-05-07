@@ -14,13 +14,55 @@ package firmware
 // small FAT partition that is already full with U-Boot firmware files.
 
 import (
+	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
+
+// Hybrid image conversion constants.
+//
+// We always present the resulting image with 512-byte logical sectors. That
+// matches the MBR convention regardless of the ISO's 2 KiB logical block
+// size, and is what `f_mass_storage` exposes to the host.
+//
+// The image size and the El Torito / hybrid-partition overlay region are
+// derived from the ISO at runtime — see hybridParamsFromISO. The previous
+// hard-coded recipe corresponded to one specific NoCloud arm64 image:
+//
+//	dd if=/dev/zero of=out.img bs=1M count=1024
+//	dd if=in.iso  of=out.img conv=notrunc
+//	dd if=in.iso  of=out.img skip=356 count=5760 bs=512
+//
+// Now `skip` and `count` come from the ISO's MBR partition table (the
+// embedded EFI System Partition, which is what makes the image directly
+// bootable when written at LBA 0), and the image size is the ISO size
+// padded up to a megabyte boundary.
+const (
+	hybridSectorSize    = 512
+	mbrPartTableOffset  = 446 // bytes
+	mbrPartTableEntries = 4
+	mbrPartEntrySize    = 16
+	mbrSignatureOffset  = 510
+	mbrSignature        = 0xAA55
+	mbrTypeEFISystem    = 0xEF
+	hybridImageMinSize  = 16 * 1024 * 1024 // 16 MiB floor
+	hybridImageAlign    = 1024 * 1024      // 1 MiB granularity
+)
+
+// hybridParams describes what buildHybridImage needs to know to build a
+// bootable raw disk image from a given ISO.
+type hybridParams struct {
+	ImageSize        int64 // total size of the output image, bytes
+	SectorSize       int64 // logical sector size used for skip/count math
+	OverlaySkipSects int64 // input offset, in sectors, for the LBA-0 overlay
+	OverlayCountSect int64 // overlay length, in sectors
+}
 
 // VirtualMediaState describes the current ISO insertion state.
 type VirtualMediaState struct {
@@ -166,4 +208,212 @@ func (c *Controller) EjectVirtualMedia() error {
 	c.vmState = VirtualMediaState{}
 	log.Infof("firmware: ejected virtual media %s", prevName)
 	return nil
+}
+
+// SaveMediaISO streams a NoCloud / cloud-init style ISO from r into mediaDir,
+// then converts it in place to a 1 GiB hybrid raw disk image with a `.img`
+// extension. It returns the final image filename (e.g. "nocloud-arm64.img")
+// and its size in bytes. The intermediate `.iso` is removed on success.
+//
+// Use this when the caller knows the source is an ISO that must be presented
+// as a writable/bootable block device rather than as a CD-ROM. For straight
+// CD-ROM presentation use SaveMediaFile.
+func (c *Controller) SaveMediaISO(name string, r io.Reader) (string, int64, error) {
+	if c.mediaDir == "" {
+		return "", 0, fmt.Errorf("mediaDir not configured")
+	}
+
+	// Stage the ISO under its original name so the conversion can read it
+	// with positional I/O.
+	if _, err := c.SaveMediaFile(name, r); err != nil {
+		return "", 0, err
+	}
+
+	isoPath, err := c.mediaPathFor(name)
+	if err != nil {
+		return "", 0, err
+	}
+
+	imgName := strings.TrimSuffix(name, filepath.Ext(name)) + ".img"
+	imgPath, err := c.mediaPathFor(imgName)
+	if err != nil {
+		return "", 0, err
+	}
+
+	if err := buildHybridImage(isoPath, imgPath); err != nil {
+		_ = os.Remove(imgPath)
+		return "", 0, fmt.Errorf("convert iso to hybrid img: %w", err)
+	}
+
+	// Source ISO no longer needed once the hybrid image exists.
+	if err := os.Remove(isoPath); err != nil && !os.IsNotExist(err) {
+		log.Warnf("firmware: could not remove staged ISO %q: %v", isoPath, err)
+	}
+
+	info, err := os.Stat(imgPath)
+	if err != nil {
+		return "", 0, err
+	}
+	log.Infof("firmware: built hybrid image %q (%d bytes) from %q", imgName, info.Size(), name)
+	return imgName, info.Size(), nil
+}
+
+// buildHybridImage materializes a raw disk image at imgPath whose contents
+// are the ISO at isoPath, with the ISO's hybrid-MBR EFI partition overlaid
+// at LBA 0. The image size and overlay region are derived from the ISO
+// itself by hybridParamsFromISO. This is the pure-Go equivalent of the
+// three-step `dd` recipe documented above.
+func buildHybridImage(isoPath, imgPath string) error {
+	iso, err := os.Open(isoPath)
+	if err != nil {
+		return err
+	}
+	defer iso.Close()
+
+	params, err := hybridParamsFromISO(iso)
+	if err != nil {
+		return fmt.Errorf("derive hybrid params: %w", err)
+	}
+	log.Infof(
+		"firmware: hybrid params for %q: imageSize=%d sectorSize=%d skip=%d count=%d",
+		filepath.Base(isoPath), params.ImageSize, params.SectorSize,
+		params.OverlaySkipSects, params.OverlayCountSect,
+	)
+
+	out, err := os.OpenFile(imgPath, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0o644)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// 1) Sparse allocation sized to the derived image size.
+	if err := out.Truncate(params.ImageSize); err != nil {
+		return err
+	}
+
+	// 2) Copy the entire ISO over the start of the image
+	//    (dd if=iso of=img conv=notrunc).
+	if _, err := iso.Seek(0, io.SeekStart); err != nil {
+		return fmt.Errorf("seek iso: %w", err)
+	}
+	if _, err := io.Copy(&offsetWriter{w: out, off: 0}, iso); err != nil {
+		return fmt.Errorf("copy iso body: %w", err)
+	}
+
+	// 3) Overlay the hybrid-MBR / EFI partition region back at LBA 0.
+	if params.OverlayCountSect > 0 {
+		if _, err := iso.Seek(params.OverlaySkipSects*params.SectorSize, io.SeekStart); err != nil {
+			return fmt.Errorf("seek iso overlay: %w", err)
+		}
+		overlayLen := params.OverlayCountSect * params.SectorSize
+		n, err := io.CopyN(&offsetWriter{w: out, off: 0}, iso, overlayLen)
+		if err != nil && !errors.Is(err, io.EOF) {
+			return fmt.Errorf("write overlay: %w", err)
+		}
+		if n < overlayLen {
+			log.Warnf("firmware: hybrid overlay short read: wrote %d of %d bytes", n, overlayLen)
+		}
+	} else {
+		log.Warnf("firmware: no overlay partition found in %q; image may not boot as block device", filepath.Base(isoPath))
+	}
+
+	return out.Sync()
+}
+
+// hybridParamsFromISO inspects the ISO's MBR partition table at LBA 0 and
+// returns the parameters needed to build a bootable hybrid image.
+//
+// The image size is the ISO size, padded up to the next MiB and bounded
+// below by hybridImageMinSize. The overlay region is taken from the MBR
+// partition that is most useful for booting — preferring an EFI System
+// Partition (type 0xEF), then falling back to the largest non-empty entry.
+// If no partition table can be parsed, OverlayCountSect is returned as 0
+// and the caller emits the ISO straight through with no overlay.
+func hybridParamsFromISO(iso *os.File) (hybridParams, error) {
+	info, err := iso.Stat()
+	if err != nil {
+		return hybridParams{}, err
+	}
+
+	params := hybridParams{
+		ImageSize:  alignUp(info.Size(), hybridImageAlign),
+		SectorSize: hybridSectorSize,
+	}
+	if params.ImageSize < hybridImageMinSize {
+		params.ImageSize = hybridImageMinSize
+	}
+
+	// Read the first 512-byte sector to inspect the MBR.
+	mbr := make([]byte, hybridSectorSize)
+	if _, err := iso.ReadAt(mbr, 0); err != nil {
+		return params, fmt.Errorf("read mbr: %w", err)
+	}
+
+	// Validate the MBR boot signature; if absent, leave overlay zeroed.
+	if binary.LittleEndian.Uint16(mbr[mbrSignatureOffset:mbrSignatureOffset+2]) != mbrSignature {
+		return params, nil
+	}
+
+	type entry struct {
+		typ      byte
+		startLBA uint32
+		sectors  uint32
+	}
+	var entries []entry
+	for i := 0; i < mbrPartTableEntries; i++ {
+		off := mbrPartTableOffset + i*mbrPartEntrySize
+		e := entry{
+			typ:      mbr[off+4],
+			startLBA: binary.LittleEndian.Uint32(mbr[off+8 : off+12]),
+			sectors:  binary.LittleEndian.Uint32(mbr[off+12 : off+16]),
+		}
+		if e.typ == 0 || e.sectors == 0 {
+			continue
+		}
+		entries = append(entries, e)
+	}
+	if len(entries) == 0 {
+		return params, nil
+	}
+
+	// Prefer an EFI System Partition; otherwise pick the largest entry.
+	pick := entries[0]
+	pickedEFI := pick.typ == mbrTypeEFISystem
+	for _, e := range entries[1:] {
+		if e.typ == mbrTypeEFISystem && !pickedEFI {
+			pick = e
+			pickedEFI = true
+			continue
+		}
+		if pickedEFI {
+			continue
+		}
+		if e.sectors > pick.sectors {
+			pick = e
+		}
+	}
+	params.OverlaySkipSects = int64(pick.startLBA)
+	params.OverlayCountSect = int64(pick.sectors)
+	return params, nil
+}
+
+// alignUp returns n rounded up to the nearest multiple of align (align > 0).
+func alignUp(n, align int64) int64 {
+	if align <= 0 {
+		return n
+	}
+	return ((n + align - 1) / align) * align
+}
+
+// offsetWriter wraps a *os.File so io.Copy / io.CopyN write via WriteAt at a
+// stable offset, leaving the file's seek position untouched.
+type offsetWriter struct {
+	w   io.WriterAt
+	off int64
+}
+
+func (o *offsetWriter) Write(p []byte) (int, error) {
+	n, err := o.w.WriteAt(p, o.off)
+	o.off += int64(n)
+	return n, err
 }

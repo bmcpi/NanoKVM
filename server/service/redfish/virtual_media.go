@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -77,18 +78,31 @@ func (s *Service) InsertMedia(c *gin.Context) {
 		return
 	}
 
-	if _, err := fwCtrl.SaveMediaFile(name, resp.Body); err != nil {
-		redfishErrorResponse(c, http.StatusInternalServerError, "save media failed: "+err.Error())
-		return
+	// For ISO sources, materialize a 1 GiB hybrid raw disk image so the
+	// gadget can present it as a writable, BIOS/UEFI-bootable USB block
+	// device rather than a CD-ROM. Other formats are stored verbatim.
+	mediaName := name
+	if strings.EqualFold(filepath.Ext(name), ".iso") {
+		imgName, _, err := fwCtrl.SaveMediaISO(name, resp.Body)
+		if err != nil {
+			redfishErrorResponse(c, http.StatusInternalServerError, "convert iso failed: "+err.Error())
+			return
+		}
+		mediaName = imgName
+	} else {
+		if _, err := fwCtrl.SaveMediaFile(name, resp.Body); err != nil {
+			redfishErrorResponse(c, http.StatusInternalServerError, "save media failed: "+err.Error())
+			return
+		}
 	}
 
 	// Insert the staged file into the firmware image.
-	if err := fwCtrl.InsertVirtualMedia(name); err != nil {
+	if err := fwCtrl.InsertVirtualMedia(mediaName); err != nil {
 		redfishErrorResponse(c, http.StatusConflict, "insert media failed: "+err.Error())
 		return
 	}
 
-	log.Infof("redfish: virtual media inserted: %s", name)
+	log.Infof("redfish: virtual media inserted: %s", mediaName)
 	c.JSON(http.StatusOK, buildVirtualMediaResource())
 }
 
