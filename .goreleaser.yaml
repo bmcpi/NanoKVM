@@ -7,7 +7,7 @@ env:
 before:
   hooks:
     - go mod tidy
-    - cd server && templ generate
+    - go generate ./...
 
 builds:
   - id: server
