@@ -173,11 +173,9 @@ linters:
           - goheader
         path-except: zz_generated\.deepcopy\.go
     paths:
-      - smee/internal/iso/internal/reverseproxy.go
-      - smee/internal/iso/internal/reverseproxy_test.go
-      - smee/internal/iso/internal/acsii.go
-      - smee/internal/iso/internal/acsii_test.go
-      - cmd/tinkerbell/flag/url.go
+      - server/templates/layout_templ.go
+      - server/templates/overview_templ.go
+      - server/templates/pages_templ.go
       - third_party$
       - builtin$
       - examples$
@@ -192,11 +190,9 @@ formatters:
   exclusions:
     generated: disable
     paths:
-      - smee/internal/iso/internal/reverseproxy.go
-      - smee/internal/iso/internal/reverseproxy_test.go
-      - smee/internal/iso/internal/acsii.go
-      - smee/internal/iso/internal/acsii_test.go
-      - cmd/tinkerbell/flag/url.go
+      - server/templates/layout_templ.go
+      - server/templates/overview_templ.go
+      - server/templates/pages_templ.go
       - third_party$
       - builtin$
       - examples$
