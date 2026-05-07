@@ -1,39 +1,71 @@
 #!/bin/sh
 # NanoKVM BMC Service
+#
+# /kvmapp lives on the read-only firmware partition. We stage the server
+# binary (and any sibling assets) into /tmp/server on each start so the
+# daemon runs from a writable, RAM-backed location. This lets in-place
+# upgrades replace /kvmapp/server/NanoKVM-Server while a previous instance
+# is still running, and avoids holding open file handles on the firmware
+# partition during normal operation.
 
 DAEMON="NanoKVM-Server"
+SRC_DIR="/kvmapp/server"
+RUN_DIR="/tmp/server"
 PID_FILE="/var/run/${DAEMON}.pid"
 LOGFILE="/var/log/${DAEMON}.log"
 
+stage() {
+    [ -d "${SRC_DIR}" ] || { echo "missing ${SRC_DIR}"; return 1; }
+    mkdir -p "${RUN_DIR}"
+
+    # Copy sibling assets in place. cp will refuse to overwrite a running
+    # ELF (ETXTBSY) on Linux, so the daemon binary itself is staged
+    # separately below via a temp file + atomic rename.
+    for entry in "${SRC_DIR}"/* "${SRC_DIR}"/.[!.]*; do
+        [ -e "${entry}" ] || continue
+        base=$(basename "${entry}")
+        [ "${base}" = "${DAEMON}" ] && continue
+        cp -RpP "${entry}" "${RUN_DIR}/" || return 1
+    done
+
+    # Stage the daemon binary atomically:
+    #   1. cp to a temp path on the same filesystem so cp doesn't touch the
+    #      currently-mapped inode (no ETXTBSY).
+    #   2. rename(2) over the live path. The kernel unlinks the old inode
+    #      but lets the running process keep its open mapping until exit;
+    #      the next `start` execs the new file.
+    tmp="${RUN_DIR}/.${DAEMON}.new.$$"
+    cp -p "${SRC_DIR}/${DAEMON}" "${tmp}" || { rm -f "${tmp}"; return 1; }
+    chmod +x "${tmp}"
+    mv -f "${tmp}" "${RUN_DIR}/${DAEMON}" || { rm -f "${tmp}"; return 1; }
+    return 0
+}
+
 start() {
-    start-stop-daemon -S -b -m -o -p "$PID_FILE" -O "$LOGFILE" -x "/kvmapp/server/${DAEMON}" && echo "OK" || echo "FAIL"
+    stage || { echo "FAIL"; return 1; }
+    start-stop-daemon -S -b -m -o -p "${PID_FILE}" -O "${LOGFILE}" \
+        -d "${RUN_DIR}" -x "${RUN_DIR}/${DAEMON}" \
+        && echo "OK" || echo "FAIL"
 }
 
 stop() {
-    start-stop-daemon -K -q -o -p "$PID_FILE" -x "/kvmapp/server/${DAEMON}" && echo "OK" || echo "FAIL"
+    start-stop-daemon -K -q -o -p "${PID_FILE}" -x "${RUN_DIR}/${DAEMON}" \
+        && echo "OK" || echo "FAIL"
 }
 
 status() {
-    start-stop-daemon -K -q -t -p "$PID_FILE" -x "/kvmapp/server/${DAEMON}" && echo "NanoKVM is running (PID $(cat "$PID_FILE"))" || echo "NanoKVM is not running"
+    start-stop-daemon -K -q -t -p "${PID_FILE}" -x "${RUN_DIR}/${DAEMON}" \
+        && echo "NanoKVM is running (PID $(cat "${PID_FILE}"))" \
+        || echo "NanoKVM is not running"
 }
 
 case "$1" in
-    start)
-        start
-        ;;
-    stop)
-        stop
-        ;;
-    status)
-        status
-        ;;
-    restart)
-        stop
-        sleep 1
-        start
-        ;;
+    start)   start ;;
+    stop)    stop ;;
+    status)  status ;;
+    restart) stop; sleep 1; start ;;
     *)
-        echo "Usage: $0 {start|stop|restart}"
+        echo "Usage: $0 {start|stop|status|restart}"
         exit 1
         ;;
 esac
