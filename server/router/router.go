@@ -30,8 +30,8 @@ func web(r *gin.Engine) {
 	r.StaticFS("/img", http.FS(imgFS))
 
 	// Favicon shortcut
-	r.GET("/sipeed.ico", func(c *gin.Context) {
-		data, err := assets.Img.ReadFile("img/sipeed.ico")
+	r.GET("/favicon.ico", func(c *gin.Context) {
+		data, err := assets.Img.ReadFile("img/favicon.ico")
 		if err != nil {
 			c.Status(http.StatusNotFound)
 			return
