@@ -43,5 +43,12 @@ func redfishRouter(r *gin.Engine) {
 		// Sessions
 		api.GET("/SessionService/Sessions", service.GetSessionCollection)
 		api.DELETE("/SessionService/Sessions/:id", service.DeleteSession)
+
+		// UpdateService (firmware updates)
+		api.GET("/UpdateService", service.GetUpdateService)
+		api.GET("/UpdateService/FirmwareInventory", service.GetFirmwareInventoryCollection)
+		api.GET("/UpdateService/FirmwareInventory/BIOS", service.GetFirmwareInventoryUBoot)
+		api.POST("/UpdateService/Actions/UpdateService.SimpleUpdate", service.SimpleUpdate)
+		api.POST("/UpdateService/Actions/UpdateService.StartUpdate", service.StartUpdate)
 	}
 }

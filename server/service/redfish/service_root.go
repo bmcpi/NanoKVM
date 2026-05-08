@@ -26,6 +26,9 @@ func (s *Service) GetServiceRoot(c *gin.Context) {
 		"SessionService": gin.H{
 			"@odata.id": "/redfish/v1/SessionService",
 		},
+		"UpdateService": gin.H{
+			"@odata.id": "/redfish/v1/UpdateService",
+		},
 	})
 }
 

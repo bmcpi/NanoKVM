@@ -322,4 +322,51 @@ func firmwareRouter(r *gin.Engine) {
 		}
 		c.JSON(http.StatusOK, gin.H{"message": "unpresented"})
 	})
+
+	// ---- BIOS (u-boot) version & update -----------------------------------
+
+	// GET /api/firmware/bios/version — current installed BIOS (u-boot) version
+	// (from machine.env's `ver` variable) and the latest release available.
+	api.GET("/bios/version", func(c *gin.Context) {
+		info, err := ctrl.GetUBootVersionInfo()
+		if err != nil {
+			// Return what we have (current may still be filled in) plus the error.
+			c.JSON(http.StatusOK, gin.H{
+				"current":         info.Current,
+				"latest":          info.Latest,
+				"updateAvailable": info.UpdateAvailable,
+				"error":           err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, info)
+	})
+
+	// POST /api/firmware/bios/update — download the latest BIOS (u-boot) image
+	// (preserving env files). Optional body: { "url": "..." } overrides
+	// the latest-release lookup.
+	api.POST("/bios/update", func(c *gin.Context) {
+		if ctrl.IsDownloading() {
+			c.JSON(http.StatusConflict, gin.H{"error": "download already in progress"})
+			return
+		}
+		var req struct {
+			URL string `json:"url"`
+		}
+		_ = c.ShouldBindJSON(&req) // body is optional
+
+		go func(url string) {
+			var err error
+			if url != "" {
+				err = ctrl.UpdateUBootFromURL(url)
+			} else {
+				err = ctrl.UpdateUBoot()
+			}
+			if err != nil {
+				log.Errorf("u-boot update failed: %v", err)
+			}
+		}(req.URL)
+
+		c.JSON(http.StatusAccepted, gin.H{"message": "update started"})
+	})
 }

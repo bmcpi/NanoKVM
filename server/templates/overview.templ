@@ -136,7 +136,14 @@ templ ServerOverview() {
 			<section class="ov-section">
 				<h3>BMC Information</h3>
 				<div class="ov-row"><span class="ov-label">Firmware</span><span class="ov-value" id="info-fw-status">—</span></div>
-				<div class="ov-row"><span class="ov-label">U-Boot</span><span class="ov-value" id="info-uboot-ver">—</span></div>
+				<div class="ov-row">
+					<span class="ov-label">U-Boot</span>
+					<span class="ov-value">
+						<span id="info-uboot-ver">—</span>
+						<button id="btn-uboot-update" class="toolbar-btn" style="display:none; margin-left:0.375rem;" onclick="updateUboot()" title="Update to latest"></button>
+						<span id="info-uboot-update-status" class="ov-status-text" style="margin-left:0.375rem;"></span>
+					</span>
+				</div>
 				<div class="ov-row"><span class="ov-label">Device Tree</span><span class="ov-value" id="info-fdtfile">—</span></div>
 				<div class="ov-row"><span class="ov-label">Boot Targets</span><span class="ov-value" id="info-boot-target">—</span></div>
 				<div class="ov-row"><span class="ov-label">Boot Override</span><span class="ov-value" id="info-boot-override">—</span></div>
