@@ -424,12 +424,33 @@ func (c *Controller) ActivateVersionedImage(version string) error {
 	}
 
 	log.Infof("firmware: activated versioned image %s → %s", version, c.imagePath)
+
+	// Persist the activated version so the kernels endpoint can report the
+	// correct active entry even before the board reboots (machine.env still
+	// contains the old U-Boot ver string at this point).
+	trackFile := filepath.Join(filepath.Dir(c.imagePath), ".activated-uboot-version")
+	if err := os.WriteFile(trackFile, []byte(version), 0o644); err != nil {
+		log.Warnf("firmware: write activated-version tracking file: %v", err)
+	}
+
 	InvalidateLatestUBootCache()
 	return nil
 }
 
-// swapActiveLocked copies srcPath over c.imagePath, handling gadget/loop
-// bookkeeping. Must hold c.mu.
+// ActiveUBootVersion returns the U-Boot version most recently activated via
+// ActivateVersionedImage. The value is read from a small tracking file so it
+// survives server restarts. Returns "" if no versioned activation has ever
+// been performed (e.g. the active image was installed via UpdateUBoot).
+func (c *Controller) ActiveUBootVersion() string {
+	trackFile := filepath.Join(filepath.Dir(c.imagePath), ".activated-uboot-version")
+	data, err := os.ReadFile(trackFile)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+// swapActiveLocked copies srcPath over c.imagePath, handling gadget/loop// bookkeeping. Must hold c.mu.
 func (c *Controller) swapActiveLocked(srcPath string) error {
 	wasPresented := c.presented
 	if wasPresented {

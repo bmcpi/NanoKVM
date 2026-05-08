@@ -375,15 +375,24 @@ func firmwareRouter(r *gin.Engine) {
 	// GET /api/firmware/bios/kernels — list all supported kernel versions with
 	// their mapped U-Boot version and local download/active state.
 	api.GET("/bios/kernels", func(c *gin.Context) {
-		info, _ := ctrl.GetUBootVersionInfo() // best-effort; ignore error
+		// Prefer the explicit activation-tracking file: machine.env still holds
+		// the OLD ver string after activation until the board reboots, so
+		// GetUBootVersionInfo().Current would return the wrong value.
+		activeVer := ctrl.ActiveUBootVersion()
+		if activeVer == "" {
+			// No versioned activation recorded — fall back to reading machine.env.
+			if info, err := ctrl.GetUBootVersionInfo(); err == nil {
+				activeVer = info.Current
+			}
+		}
+
 		kernels := make([]gin.H, 0, len(firmware.KernelUBootMap))
 		for _, k := range firmware.KernelVersionsSorted() {
 			ubootVer := firmware.KernelUBootMap[k]
 			downloaded := ctrl.VersionedImageExists(ubootVer)
-			// "active" means this version is currently running.
-			active := info.Current != "" &&
+			active := activeVer != "" &&
 				strings.EqualFold(
-					strings.TrimPrefix(info.Current, "v"),
+					strings.TrimPrefix(activeVer, "v"),
 					strings.TrimPrefix(ubootVer, "v"),
 				)
 			kernels = append(kernels, gin.H{

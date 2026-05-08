@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -40,8 +41,13 @@ func (c *Controller) presentImage() error {
 		return nil
 	}
 
-	// Ensure not in cdrom or read-only mode.
-	_ = os.WriteFile(gadgetCdromPath, []byte("0"), 0o666)
+	// Set cdrom mode based on the image file extension.
+	isISO := strings.EqualFold(filepath.Ext(c.imagePath), ".iso")
+	cdromVal := []byte("0")
+	if isISO {
+		cdromVal = []byte("1")
+	}
+	_ = os.WriteFile(gadgetCdromPath, cdromVal, 0o666)
 	_ = os.WriteFile(gadgetROPath, []byte("0"), 0o666)
 
 	inquiry := fmt.Sprintf("%-8s%-16s%04x", "NanoKVM", "Firmware", 0x0100)
