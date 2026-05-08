@@ -108,7 +108,14 @@ templ ServerOverview() {
 			<!-- Server Information -->
 			<section class="ov-section">
 				<h3>Server Information</h3>
-				<div class="ov-row"><span class="ov-label">Application</span><span class="ov-value" id="info-app">—</span></div>
+				<div class="ov-row">
+					<span class="ov-label">Application</span>
+					<span class="ov-value">
+						<span id="info-app">—</span>
+						<button id="btn-app-update" class="toolbar-btn" style="display:none; margin-left:0.375rem;" onclick="updateApplication()" title="Update to latest"></button>
+						<span id="info-app-update-status" class="ov-status-text" style="margin-left:0.375rem;"></span>
+					</span>
+				</div>
 				<div class="ov-row"><span class="ov-label">Image</span><span class="ov-value" id="info-image">—</span></div>
 				<div class="ov-row"><span class="ov-label">Hardware</span><span class="ov-value" id="info-hw">—</span></div>
 				<div class="ov-row"><span class="ov-label">IP Address</span><span class="ov-value" id="info-ip">—</span></div>

@@ -15,7 +15,6 @@ templ LoginPage() {
 						onclick="this.classList.add('animate-spin'); setTimeout(() => this.classList.remove('animate-spin'), 1000)"
 					/>
 				</div>
-
 				<div>
 					<input
 						id="username"
@@ -27,7 +26,6 @@ templ LoginPage() {
 						class="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm placeholder-neutral-500 focus:border-blue-600 focus:outline-none"
 					/>
 				</div>
-
 				<div>
 					<input
 						id="password"
@@ -39,9 +37,7 @@ templ LoginPage() {
 						class="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm placeholder-neutral-500 focus:border-blue-600 focus:outline-none"
 					/>
 				</div>
-
 				<div id="login-error" class="text-sm text-red-500" style="min-height:1.25rem"></div>
-
 				<button
 					id="login-btn"
 					type="submit"
@@ -49,7 +45,6 @@ templ LoginPage() {
 				>
 					Sign In
 				</button>
-
 				<div class="flex justify-end text-sm">
 					<span
 						class="cursor-pointer text-neutral-400 underline underline-offset-4 hover:text-neutral-200"
@@ -60,7 +55,6 @@ templ LoginPage() {
 				</div>
 			</form>
 		</div>
-
 		<!-- Forgot Password Modal -->
 		<div id="tips-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 hidden" onclick="if(event.target===this) this.classList.add('hidden')">
 			<div class="card w-full max-w-md space-y-4">
@@ -80,7 +74,6 @@ templ LoginPage() {
 				</div>
 			</div>
 		</div>
-
 		<script>
 			// Redirect if already authenticated (server validates token)
 			(async function() {
@@ -168,7 +161,6 @@ templ PasswordPage(loggedIn bool) {
 		<script src="/js/crypto-js.min.js"></script>
 		<div class="flex h-full w-full flex-col items-center justify-center space-y-5">
 			<h2 class="text-xl font-semibold text-neutral-100">Change Password</h2>
-
 			<form id="pw-form" class="w-full max-w-sm space-y-4 px-4" onsubmit="return handleChangePassword(event)">
 				<div>
 					<input
@@ -203,15 +195,12 @@ templ PasswordPage(loggedIn bool) {
 						class="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm placeholder-neutral-500 focus:border-blue-600 focus:outline-none"
 					/>
 				</div>
-
 				<div id="pw-error" class="text-sm text-red-500" style="min-height:1.25rem"></div>
-
 				<div class="flex w-full space-x-2">
 					<button type="submit" class="btn btn-blue w-1/2 py-2" id="pw-ok-btn">OK</button>
 					<button type="button" class="btn btn-neutral w-1/2 py-2" onclick="window.location.replace('/dashboard')">Cancel</button>
 				</div>
 			</form>
-
 			<div class="card w-full max-w-sm mx-4">
 				<div class="flex flex-col text-sm text-neutral-300 space-y-1">
 					<p>This will change both the web login and system root password.</p>
@@ -223,7 +212,6 @@ templ PasswordPage(loggedIn bool) {
 				</div>
 			</div>
 		</div>
-
 		<script>
 			function encryptPassword(password) {
 				const SECRET_KEY = 'nanokvm-sipeed-2024';
@@ -313,7 +301,6 @@ templ DashboardPage() {
 			.toolbar-btn:hover { background: #262626; color: #e5e5e5; border-color: #525252; }
 			.toolbar-btn.active { background: #1d4ed8; border-color: #1d4ed8; color: white; }
 		</style>
-
 		<!-- Serial Console Pane (full main area) -->
 		<div id="console-pane">
 			<div class="console-toolbar">
@@ -324,14 +311,14 @@ templ DashboardPage() {
 				</div>
 				<div class="controls">
 					<button class="toolbar-btn" id="btn-serial-toggle" onclick="toggleSerialConnection()" style="border-color:#15803d; color:#22c55e">
-						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
 						Connect
 					</button>
 					<button class="toolbar-btn" onclick="toggleExpand()" id="btn-expand" title="Expand console">
-						<svg id="expand-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+						<svg id="expand-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
 					</button>
 					<button class="toolbar-btn" onclick="toggleFullscreen()" id="btn-fullscreen" title="Fullscreen">
-						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
 					</button>
 				</div>
 			</div>
@@ -339,7 +326,6 @@ templ DashboardPage() {
 				<div id="terminal"></div>
 			</div>
 		</div>
-
 		<script src="/js/xterm.min.js"></script>
 		<script src="/js/xterm-addon-fit.min.js"></script>
 		<script src="/js/xterm-addon-attach.min.js"></script>
@@ -502,6 +488,60 @@ templ DashboardPage() {
 					}
 				} catch(e) {}
 			})();
+
+			// Load application version (current vs. latest from GitHub) and
+			// surface an "Update" button when a newer release is available.
+			async function loadAppVersion() {
+				const btn = document.getElementById('btn-app-update');
+				const status = document.getElementById('info-app-update-status');
+				try {
+					const r = await fetch('/api/application/version', { headers: getAuthHeaders() });
+					const data = await r.json();
+					if (data.code !== 0) return;
+					const cur = (data.data.current || '').replace(/^v/, '');
+					const latest = (data.data.latest || '').replace(/^v/, '');
+					document.getElementById('info-app').textContent = cur || '—';
+					if (latest && cur && latest !== cur) {
+						btn.textContent = 'Update → v' + latest;
+						btn.style.display = '';
+						status.textContent = '';
+					} else {
+						btn.style.display = 'none';
+						if (latest && cur === latest) status.textContent = '(latest)';
+					}
+				} catch(e) {
+					console.warn('version check failed:', e);
+				}
+			}
+			loadAppVersion();
+
+			window.updateApplication = async function() {
+				const btn = document.getElementById('btn-app-update');
+				const status = document.getElementById('info-app-update-status');
+				if (!confirm('Download and install the latest application? The service will restart.')) return;
+				btn.disabled = true;
+				const original = btn.textContent;
+				btn.textContent = 'Updating…';
+				status.textContent = '';
+				try {
+					const r = await fetch('/api/application/update', { method: 'POST', headers: getAuthHeaders() });
+					const data = await r.json().catch(() => ({}));
+					if (r.ok && data.code === 0) {
+						status.textContent = 'Restarting…';
+						btn.style.display = 'none';
+						// Service restarts; reload after a short delay.
+						setTimeout(() => window.location.reload(), 5000);
+					} else {
+						status.textContent = 'Error: ' + (data.msg || r.statusText);
+						btn.disabled = false;
+						btn.textContent = original;
+					}
+				} catch(e) {
+					status.textContent = 'Error: ' + e.message;
+					btn.disabled = false;
+					btn.textContent = original;
+				}
+			};
 
 			// Load firmware status & inventory
 			async function loadFirmwareInfo() {
