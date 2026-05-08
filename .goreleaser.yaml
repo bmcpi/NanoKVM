@@ -33,12 +33,7 @@ builds:
       - -s -w
 
 upx:
-  - enabled: true
-    ids:
-      - server
-      - fw_env
-    compress: best
-    lzma: true
+  - enabled: false
 
 archives:
   - id: nanokvm
