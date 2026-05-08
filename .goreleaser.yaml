@@ -8,6 +8,7 @@ before:
   hooks:
     - go mod tidy
     - go generate ./...
+    - bash -c "echo '{{ .Version }}' > version"
 
 builds:
   - id: server
@@ -50,6 +51,7 @@ archives:
           mode: 0755
       - LICENSE
       - README.md
+      - version
 
 checksum:
   name_template: "checksums.txt"
