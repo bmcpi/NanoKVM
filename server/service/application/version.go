@@ -8,11 +8,23 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/BMCPi/NanoKVM/server/proto"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+)
+
+// latestCacheTTL controls how long a successful GitHub release lookup is
+// reused before re-querying the API.
+const latestCacheTTL = 1 * time.Hour
+
+var (
+	latestCacheMu     sync.Mutex
+	latestCacheValue  *Latest
+	latestCacheExpiry time.Time
 )
 
 // githubRelease is the subset of GitHub's release API response we need.
@@ -76,6 +88,25 @@ func currentAppVersion() string {
 }
 
 func getLatest() (*Latest, error) {
+	latestCacheMu.Lock()
+	defer latestCacheMu.Unlock()
+
+	if latestCacheValue != nil && time.Now().Before(latestCacheExpiry) {
+		log.Debugf("latest release: cache hit (%s)", latestCacheValue.Version)
+		return latestCacheValue, nil
+	}
+
+	latest, err := fetchLatest()
+	if err != nil {
+		return nil, err
+	}
+
+	latestCacheValue = latest
+	latestCacheExpiry = time.Now().Add(latestCacheTTL)
+	return latest, nil
+}
+
+func fetchLatest() (*Latest, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", GitHubOwner, GitHubRepo)
 
 	req, err := http.NewRequest("GET", url, nil)
