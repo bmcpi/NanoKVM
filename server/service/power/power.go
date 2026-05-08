@@ -39,7 +39,7 @@ const (
 	shortPressDuration = 300 * time.Millisecond
 
 	// longPressDuration is the hold time for a forced power-off (ATX spec ≥4 s).
-	longPressDuration = 5 * time.Second
+	longPressDuration = 5500 * time.Millisecond
 
 	// toggleDelay is the pause between steps in the legacy boot sequence.
 	toggleDelay = 200 * time.Millisecond
