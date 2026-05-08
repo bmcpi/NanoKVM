@@ -15,8 +15,8 @@ import (
 	"github.com/BMCPi/NanoKVM/server/service/firmware"
 	"github.com/BMCPi/NanoKVM/server/service/ipmi"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	cors "github.com/rs/cors/wrapper/gin"
 )
 
 // Set by goreleaser ldflags.
@@ -74,7 +74,7 @@ func run() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	if conf.Authentication == "disable" {
-		r.Use(cors.AllowAll())
+		r.Use(cors.Default())
 	}
 
 	// Configure templ renderer with fallback to Gin's default HTML renderer.
