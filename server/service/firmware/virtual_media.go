@@ -147,6 +147,11 @@ func (c *Controller) ListMediaFiles() ([]string, error) {
 
 // SaveMediaFile writes r to mediaDir/<name>, creating the directory if needed.
 // It returns the number of bytes saved.
+//
+// The file is written to a temporary path first and only renamed to the final
+// destination on success, so an existing ISO is never truncated or removed if
+// the write fails part-way through. An error is returned immediately if name
+// is currently inserted as virtual media — eject it before overwriting.
 func (c *Controller) SaveMediaFile(name string, r io.Reader) (int64, error) {
 	if c.mediaDir == "" {
 		return 0, fmt.Errorf("mediaDir not configured")
@@ -155,10 +160,23 @@ func (c *Controller) SaveMediaFile(name string, r io.Reader) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+
+	// Refuse to overwrite a file that is currently presented to the host.
+	c.mu.Lock()
+	inserted := c.vmState.Inserted && c.vmState.ImageName == name
+	c.mu.Unlock()
+	if inserted {
+		return 0, fmt.Errorf("cannot overwrite %q: currently inserted; eject first", name)
+	}
+
 	if err := os.MkdirAll(c.mediaDir, 0o755); err != nil {
 		return 0, fmt.Errorf("create media dir: %w", err)
 	}
-	f, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+
+	// Stage into a sibling temp file so the destination is only replaced
+	// atomically (via rename) after a fully-successful write.
+	tmpPath := destPath + ".tmp"
+	f, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
 		return 0, err
 	}
@@ -166,11 +184,16 @@ func (c *Controller) SaveMediaFile(name string, r io.Reader) (int64, error) {
 	syncErr := f.Sync()
 	_ = f.Close()
 	if copyErr != nil {
-		_ = os.Remove(destPath)
+		_ = os.Remove(tmpPath)
 		return 0, fmt.Errorf("write media file: %w", copyErr)
 	}
 	if syncErr != nil {
+		_ = os.Remove(tmpPath)
 		return n, fmt.Errorf("sync media file: %w", syncErr)
+	}
+	if err := os.Rename(tmpPath, destPath); err != nil {
+		_ = os.Remove(tmpPath)
+		return n, fmt.Errorf("install media file: %w", err)
 	}
 	log.Infof("firmware: saved media file %q (%d bytes)", name, n)
 	return n, nil

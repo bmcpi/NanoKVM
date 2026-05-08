@@ -212,7 +212,12 @@ func (c *Controller) presentISO(isoPath string) error {
 	}
 	// Ensure attributes are set (configfs survives a process restart but
 	// may not persist across reboots depending on the init scripts).
-	_ = os.WriteFile(gadgetLUN1CDRom, []byte("0"), 0o666)
+	isISO := strings.EqualFold(filepath.Ext(isoPath), ".iso")
+	cdromVal := []byte("0")
+	if isISO {
+		cdromVal = []byte("1")
+	}
+	_ = os.WriteFile(gadgetLUN1CDRom, cdromVal, 0o666)
 	_ = os.WriteFile(gadgetLUN1RO, []byte("1"), 0o666)
 	_ = os.WriteFile(gadgetLUN1Removable, []byte("1"), 0o666)
 
