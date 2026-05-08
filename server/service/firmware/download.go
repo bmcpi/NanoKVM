@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/ulikunitz/xz"
 )
 
 const downloadSentinel = "/tmp/.firmware_download_in_progress"
@@ -153,20 +154,27 @@ func downloadFile(url, dest string) error {
 }
 
 func decompressXZ(src, dest string) error {
-	cmd := exec.Command("xz", "-d", "-c", src)
-	outFile, err := os.Create(dest)
+	in, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("open xz: %w", err)
+	}
+	defer in.Close()
+
+	r, err := xz.NewReader(in)
+	if err != nil {
+		return fmt.Errorf("xz reader: %w", err)
+	}
+
+	out, err := os.Create(dest)
 	if err != nil {
 		return fmt.Errorf("create output: %w", err)
 	}
-	defer outFile.Close()
+	defer out.Close()
 
-	cmd.Stdout = outFile
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
+	if _, err := io.Copy(out, r); err != nil {
 		return fmt.Errorf("xz decompress: %w", err)
 	}
-	return outFile.Sync()
+	return out.Sync()
 }
 
 // moveFile renames src to dest, falling back to copy+remove for cross-FS moves.
