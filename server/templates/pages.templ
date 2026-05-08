@@ -493,6 +493,7 @@ templ DashboardPage() {
 			// surface an "Update" button when a newer release is available.
 			async function loadAppVersion() {
 				const btn = document.getElementById('btn-app-update');
+				const badge = document.getElementById('info-app-latest-badge');
 				const status = document.getElementById('info-app-update-status');
 				try {
 					const r = await fetch('/api/application/version', { headers: getAuthHeaders() });
@@ -500,14 +501,18 @@ templ DashboardPage() {
 					if (data.code !== 0) return;
 					const cur = (data.data.current || '').replace(/^v/, '');
 					const latest = (data.data.latest || '').replace(/^v/, '');
-					document.getElementById('info-app').textContent = cur || '—';
+					document.getElementById('info-app').textContent = cur ? 'v' + cur : '—';
+					status.textContent = '';
 					if (latest && cur && latest !== cur) {
 						btn.textContent = 'Update → v' + latest;
 						btn.style.display = '';
-						status.textContent = '';
+						badge.style.display = 'none';
+					} else if (latest && cur && latest === cur) {
+						btn.style.display = 'none';
+						badge.style.display = '';
 					} else {
 						btn.style.display = 'none';
-						if (latest && cur === latest) status.textContent = '(latest)';
+						badge.style.display = 'none';
 					}
 				} catch(e) {
 					console.warn('version check failed:', e);
@@ -580,7 +585,7 @@ templ DashboardPage() {
 						document.getElementById('info-board-rev').textContent = inv.board_revision || '—';
 						document.getElementById('info-board-mac').textContent = inv.ethaddr || '—';
 						document.getElementById('info-fdtfile').textContent = inv.fdtfile || '—';
-						document.getElementById('info-uboot-ver').textContent = inv.ver || '—';
+						document.getElementById('info-bios-ver').textContent = inv.ver || '—';
 						document.getElementById('info-bootmeths').textContent = inv.bootmeths || '—';
 					}
 				} catch(e) {}
@@ -601,35 +606,40 @@ templ DashboardPage() {
 			}
 			loadFirmwareInfo();
 
-			// U-Boot version check (current vs latest from BMCPi/firmware-images).
-			async function loadUbootVersion() {
-				const btn = document.getElementById('btn-uboot-update');
-				const status = document.getElementById('info-uboot-update-status');
+			// BIOS (U-Boot) version check (current vs latest from BMCPi/firmware-images).
+			async function loadBIOSVersion() {
+				const btn = document.getElementById('btn-bios-update');
+				const badge = document.getElementById('info-bios-latest-badge');
+				const status = document.getElementById('info-bios-update-status');
 				try {
 					const r = await fetch('/api/firmware/bios/version', { headers: getAuthHeaders() });
 					if (!r.ok) return;
 					const data = await r.json();
-					const cur = data.current || '';
-					const latest = data.latest || '';
-					if (cur) document.getElementById('info-uboot-ver').textContent = cur;
-					if (data.updateAvailable && latest) {
-						btn.textContent = 'Update → ' + latest;
+					const cur = (data.current || '').replace(/^v/, '');
+					const latest = (data.latest || '').replace(/^v/, '');
+					if (cur) document.getElementById('info-bios-ver').textContent = 'v' + cur;
+					status.textContent = '';
+					if (latest && cur && latest !== cur) {
+						btn.textContent = 'Update → v' + latest;
 						btn.style.display = '';
-						status.textContent = '';
+						badge.style.display = 'none';
+					} else if (latest && cur && latest === cur) {
+						btn.style.display = 'none';
+						badge.style.display = '';
 					} else {
 						btn.style.display = 'none';
-						if (latest && cur) status.textContent = '(latest)';
+						badge.style.display = 'none';
 					}
 				} catch(e) {
-					console.warn('uboot version check failed:', e);
+					console.warn('bios version check failed:', e);
 				}
 			}
-			loadUbootVersion();
+			loadBIOSVersion();
 
-			window.updateUboot = async function() {
-				const btn = document.getElementById('btn-uboot-update');
-				const status = document.getElementById('info-uboot-update-status');
-				if (!confirm('Download and install the latest U-Boot firmware? Existing env files (machine.env, persistent.env, once.env) will be preserved.')) return;
+			window.updateBIOS = async function() {
+				const btn = document.getElementById('btn-bios-update');
+				const status = document.getElementById('info-bios-update-status');
+				if (!confirm('Download and install the latest BIOS (U-Boot) firmware? Existing env files (machine.env, persistent.env, once.env) will be preserved.')) return;
 				btn.disabled = true;
 				const original = btn.textContent;
 				btn.textContent = 'Updating…';
@@ -649,7 +659,7 @@ templ DashboardPage() {
 									btn.disabled = false;
 									btn.textContent = original;
 									loadFirmwareInfo();
-									loadUbootVersion();
+									loadBIOSVersion();
 								}
 							} catch(e) {}
 						}, 5000);
