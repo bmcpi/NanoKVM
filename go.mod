@@ -13,6 +13,7 @@ require (
 	github.com/mervick/aes-everywhere/go/aes256 v0.0.0-20240803013625-6759956693c0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/viper v1.21.0
+	github.com/ulikunitz/xz v0.5.15
 	github.com/unrolled/secure v1.17.0
 	go.bug.st/serial v1.6.4
 	golang.org/x/crypto v0.50.0
@@ -64,7 +65,6 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
-	github.com/ulikunitz/xz v0.5.15 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/arch v0.23.0 // indirect
