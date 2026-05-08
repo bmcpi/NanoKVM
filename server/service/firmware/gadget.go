@@ -1,6 +1,7 @@
 package firmware
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
 	"os/exec"
@@ -41,10 +42,10 @@ func (c *Controller) presentImage() error {
 		return nil
 	}
 
-	// Set cdrom mode based on the image file extension.
+	// Set cdrom mode: 1 for pure ISO (no hybrid MBR), 0 for raw/hybrid images.
 	isISO := strings.EqualFold(filepath.Ext(c.imagePath), ".iso")
 	cdromVal := []byte("0")
-	if isISO {
+	if isISO && !isHybridISO(c.imagePath) {
 		cdromVal = []byte("1")
 	}
 	_ = os.WriteFile(gadgetCdromPath, cdromVal, 0o666)
@@ -214,7 +215,7 @@ func (c *Controller) presentISO(isoPath string) error {
 	// may not persist across reboots depending on the init scripts).
 	isISO := strings.EqualFold(filepath.Ext(isoPath), ".iso")
 	cdromVal := []byte("0")
-	if isISO {
+	if isISO && !isHybridISO(isoPath) {
 		cdromVal = []byte("1")
 	}
 	_ = os.WriteFile(gadgetLUN1CDRom, cdromVal, 0o666)
@@ -226,6 +227,24 @@ func (c *Controller) presentISO(isoPath string) error {
 	}
 	log.Infof("firmware: virtual media lun.1 → %s", isoPath)
 	return nil
+}
+
+// isHybridISO reports whether path contains an MBR boot signature (0xAA55) at
+// byte 510. Such images have an embedded partition table and should be
+// presented to the host as a raw block device (cdrom=0), not as an El Torito
+// CD-ROM (cdrom=1). If the file cannot be read, false is returned so callers
+// fall through to the safer cdrom=1 mode.
+func isHybridISO(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	buf := make([]byte, hybridSectorSize)
+	if _, err := f.ReadAt(buf, 0); err != nil {
+		return false
+	}
+	return binary.LittleEndian.Uint16(buf[mbrSignatureOffset:mbrSignatureOffset+2]) == mbrSignature
 }
 
 // unpresentISO clears the backing file from lun.1 so the host sees an empty
