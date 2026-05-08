@@ -183,7 +183,7 @@ func (c *Controller) ensureLUN1() error {
 	}
 	// cdrom=1 → 2048-byte El Torito mode. UEFI/BIOS targets boot via El Torito
 	// (not through a partition filesystem), so no FAT sector-size mismatch arises.
-	_ = os.WriteFile(gadgetLUN1CDRom, []byte("1"), 0o666)
+	_ = os.WriteFile(gadgetLUN1CDRom, []byte("0"), 0o666)
 	_ = os.WriteFile(gadgetLUN1RO, []byte("1"), 0o666)
 	_ = os.WriteFile(gadgetLUN1Removable, []byte("1"), 0o666)
 
@@ -206,7 +206,7 @@ func (c *Controller) presentISO(isoPath string) error {
 	}
 	// Ensure attributes are set (configfs survives a process restart but
 	// may not persist across reboots depending on the init scripts).
-	_ = os.WriteFile(gadgetLUN1CDRom, []byte("1"), 0o666)
+	_ = os.WriteFile(gadgetLUN1CDRom, []byte("0"), 0o666)
 	_ = os.WriteFile(gadgetLUN1RO, []byte("1"), 0o666)
 	_ = os.WriteFile(gadgetLUN1Removable, []byte("1"), 0o666)
 

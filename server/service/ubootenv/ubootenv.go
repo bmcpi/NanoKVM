@@ -171,9 +171,13 @@ func (e *Env) GetInventory() map[string]string {
 //     itself becomes part of the value)
 //   - a single trailing NUL byte (appended by U-Boot in memory) is tolerated
 func Parse(data []byte) (*Env, error) {
-	// U-Boot exports include a trailing NUL terminator in memory; trim any
-	// run of NULs at the end so they don't confuse the line scanner.
-	data = bytes.TrimRight(data, "\x00")
+	// `env export -t` output is plain text and never contains NUL bytes.
+	// In practice the file may be padded with leftover cluster slack from
+	// the FAT (or U-Boot may append a single NUL terminator in memory).
+	// Truncate at the first NUL so trailing garbage is ignored.
+	if i := bytes.IndexByte(data, 0); i >= 0 {
+		data = data[:i]
+	}
 
 	vars := make(map[string]string)
 	scanner := bufio.NewScanner(bytes.NewReader(data))
