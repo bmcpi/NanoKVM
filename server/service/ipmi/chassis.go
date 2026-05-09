@@ -192,7 +192,7 @@ func handleGetSystemBootOptions(cmdData []byte) []byte {
 			}
 		}
 		if !valid {
-			if ubootTargets, err := fwCtrl.GetImportBootTarget(); err == nil && ubootTargets != "" {
+			if ubootTargets, err := fwCtrl.GetOnceBootTarget(); err == nil && ubootTargets != "" {
 				if d, ok := firmware.UBootToIPMIDevice[ubootTargets]; ok {
 					dev = d
 					valid = true

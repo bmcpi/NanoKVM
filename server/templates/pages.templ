@@ -314,6 +314,9 @@ templ DashboardPage() {
 						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
 						Connect
 					</button>
+					<button class="toolbar-btn" id="btn-search" onclick="toggleSearch()" title="Search (Ctrl+F)">
+						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+					</button>
 					<button class="toolbar-btn" onclick="toggleExpand()" id="btn-expand" title="Expand console">
 						<svg id="expand-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
 					</button>
@@ -322,6 +325,51 @@ templ DashboardPage() {
 					</button>
 				</div>
 			</div>
+			<!-- Search bar -->
+			<div id="search-bar" class="hidden items-center gap-2 border-b border-neutral-800 bg-neutral-900 px-3 py-1.5">
+				<div class="relative flex-1 max-w-xs">
+					<input
+						id="search-input"
+						type="text"
+						placeholder="Search terminal…"
+						autocomplete="off"
+						spellcheck="false"
+						class="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-1 text-xs text-neutral-200 placeholder-neutral-500 focus:border-blue-600 focus:outline-none"
+						oninput="onSearchInput()"
+						onkeydown="onSearchKeydown(event)"
+					/>
+				</div>
+				<span id="search-count" class="text-xs text-neutral-500 min-w-[3rem] text-center select-none"></span>
+				<button
+					class="toolbar-btn"
+					onclick="findPrevious()"
+					title="Previous match (Shift+Enter)"
+				>
+					<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
+				</button>
+				<button
+					class="toolbar-btn"
+					onclick="findNext()"
+					title="Next match (Enter)"
+				>
+					<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+				</button>
+				<label class="flex items-center gap-1 text-xs text-neutral-400 cursor-pointer select-none" title="Case sensitive">
+					<input id="search-case" type="checkbox" class="rounded border-neutral-600 bg-neutral-800 text-blue-600 focus:ring-0 focus:ring-offset-0" onchange="onSearchInput()"/>
+					Aa
+				</label>
+				<label class="flex items-center gap-1 text-xs text-neutral-400 cursor-pointer select-none" title="Regular expression">
+					<input id="search-regex" type="checkbox" class="rounded border-neutral-600 bg-neutral-800 text-blue-600 focus:ring-0 focus:ring-offset-0" onchange="onSearchInput()"/>
+					.*
+				</label>
+				<button
+					class="toolbar-btn"
+					onclick="closeSearch()"
+					title="Close (Esc)"
+				>
+					<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+				</button>
+			</div>
 			<div id="terminal-wrap">
 				<div id="terminal"></div>
 			</div>
@@ -329,14 +377,17 @@ templ DashboardPage() {
 		<script src="/js/xterm.min.js"></script>
 		<script src="/js/xterm-addon-fit.min.js"></script>
 		<script src="/js/xterm-addon-attach.min.js"></script>
+		<script src="/js/xterm-addon-search.min.js"></script>
 		<script>
 			const Terminal = window.Terminal;
 			const FitAddon = window.FitAddon?.FitAddon || window.FitAddon;
 			const AttachAddon = window.AttachAddon?.AttachAddon || window.AttachAddon;
+			const SearchAddon = window.SearchAddon?.SearchAddon || window.SearchAddon;
 
 			let term = null;
 			let ws = null;
 			let fitAddon = null;
+			let searchAddon = null;
 			let resizeHandler = null;
 
 			function getWsUrl() {
@@ -406,6 +457,8 @@ templ DashboardPage() {
 				});
 				fitAddon = new FitAddon();
 				term.loadAddon(fitAddon);
+				searchAddon = new SearchAddon();
+				term.loadAddon(searchAddon);
 				const el = document.getElementById('terminal');
 				el.innerHTML = '';
 				term.open(el);
@@ -453,6 +506,89 @@ templ DashboardPage() {
 				ws = null;
 				if (term) { term.dispose(); term = null; }
 				fitAddon = null;
+				searchAddon = null;
+				closeSearch();
+			};
+
+			// ── Search ─────────────────────────────────────────────────────────
+			let _searchOpen = false;
+
+			window.toggleSearch = function() {
+				_searchOpen ? closeSearch() : openSearch();
+			};
+
+			window.openSearch = function() {
+				_searchOpen = true;
+				const bar = document.getElementById('search-bar');
+				bar.classList.remove('hidden');
+				bar.classList.add('flex');
+				document.getElementById('btn-search').classList.add('active');
+				document.getElementById('search-input').focus();
+				document.getElementById('search-input').select();
+				if (fitAddon) fitAddon.fit();
+			};
+
+			window.closeSearch = function() {
+				_searchOpen = false;
+				const bar = document.getElementById('search-bar');
+				bar.classList.add('hidden');
+				bar.classList.remove('flex');
+				document.getElementById('btn-search').classList.remove('active');
+				document.getElementById('search-count').textContent = '';
+				if (searchAddon) searchAddon.clearDecorations();
+				if (fitAddon) fitAddon.fit();
+			};
+
+			window.onSearchInput = function() {
+				const q = document.getElementById('search-input').value;
+				if (!searchAddon || !q) {
+					document.getElementById('search-count').textContent = '';
+					if (searchAddon) searchAddon.clearDecorations();
+					return;
+				}
+				const opts = buildSearchOpts();
+				searchAddon.findNext(q, { ...opts, incremental: true });
+			};
+
+			window.findNext = function() {
+				if (!searchAddon) return;
+				const q = document.getElementById('search-input').value;
+				if (!q) return;
+				searchAddon.findNext(q, buildSearchOpts());
+			};
+
+			window.findPrevious = function() {
+				if (!searchAddon) return;
+				const q = document.getElementById('search-input').value;
+				if (!q) return;
+				searchAddon.findPrevious(q, buildSearchOpts());
+			};
+
+			function buildSearchOpts() {
+				return {
+					caseSensitive: document.getElementById('search-case').checked,
+					regex: document.getElementById('search-regex').checked,
+					wholeWord: false,
+					decorations: {
+						matchBackground: '#3b3b00',
+						matchBorder: '#a3a300',
+						matchOverviewRuler: '#a3a300',
+						activeMatchBackground: '#fbbf24',
+						activeMatchBorder: '#f59e0b',
+						activeMatchColorOverviewRuler: '#f59e0b',
+					},
+				};
+			}
+
+			window.onSearchKeydown = function(e) {
+				if (e.key === 'Enter') {
+					e.preventDefault();
+					e.shiftKey ? findPrevious() : findNext();
+				} else if (e.key === 'Escape') {
+					e.preventDefault();
+					closeSearch();
+					if (term) term.focus();
+				}
 			};
 
 			// Expand: console takes full viewport (within the SPA layout)
@@ -496,9 +632,19 @@ templ DashboardPage() {
 				}
 			});
 
-			// Escape key exits expanded mode
+			// Escape key exits expanded mode; Ctrl+F opens search
 			document.addEventListener('keydown', (e) => {
+				if (e.ctrlKey && e.key === 'f') {
+					e.preventDefault();
+					openSearch();
+					return;
+				}
 				if (e.key === 'Escape') {
+					if (_searchOpen) {
+						closeSearch();
+						if (term) term.focus();
+						return;
+					}
 					const pane = document.getElementById('console-pane');
 					if (pane.classList.contains('expanded') && !document.fullscreenElement) {
 						toggleExpand();
@@ -672,7 +818,7 @@ templ DashboardPage() {
 			window.updateBIOS = async function() {
 				const btn = document.getElementById('btn-bios-update');
 				const status = document.getElementById('info-bios-update-status');
-				if (!confirm('Download and install the latest BIOS (U-Boot) firmware? Existing env files (machine.env, import.env) will be preserved.')) return;
+				if (!confirm('Download and install the latest BIOS (U-Boot) firmware? Existing env files (machine.env, persistent.env, once.env) will be preserved.')) return;
 				btn.disabled = true;
 				const original = btn.textContent;
 				btn.textContent = 'Updating…';
@@ -858,7 +1004,7 @@ templ DashboardPage() {
 				const select = document.getElementById('bios-kernel-select');
 				const kernel = select.value;
 				if (!kernel) return;
-				if (!confirm(`Activate U-Boot for Linux ${kernel}? Env files (machine.env, import.env) will be preserved.`)) return;
+				if (!confirm(`Activate U-Boot for Linux ${kernel}? Env files (machine.env, persistent.env, once.env) will be preserved.`)) return;
 				const actBtn = document.getElementById('btn-kernel-activate');
 				const status = document.getElementById('bios-kernel-status');
 				actBtn.disabled = true;

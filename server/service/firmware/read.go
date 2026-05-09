@@ -83,10 +83,16 @@ func (c *Controller) invalidateReaderCacheLocked() {
 	}
 }
 
-// fatRelPath converts a host-side path under c.mountPoint to its FAT
+// fatRelPath converts a host-side path under c.firmwareDir to its FAT
 // root-relative form (e.g. "/data/firmware/files/machine.env" → "/machine.env").
+// c.firmwareDir is the authoritative prefix for env file host paths; if it is
+// empty we fall back to c.mountPoint for backward-compatibility.
 func (c *Controller) fatRelPath(hostPath string) string {
-	rel := strings.TrimPrefix(hostPath, c.mountPoint)
+	prefix := c.firmwareDir
+	if prefix == "" {
+		prefix = c.mountPoint
+	}
+	rel := strings.TrimPrefix(hostPath, prefix)
 	if rel == "" || rel[0] != '/' {
 		rel = "/" + rel
 	}

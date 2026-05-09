@@ -49,9 +49,10 @@ var defaultConfig = &Config{
 		ImageURL:      "https://github.com/tinkerbell-community/uboot-raspberrypi/releases/download/v2026.04-rc4.1/uboot-raspberrypi-2026.04-rc4.1.img.xz",
 		ImagePath:     "/data/firmware/uboot-rpi.img",
 		FirmwareDir:   "/data/firmware/files",
-		MountPoint:    "/data/firmware/files",
-		UbootEnv:  "/data/firmware/files/machine.env",
-		ImportEnv: "/data/firmware/files/import.env",
+		MountPoint:    "/data/firmware/mnt",
+		MachineEnv:    "/data/firmware/files/machine.env",
+		PersistentEnv: "/data/firmware/files/persistent.env",
+		OnceEnv:       "/data/firmware/files/once.env",
 		MediaDir:      "/data/media",
 	},
 	Power: Power{
@@ -113,11 +114,14 @@ func checkDefaultValue() {
 	if instance.Firmware.MountPoint == "" {
 		instance.Firmware.MountPoint = defaultConfig.Firmware.MountPoint
 	}
-	if instance.Firmware.UbootEnv == "" {
-		instance.Firmware.UbootEnv = defaultConfig.Firmware.UbootEnv
+	if instance.Firmware.MachineEnv == "" {
+		instance.Firmware.MachineEnv = defaultConfig.Firmware.MachineEnv
 	}
-	if instance.Firmware.ImportEnv == "" {
-		instance.Firmware.ImportEnv = defaultConfig.Firmware.ImportEnv
+	if instance.Firmware.PersistentEnv == "" {
+		instance.Firmware.PersistentEnv = defaultConfig.Firmware.PersistentEnv
+	}
+	if instance.Firmware.OnceEnv == "" {
+		instance.Firmware.OnceEnv = defaultConfig.Firmware.OnceEnv
 	}
 	if instance.Firmware.MediaDir == "" {
 		instance.Firmware.MediaDir = defaultConfig.Firmware.MediaDir

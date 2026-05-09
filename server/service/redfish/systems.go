@@ -149,7 +149,7 @@ func buildSystemResource() gin.H {
 		}
 	}
 	if overrideEnabled == "Disabled" {
-		if ubootTargets, err := fwCtrl.GetImportBootTarget(); err == nil && ubootTargets != "" {
+		if ubootTargets, err := fwCtrl.GetOnceBootTarget(); err == nil && ubootTargets != "" {
 			if rt, ok := firmware.UBootToRedfish[ubootTargets]; ok {
 				currentTarget = rt
 				overrideEnabled = "Once"

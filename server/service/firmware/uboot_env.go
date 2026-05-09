@@ -1,81 +1,27 @@
 package firmware
 
-// uboot_env.go provides accessors for the binary U-Boot env partition file
-// (machine.env) inside the firmware FAT image.
+// uboot_env.go provides read-only accessors for machine.env — the plain-text
+// U-Boot environment file written by U-Boot at each boot. It is the
+// authoritative source of the current effective environment.
 //
-// machine.env is U-Boot's native on-disk environment (4-byte CRC32 LE header
-// followed by NUL-terminated key=value entries, padded to a fixed size).
-// U-Boot reads and writes it directly via saveenv/loadenv. The BMC reads
-// it to observe the effective environment and writes it to apply persistent
-// configuration changes.
-//
-// import.env (formerly once.env) is a plain-text override file applied by
-// U-Boot on the next boot and then deleted. Use it for one-shot changes.
+// persistent.env and once.env are the write-side files managed by firmware.go.
 
 import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/BMCPi/NanoKVM/server/service/ubootenv"
 )
 
-// loadUbootEnvFresh reads and parses machine.env from the image without
-// mounting. Returns an empty binary-format Env when the file is missing.
-// Must hold c.mu.
-func (c *Controller) loadUbootEnvFresh() (*ubootenv.Env, error) {
-	if c.ubootEnv == "" {
-		return ubootenv.NewBinary(0), nil
-	}
-	data, err := c.readFileFresh(c.fatRelPath(c.ubootEnv))
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return ubootenv.NewBinary(0), nil
-		}
-		return nil, err
-	}
-	env, err := ubootenv.Parse(data)
-	if err != nil {
-		return nil, err
-	}
-	// Promote a text-parsed env to binary if we expected binary (the file
-	// is named machine.env and U-Boot only consumes the binary format).
-	if env.Format != ubootenv.FormatBinary {
-		env.Format = ubootenv.FormatBinary
-		if env.Size == 0 {
-			env.Size = ubootenv.DefaultEnvSize
-		}
-	}
-	return env, nil
-}
-
-// loadUbootEnvForWrite loads machine.env from the (mounted) image as a binary
-// env, defaulting to a fresh empty binary env if the file is missing.
-// Must be called inside withMount().
-func loadUbootEnvForWrite(path string) (*ubootenv.Env, error) {
-	env, err := ubootenv.LoadFile(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return ubootenv.NewBinary(0), nil
-		}
-		return nil, err
-	}
-	if env.Format != ubootenv.FormatBinary {
-		env.Format = ubootenv.FormatBinary
-		if env.Size == 0 {
-			env.Size = ubootenv.DefaultEnvSize
-		}
-	}
-	return env, nil
-}
-
 // LoadUbootEnv returns the parsed machine.env. Fresh read.
 func (c *Controller) LoadUbootEnv() (*ubootenv.Env, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.loadUbootEnvFresh()
+	return c.loadEnvFresh(c.machineEnv)
 }
 
 // GetUbootEnvVar returns a single variable from machine.env. Fresh read.
@@ -88,46 +34,48 @@ func (c *Controller) GetUbootEnvVar(key string) (string, bool, error) {
 	return v, ok, nil
 }
 
-// SetUbootEnvVar writes a variable to machine.env, preserving the binary
-// format. Pass an empty value with del=true to delete the key.
+// SetUbootEnvVar writes a variable to persistent.env inside the firmware image,
+// preserving existing variables. Pass del=true to delete the key instead.
 func (c *Controller) SetUbootEnvVar(key, value string, del bool) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	defer c.invalidateReaderCacheLocked()
 
-	if c.ubootEnv == "" {
-		return fmt.Errorf("ubootEnv path not configured")
+	if c.persistentEnv == "" {
+		return fmt.Errorf("persistentEnv path not configured")
 	}
 
 	return c.withMount(func() error {
-		env, err := loadUbootEnvForWrite(c.ubootEnv)
+		dest := filepath.Join(c.mountPoint, filepath.Base(c.persistentEnv))
+		env, err := loadEnvFile(dest)
 		if err != nil {
-			return fmt.Errorf("load uboot env: %w", err)
+			return fmt.Errorf("load persistent env: %w", err)
 		}
 		if del {
 			env.Delete(key)
 		} else {
 			env.Set(key, value)
 		}
-		return env.SaveFile(c.ubootEnv)
+		return saveOrRemoveEnv(env, dest)
 	})
 }
 
-// SetUbootEnvVars applies multiple variable updates to machine.env atomically
-// (single mount/save). Entries with empty value+del=true are deleted.
+// SetUbootEnvVars applies multiple variable updates to persistent.env inside
+// the firmware image atomically (single mount/save).
 func (c *Controller) SetUbootEnvVars(updates map[string]string, deletes []string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	defer c.invalidateReaderCacheLocked()
 
-	if c.ubootEnv == "" {
-		return fmt.Errorf("ubootEnv path not configured")
+	if c.persistentEnv == "" {
+		return fmt.Errorf("persistentEnv path not configured")
 	}
 
 	return c.withMount(func() error {
-		env, err := loadUbootEnvForWrite(c.ubootEnv)
+		dest := filepath.Join(c.mountPoint, filepath.Base(c.persistentEnv))
+		env, err := loadEnvFile(dest)
 		if err != nil {
-			return fmt.Errorf("load uboot env: %w", err)
+			return fmt.Errorf("load persistent env: %w", err)
 		}
 		for k, v := range updates {
 			env.Set(k, v)
@@ -135,18 +83,19 @@ func (c *Controller) SetUbootEnvVars(updates map[string]string, deletes []string
 		for _, k := range deletes {
 			env.Delete(k)
 		}
-		return env.SaveFile(c.ubootEnv)
+		return saveOrRemoveEnv(env, dest)
 	})
 }
 
 // ensureUbootEnvLocked creates an empty default machine.env in the image if
-// the file is missing. Idempotent. Must hold c.mu.
+// the file is missing, so U-Boot has somewhere to write saveenv output.
+// Idempotent. Must hold c.mu.
 func (c *Controller) ensureUbootEnvLocked() error {
-	if c.ubootEnv == "" {
+	if c.machineEnv == "" {
 		return nil
 	}
-	// Fast path: if machine.env is already present in the image, do nothing.
-	if _, err := c.readFileFresh(c.fatRelPath(c.ubootEnv)); err == nil {
+	// Fast path: already present.
+	if _, err := c.readFileFresh(c.fatRelPath(c.machineEnv)); err == nil {
 		return nil
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("probe machine.env: %w", err)
@@ -154,16 +103,16 @@ func (c *Controller) ensureUbootEnvLocked() error {
 
 	defer c.invalidateReaderCacheLocked()
 	return c.withMount(func() error {
-		// Re-check inside the mount in case the userspace reader cache
-		// was stale; if it now exists, we're done.
-		if _, err := os.Stat(c.ubootEnv); err == nil {
+		// Use the mounted-image path, not the host firmwareDir path.
+		dest := filepath.Join(c.mountPoint, filepath.Base(c.machineEnv))
+		if _, err := os.Stat(dest); err == nil {
 			return nil
 		}
-		env := ubootenv.NewBinary(0)
-		if err := env.SaveFile(c.ubootEnv); err != nil {
+		env := ubootenv.New()
+		if err := env.SaveFile(dest); err != nil {
 			return fmt.Errorf("create default machine.env: %w", err)
 		}
-		log.Infof("firmware: created default empty machine.env (%d bytes)", env.Size)
+		log.Infof("firmware: created default empty machine.env")
 		return nil
 	})
 }
