@@ -672,7 +672,7 @@ templ DashboardPage() {
 			window.updateBIOS = async function() {
 				const btn = document.getElementById('btn-bios-update');
 				const status = document.getElementById('info-bios-update-status');
-				if (!confirm('Download and install the latest BIOS (U-Boot) firmware? Existing env files (machine.env, persistent.env, once.env) will be preserved.')) return;
+				if (!confirm('Download and install the latest BIOS (U-Boot) firmware? Existing env files (machine.env, import.env) will be preserved.')) return;
 				btn.disabled = true;
 				const original = btn.textContent;
 				btn.textContent = 'Updating…';
@@ -858,7 +858,7 @@ templ DashboardPage() {
 				const select = document.getElementById('bios-kernel-select');
 				const kernel = select.value;
 				if (!kernel) return;
-				if (!confirm(`Activate U-Boot for Linux ${kernel}? Env files (machine.env, persistent.env, once.env) will be preserved.`)) return;
+				if (!confirm(`Activate U-Boot for Linux ${kernel}? Env files (machine.env, import.env) will be preserved.`)) return;
 				const actBtn = document.getElementById('btn-kernel-activate');
 				const status = document.getElementById('bios-kernel-status');
 				actBtn.disabled = true;

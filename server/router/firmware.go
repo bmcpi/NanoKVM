@@ -64,9 +64,8 @@ func firmwareRouter(r *gin.Engine) {
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{
-			"persistent": bt.Persistent,
-			"once":       bt.Once,
-			"effective":  bt.Effective,
+			"effective": bt.Effective,
+			"import":    bt.Import,
 		})
 	})
 

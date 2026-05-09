@@ -50,10 +50,8 @@ var defaultConfig = &Config{
 		ImagePath:     "/data/firmware/uboot-rpi.img",
 		FirmwareDir:   "/data/firmware/files",
 		MountPoint:    "/data/firmware/files",
-		MachineEnv:    "/data/firmware/files/machine.env",
-		PersistentEnv: "/data/firmware/files/persistent.env",
-		OnceEnv:       "/data/firmware/files/once.env",
-		UbootEnv:      "/data/firmware/files/uboot.env",
+		UbootEnv:  "/data/firmware/files/machine.env",
+		ImportEnv: "/data/firmware/files/import.env",
 		MediaDir:      "/data/media",
 	},
 	Power: Power{
@@ -115,17 +113,11 @@ func checkDefaultValue() {
 	if instance.Firmware.MountPoint == "" {
 		instance.Firmware.MountPoint = defaultConfig.Firmware.MountPoint
 	}
-	if instance.Firmware.MachineEnv == "" {
-		instance.Firmware.MachineEnv = defaultConfig.Firmware.MachineEnv
-	}
-	if instance.Firmware.PersistentEnv == "" {
-		instance.Firmware.PersistentEnv = defaultConfig.Firmware.PersistentEnv
-	}
-	if instance.Firmware.OnceEnv == "" {
-		instance.Firmware.OnceEnv = defaultConfig.Firmware.OnceEnv
-	}
 	if instance.Firmware.UbootEnv == "" {
 		instance.Firmware.UbootEnv = defaultConfig.Firmware.UbootEnv
+	}
+	if instance.Firmware.ImportEnv == "" {
+		instance.Firmware.ImportEnv = defaultConfig.Firmware.ImportEnv
 	}
 	if instance.Firmware.MediaDir == "" {
 		instance.Firmware.MediaDir = defaultConfig.Firmware.MediaDir

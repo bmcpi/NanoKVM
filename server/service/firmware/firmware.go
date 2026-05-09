@@ -47,10 +47,8 @@ type Status struct {
 
 // envSnapshot is a parsed view of all env files at one point in time.
 type envSnapshot struct {
-	machine    *ubootenv.Env
-	persistent *ubootenv.Env
-	once       *ubootenv.Env
-	uboot      *ubootenv.Env
+	uboot     *ubootenv.Env
+	importEnv *ubootenv.Env
 }
 
 // Controller manages the firmware image lifecycle.
@@ -63,11 +61,14 @@ type Controller struct {
 	firmwareDir string
 	mediaDir    string // staging area for ISO files the user has uploaded
 
-	// Full host-OS paths under c.mountPoint for the U-Boot env files.
-	machineEnv    string
-	persistentEnv string
-	onceEnv       string
-	ubootEnv      string
+	// Host-OS paths for the U-Boot env files inside the FAT image.
+	// ubootEnv  — binary env partition (CRC32 header + NUL-terminated pairs);
+	//             U-Boot reads/writes this; BMC reads effective state from
+	//             it and writes persistent changes back into it.
+	// importEnv — plain-text one-shot override (formerly once.env); U-Boot
+	//             applies it on the next boot and then deletes it.
+	ubootEnv  string
+	importEnv string
 
 	loopDev   string // persistent loop device, attached at Init
 	presented bool
@@ -91,10 +92,8 @@ func GetController() *Controller {
 			mountPoint:    cfg.Firmware.MountPoint,
 			firmwareDir:   cfg.Firmware.FirmwareDir,
 			mediaDir:      cfg.Firmware.MediaDir,
-			machineEnv:    cfg.Firmware.MachineEnv,
-			persistentEnv: cfg.Firmware.PersistentEnv,
-			onceEnv:       cfg.Firmware.OnceEnv,
 			ubootEnv:      cfg.Firmware.UbootEnv,
+			importEnv:     cfg.Firmware.ImportEnv,
 		}
 	})
 	return instance
@@ -130,10 +129,10 @@ func (c *Controller) Init() error {
 		log.Warnf("firmware: USB gadget present failed (may not be available in this environment): %v", err)
 	}
 
-	// Ensure a default empty uboot.env exists in the image so U-Boot has
+	// Ensure a default empty machine.env exists in the image so U-Boot has
 	// somewhere to persist saveenv writes. Best-effort.
 	if err := c.ensureUbootEnvLocked(); err != nil {
-		log.Warnf("firmware: ensure default uboot.env: %v", err)
+		log.Warnf("firmware: ensure default machine.env: %v", err)
 	}
 	return nil
 }
@@ -198,46 +197,38 @@ func saveOrRemoveEnv(env *ubootenv.Env, path string) error {
 
 // ---- env snapshot (cache-free, page-cache-coherent reads) ----------------
 
-// envSnapshotLocked reads all three env files from the image without
-// mounting. Each call is a fresh read via the userspace FAT parser,
-// so it always reflects the current on-disk state (within page-cache
-// coherency with any in-flight gadget writes). Must hold c.mu.
+// envSnapshotLocked reads both env files from the image without mounting.
+// Each call is a fresh read via the userspace FAT parser. Must hold c.mu.
 func (c *Controller) envSnapshotLocked() (*envSnapshot, error) {
 	snap := &envSnapshot{}
 	var err error
-	if snap.machine, err = c.loadEnvFresh(c.machineEnv); err != nil {
-		return nil, fmt.Errorf("load machine env: %w", err)
-	}
-	if snap.persistent, err = c.loadEnvFresh(c.persistentEnv); err != nil {
-		return nil, fmt.Errorf("load persistent env: %w", err)
-	}
-	if snap.once, err = c.loadEnvFresh(c.onceEnv); err != nil {
-		return nil, fmt.Errorf("load once env: %w", err)
-	}
 	if snap.uboot, err = c.loadUbootEnvFresh(); err != nil {
 		return nil, fmt.Errorf("load uboot env: %w", err)
+	}
+	if snap.importEnv, err = c.loadEnvFresh(c.importEnv); err != nil {
+		return nil, fmt.Errorf("load import env: %w", err)
 	}
 	return snap, nil
 }
 
 // ---- env API ---------------------------------------------------------------
 
-// LoadEnv returns machine.env (written by U-Boot at last boot). Fresh read.
+// LoadEnv returns the parsed machine.env (the effective U-Boot environment).
+// Fresh read.
 func (c *Controller) LoadEnv() (*ubootenv.Env, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.loadEnvFresh(c.machineEnv)
+	return c.loadUbootEnvFresh()
 }
 
-// BootTargets bundles the three boot-target views read from the image.
+// BootTargets bundles the boot-target views read from the image.
 type BootTargets struct {
-	Persistent string `json:"persistent"`
-	Once       string `json:"once"`
-	Effective  string `json:"effective"`
+	Effective string `json:"effective"` // from machine.env
+	Import    string `json:"import"`    // from import.env (one-shot)
 }
 
-// GetBootTargets returns persistent, once, and effective boot targets in
-// a single fresh read.
+// GetBootTargets returns the effective and import boot targets in a
+// single fresh read.
 func (c *Controller) GetBootTargets() (BootTargets, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -246,22 +237,21 @@ func (c *Controller) GetBootTargets() (BootTargets, error) {
 		return BootTargets{}, err
 	}
 	bt := BootTargets{}
-	bt.Persistent, _ = snap.persistent.Get(ubootenv.VarBootTargets)
-	bt.Once, _ = snap.once.Get(ubootenv.VarBootTargets)
-	bt.Effective, _ = snap.machine.Get(ubootenv.VarBootTargets)
+	bt.Effective, _ = snap.uboot.Get(ubootenv.VarBootTargets)
+	bt.Import, _ = snap.importEnv.Get(ubootenv.VarBootTargets)
 	return bt, nil
 }
 
-// GetBootTarget returns boot_targets from persistent.env. Fresh read.
+// GetBootTarget returns boot_targets from machine.env. Fresh read.
 func (c *Controller) GetBootTarget() (string, error) {
 	bt, err := c.GetBootTargets()
-	return bt.Persistent, err
+	return bt.Effective, err
 }
 
-// GetOnceBootTarget returns boot_targets from once.env. Fresh read.
-func (c *Controller) GetOnceBootTarget() (string, error) {
+// GetImportBootTarget returns boot_targets from import.env. Fresh read.
+func (c *Controller) GetImportBootTarget() (string, error) {
 	bt, err := c.GetBootTargets()
-	return bt.Once, err
+	return bt.Import, err
 }
 
 // GetEffectiveBootTarget returns boot_targets from machine.env. Fresh read.
@@ -270,43 +260,43 @@ func (c *Controller) GetEffectiveBootTarget() (string, error) {
 	return bt.Effective, err
 }
 
-// SetBootTarget writes a continuous boot target override to persistent.env.
+// SetBootTarget writes a persistent boot target override to machine.env.
 func (c *Controller) SetBootTarget(targets string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	defer c.invalidateReaderCacheLocked()
 
 	return c.withMount(func() error {
-		env, err := loadEnvFile(c.persistentEnv)
+		env, err := loadUbootEnvForWrite(c.ubootEnv)
 		if err != nil {
-			return fmt.Errorf("load persistent env: %w", err)
+			return fmt.Errorf("load uboot env: %w", err)
 		}
 		if targets == "" {
 			env.Delete(ubootenv.VarBootTargets)
 		} else {
 			env.Set(ubootenv.VarBootTargets, targets)
 		}
-		return saveOrRemoveEnv(env, c.persistentEnv)
+		return env.SaveFile(c.ubootEnv)
 	})
 }
 
-// SetBootTargetOnce writes a one-shot boot target override to once.env.
+// SetBootTargetOnce writes a one-shot boot target override to import.env.
 func (c *Controller) SetBootTargetOnce(targets string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	defer c.invalidateReaderCacheLocked()
 
 	return c.withMount(func() error {
-		env, err := loadEnvFile(c.onceEnv)
+		env, err := loadEnvFile(c.importEnv)
 		if err != nil {
-			return fmt.Errorf("load once env: %w", err)
+			return fmt.Errorf("load import env: %w", err)
 		}
 		if targets == "" {
 			env.Delete(ubootenv.VarBootTargets)
 		} else {
 			env.Set(ubootenv.VarBootTargets, targets)
 		}
-		return saveOrRemoveEnv(env, c.onceEnv)
+		return saveOrRemoveEnv(env, c.importEnv)
 	})
 }
 

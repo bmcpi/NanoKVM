@@ -95,14 +95,17 @@ type Firmware struct {
 	FirmwareDir string `yaml:"firmwareDir"`
 	// MountPoint is retained for backward-compat with existing YAML files but
 	// is no longer used at runtime — env paths are derived as FAT-root names.
-	MountPoint    string `yaml:"mountPoint"`
-	MachineEnv    string `yaml:"machineEnv"`
-	PersistentEnv string `yaml:"persistentEnv"`
-	OnceEnv       string `yaml:"onceEnv"`
-	// UbootEnv is U-Boot's binary env partition file (CRC32 + NUL-terminated
-	// key=value entries). Read like machine.env (effective values U-Boot uses
-	// at boot) and written like persistent.env (atomic save).
+	MountPoint string `yaml:"mountPoint"`
+	// UbootEnv is U-Boot's binary env partition file (4-byte CRC32 LE header
+	// + NUL-terminated key=value entries, padded to a fixed size). U-Boot
+	// reads and writes this file directly via saveenv/loadenv. The BMC reads
+	// it to observe the effective environment and writes it to apply
+	// persistent configuration changes.
 	UbootEnv string `yaml:"ubootEnv"`
+	// ImportEnv is a plain-text override file applied by U-Boot on the next
+	// boot and then deleted. Use it for one-shot boot configuration changes.
+	// (Renamed from onceEnv.)
+	ImportEnv string `yaml:"importEnv"`
 	// MediaDir is the directory where ISO images for virtual media are stored.
 	MediaDir string `yaml:"mediaDir"`
 }

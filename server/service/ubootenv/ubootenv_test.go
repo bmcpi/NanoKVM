@@ -413,7 +413,7 @@ func TestParseBinaryCRCMismatchFallsBackToText(t *testing.T) {
 
 func TestSaveFilePreservesBinaryFormat(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "uboot.env")
+	path := filepath.Join(dir, "machine.env")
 
 	env := NewBinary(0)
 	env.Set("bootdelay", "3")

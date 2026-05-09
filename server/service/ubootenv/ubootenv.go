@@ -7,7 +7,7 @@
 //     A trailing NUL byte is tolerated.
 //
 //   - Binary format (the on-disk image U-Boot reads from its env partition,
-//     a.k.a. `uboot.env`): a 4-byte little-endian CRC32 header followed by
+//     a.k.a. `machine.env`): a 4-byte little-endian CRC32 header followed by
 //     null-terminated `key=value` entries, padded to a fixed size. The
 //     environment is terminated by a double-NUL.
 //
@@ -135,7 +135,7 @@ func (e *Env) SaveFile(path string) error {
 	}
 
 	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".uboot.env.*.tmp")
+	tmp, err := os.CreateTemp(dir, ".machine.env.*.tmp")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
 	}

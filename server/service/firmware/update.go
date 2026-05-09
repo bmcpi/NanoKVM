@@ -2,8 +2,7 @@ package firmware
 
 // update.go orchestrates u-boot firmware updates: query latest release,
 // determine if an update is needed, download the new image while
-// preserving env files (machine.env, persistent.env, once.env) from the
-// existing image.
+// preserving env files (machine.env, import.env) from the existing image.
 
 import (
 	"errors"
@@ -30,14 +29,14 @@ type VersionInfo struct {
 
 // envFileFATPaths are the FAT root-relative paths of env files we
 // preserve across firmware updates.
-var envFileFATPaths = []string{"/machine.env", "/persistent.env", "/once.env", "/uboot.env"}
+var envFileFATPaths = []string{"/machine.env", "/import.env"}
 
 // GetUBootVersionInfo returns the currently-running u-boot version (read
 // from machine.env's `ver` variable) and the latest available release.
 func (c *Controller) GetUBootVersionInfo() (VersionInfo, error) {
 	c.mu.Lock()
 	current := ""
-	if env, err := c.loadEnvFresh(c.machineEnv); err == nil {
+	if env, err := c.loadUbootEnvFresh(); err == nil {
 		if v, ok := env.Get("ver"); ok {
 			current = parseUBootVer(v)
 		}
