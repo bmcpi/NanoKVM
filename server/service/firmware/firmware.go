@@ -45,11 +45,12 @@ type Status struct {
 	LoopDevice    string `json:"loopDevice"`
 }
 
-// envSnapshot is a parsed view of all three env files at one point in time.
+// envSnapshot is a parsed view of all env files at one point in time.
 type envSnapshot struct {
 	machine    *ubootenv.Env
 	persistent *ubootenv.Env
 	once       *ubootenv.Env
+	uboot      *ubootenv.Env
 }
 
 // Controller manages the firmware image lifecycle.
@@ -66,6 +67,7 @@ type Controller struct {
 	machineEnv    string
 	persistentEnv string
 	onceEnv       string
+	ubootEnv      string
 
 	loopDev   string // persistent loop device, attached at Init
 	presented bool
@@ -92,6 +94,7 @@ func GetController() *Controller {
 			machineEnv:    cfg.Firmware.MachineEnv,
 			persistentEnv: cfg.Firmware.PersistentEnv,
 			onceEnv:       cfg.Firmware.OnceEnv,
+			ubootEnv:      cfg.Firmware.UbootEnv,
 		}
 	})
 	return instance
@@ -125,6 +128,12 @@ func (c *Controller) Init() error {
 	log.Info("firmware: image found, presenting via USB gadget")
 	if err := c.presentImage(); err != nil {
 		log.Warnf("firmware: USB gadget present failed (may not be available in this environment): %v", err)
+	}
+
+	// Ensure a default empty uboot.env exists in the image so U-Boot has
+	// somewhere to persist saveenv writes. Best-effort.
+	if err := c.ensureUbootEnvLocked(); err != nil {
+		log.Warnf("firmware: ensure default uboot.env: %v", err)
 	}
 	return nil
 }
@@ -204,6 +213,9 @@ func (c *Controller) envSnapshotLocked() (*envSnapshot, error) {
 	}
 	if snap.once, err = c.loadEnvFresh(c.onceEnv); err != nil {
 		return nil, fmt.Errorf("load once env: %w", err)
+	}
+	if snap.uboot, err = c.loadUbootEnvFresh(); err != nil {
+		return nil, fmt.Errorf("load uboot env: %w", err)
 	}
 	return snap, nil
 }

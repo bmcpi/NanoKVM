@@ -99,6 +99,10 @@ type Firmware struct {
 	MachineEnv    string `yaml:"machineEnv"`
 	PersistentEnv string `yaml:"persistentEnv"`
 	OnceEnv       string `yaml:"onceEnv"`
+	// UbootEnv is U-Boot's binary env partition file (CRC32 + NUL-terminated
+	// key=value entries). Read like machine.env (effective values U-Boot uses
+	// at boot) and written like persistent.env (atomic save).
+	UbootEnv string `yaml:"ubootEnv"`
 	// MediaDir is the directory where ISO images for virtual media are stored.
 	MediaDir string `yaml:"mediaDir"`
 }

@@ -336,3 +336,116 @@ func TestSaveFileAtomicity(t *testing.T) {
 		}
 	}
 }
+
+func TestParseAndMarshalBinaryRoundTrip(t *testing.T) {
+	original := &Env{
+		Vars: map[string]string{
+			"bootcmd":   "run distro_bootcmd",
+			"bootdelay": "3",
+			"ethaddr":   "00:11:22:33:44:55",
+		},
+		Format: FormatBinary,
+		Size:   DefaultEnvSize,
+	}
+
+	data, err := original.MarshalBinary(0)
+	if err != nil {
+		t.Fatalf("MarshalBinary: %v", err)
+	}
+	if len(data) != DefaultEnvSize {
+		t.Fatalf("expected %d bytes, got %d", DefaultEnvSize, len(data))
+	}
+
+	parsed, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if parsed.Format != FormatBinary {
+		t.Errorf("Format: got %v, want FormatBinary", parsed.Format)
+	}
+	if parsed.Size != DefaultEnvSize {
+		t.Errorf("Size: got %d, want %d", parsed.Size, DefaultEnvSize)
+	}
+	if len(parsed.Vars) != len(original.Vars) {
+		t.Fatalf("var count: got %d, want %d", len(parsed.Vars), len(original.Vars))
+	}
+	for k, want := range original.Vars {
+		if got := parsed.Vars[k]; got != want {
+			t.Errorf("key %q: got %q, want %q", k, got, want)
+		}
+	}
+}
+
+func TestParseBinaryEmpty(t *testing.T) {
+	env := NewBinary(0)
+	data, err := env.MarshalBinary(0)
+	if err != nil {
+		t.Fatalf("MarshalBinary empty: %v", err)
+	}
+	parsed, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse empty binary: %v", err)
+	}
+	if parsed.Format != FormatBinary {
+		t.Errorf("Format: got %v", parsed.Format)
+	}
+	if len(parsed.Vars) != 0 {
+		t.Errorf("expected 0 vars, got %d", len(parsed.Vars))
+	}
+}
+
+func TestParseBinaryCRCMismatchFallsBackToText(t *testing.T) {
+	// Data with a bogus CRC header that happens to look textual after.
+	// Should NOT parse as binary; should fall back to text and either
+	// succeed (if textual) or fail with a text-format error.
+	data := []byte("foo=bar\nbaz=qux\n")
+	env, err := Parse(data)
+	if err != nil {
+		t.Fatalf("Parse text: %v", err)
+	}
+	if env.Format != FormatText {
+		t.Errorf("Format: got %v, want FormatText", env.Format)
+	}
+	if env.Vars["foo"] != "bar" {
+		t.Errorf("foo: got %q", env.Vars["foo"])
+	}
+}
+
+func TestSaveFilePreservesBinaryFormat(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "uboot.env")
+
+	env := NewBinary(0)
+	env.Set("bootdelay", "3")
+	env.Set("bootcmd", "run distro_bootcmd")
+	if err := env.SaveFile(path); err != nil {
+		t.Fatalf("SaveFile: %v", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("Stat: %v", err)
+	}
+	if info.Size() != DefaultEnvSize {
+		t.Errorf("file size: got %d, want %d", info.Size(), DefaultEnvSize)
+	}
+
+	loaded, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile: %v", err)
+	}
+	if loaded.Format != FormatBinary {
+		t.Errorf("Format: got %v, want FormatBinary", loaded.Format)
+	}
+	if v, _ := loaded.Get("bootcmd"); v != "run distro_bootcmd" {
+		t.Errorf("bootcmd: got %q", v)
+	}
+}
+
+func TestMarshalBinaryOverflow(t *testing.T) {
+	env := NewBinary(64) // tiny
+	env.Set("k", strings.Repeat("v", 100))
+	if _, err := env.MarshalBinary(0); err == nil {
+		t.Fatal("expected overflow error")
+	}
+}

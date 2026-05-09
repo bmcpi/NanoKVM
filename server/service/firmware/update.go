@@ -30,7 +30,7 @@ type VersionInfo struct {
 
 // envFileFATPaths are the FAT root-relative paths of env files we
 // preserve across firmware updates.
-var envFileFATPaths = []string{"/machine.env", "/persistent.env", "/once.env"}
+var envFileFATPaths = []string{"/machine.env", "/persistent.env", "/once.env", "/uboot.env"}
 
 // GetUBootVersionInfo returns the currently-running u-boot version (read
 // from machine.env's `ver` variable) and the latest available release.
