@@ -168,12 +168,6 @@ func (c *Controller) downloadFromURLLocked(url string) error {
 			log.Warnf("firmware: pre-download unpresent failed: %v", err)
 		}
 	}
-	hadLoop := c.loopDev != ""
-	if hadLoop {
-		if err := c.detachLoopLocked(); err != nil {
-			log.Warnf("firmware: pre-download loop detach: %v", err)
-		}
-	}
 	c.invalidateReaderCacheLocked()
 
 	stageDir := filepath.Join(filepath.Dir(c.imagePath), "stage")
@@ -202,11 +196,6 @@ func (c *Controller) downloadFromURLLocked(url string) error {
 	_ = exec.Command("sync").Run()
 	log.Infof("firmware: installed image at %s", c.imagePath)
 
-	if hadLoop {
-		if err := c.attachLoopLocked(); err != nil {
-			log.Warnf("firmware: post-download loop reattach: %v", err)
-		}
-	}
 	if wasPresented {
 		if err := c.presentImage(); err != nil {
 			log.Warnf("firmware: post-download present failed: %v", err)
@@ -457,19 +446,10 @@ func (c *Controller) swapActiveLocked(srcPath string) error {
 			log.Warnf("firmware: pre-activate unpresent: %v", err)
 		}
 	}
-	hadLoop := c.loopDev != ""
-	if hadLoop {
-		if err := c.detachLoopLocked(); err != nil {
-			log.Warnf("firmware: pre-activate loop detach: %v", err)
-		}
-	}
 	c.invalidateReaderCacheLocked()
 
 	if err := copyFileContents(srcPath, c.imagePath); err != nil {
 		// Best-effort restore of gadget state before returning the error.
-		if hadLoop {
-			_ = c.attachLoopLocked()
-		}
 		if wasPresented {
 			_ = c.presentImage()
 		}
@@ -477,11 +457,6 @@ func (c *Controller) swapActiveLocked(srcPath string) error {
 	}
 	_ = exec.Command("sync").Run()
 
-	if hadLoop {
-		if err := c.attachLoopLocked(); err != nil {
-			log.Warnf("firmware: post-activate loop reattach: %v", err)
-		}
-	}
 	if wasPresented {
 		if err := c.presentImage(); err != nil {
 			log.Warnf("firmware: post-activate present: %v", err)

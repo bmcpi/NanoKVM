@@ -72,14 +72,6 @@ func (c *Controller) downloadImageLocked() error {
 			log.Warnf("firmware: pre-download unpresent failed: %v", err)
 		}
 	}
-
-	// Detach the persistent loop device so the inode is replaced cleanly.
-	hadLoop := c.loopDev != ""
-	if hadLoop {
-		if err := c.detachLoopLocked(); err != nil {
-			log.Warnf("firmware: pre-download loop detach: %v", err)
-		}
-	}
 	c.invalidateReaderCacheLocked()
 
 	stageDir := filepath.Join(filepath.Dir(c.imagePath), "stage")
@@ -110,13 +102,6 @@ func (c *Controller) downloadImageLocked() error {
 	_ = exec.Command("sync").Run()
 
 	log.Infof("firmware: installed image at %s", c.imagePath)
-
-	// Re-attach loop device to the new image inode.
-	if hadLoop {
-		if err := c.attachLoopLocked(); err != nil {
-			log.Warnf("firmware: post-download loop reattach: %v", err)
-		}
-	}
 
 	// Re-present the (new) image for the gadget.
 	if wasPresented {

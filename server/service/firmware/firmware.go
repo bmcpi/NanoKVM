@@ -7,13 +7,11 @@ package firmware
 //     downloaded as-is from c.imageURL (xz-compressed) on first run.
 //   - The image is presented unchanged to the USB mass-storage gadget via
 //     /sys/kernel/config/usb_gadget/g0/.../lun.0/file.
-//   - A persistent loop device (c.loopDev) is attached to the image at
-//     Init and stays attached for the controller's lifetime. Loop attach
-//     is just an fd open — it does not block the gadget from also serving
-//     the same inode. See mount.go for the rationale.
 //   - All read/write access to the image's filesystem goes through a
-//     mount cycle inside withMount(): unpresent → mount loop partition →
-//     fn → sync → umount → drop_caches → present. Loop stays attached.
+//     mount cycle inside withMount(): unpresent → mount (offset-based loop) →
+//     fn → sync → umount → drop_caches → present. No persistent loop device
+//     is maintained; the kernel handles loop attachment internally as part of
+//     `mount -o loop,offset=...`.
 //   - Env reads are served from a small in-memory snapshot cache with a
 //     short TTL so dashboard polling does not trigger a mount per request.
 //     The cache is invalidated explicitly by every write method.
@@ -42,7 +40,6 @@ type Status struct {
 	MountPoint    string `json:"mountPoint"`
 	FirmwareDir   string `json:"firmwareDir"`
 	FirmwareCount int    `json:"firmwareCount"`
-	LoopDevice    string `json:"loopDevice"`
 }
 
 // envSnapshot is a parsed view of all env files at one point in time.
@@ -70,7 +67,6 @@ type Controller struct {
 	ubootEnv  string
 	importEnv string
 
-	loopDev   string // persistent loop device, attached at Init
 	presented bool
 
 	reader  *readerCache      // cached read-only diskfs handle; nil = not open
@@ -87,13 +83,13 @@ func GetController() *Controller {
 	once.Do(func() {
 		cfg := config.GetInstance()
 		instance = &Controller{
-			imageURL:      cfg.Firmware.ImageURL,
-			imagePath:     cfg.Firmware.ImagePath,
-			mountPoint:    cfg.Firmware.MountPoint,
-			firmwareDir:   cfg.Firmware.FirmwareDir,
-			mediaDir:      cfg.Firmware.MediaDir,
-			ubootEnv:      cfg.Firmware.UbootEnv,
-			importEnv:     cfg.Firmware.ImportEnv,
+			imageURL:    cfg.Firmware.ImageURL,
+			imagePath:   cfg.Firmware.ImagePath,
+			mountPoint:  cfg.Firmware.MountPoint,
+			firmwareDir: cfg.Firmware.FirmwareDir,
+			mediaDir:    cfg.Firmware.MediaDir,
+			ubootEnv:    cfg.Firmware.UbootEnv,
+			importEnv:   cfg.Firmware.ImportEnv,
 		}
 	})
 	return instance
@@ -111,11 +107,6 @@ func (c *Controller) Init() error {
 		if err := c.downloadImageLocked(); err != nil {
 			return fmt.Errorf("download image: %w", err)
 		}
-	}
-
-	// Persistent loop attach — saves ~250ms per subsequent mount cycle.
-	if err := c.attachLoopLocked(); err != nil {
-		log.Warnf("firmware: loop attach failed (will retry on first mount): %v", err)
 	}
 
 	// Create lun.1 (virtual CD-ROM) now, before the UDC is bound, so the
@@ -159,7 +150,6 @@ func (c *Controller) GetStatus() Status {
 		MountPoint:    c.mountPoint,
 		FirmwareDir:   c.firmwareDir,
 		FirmwareCount: count,
-		LoopDevice:    c.loopDev,
 	}
 }
 
