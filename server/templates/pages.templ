@@ -421,40 +421,60 @@ templ DashboardPage() {
 			window.connectSerial = function() {
 				if (ws) disconnectSerial();
 
-        // Read Tailwind v4 CSS custom properties at runtime so the terminal
-        // theme always tracks the design system's dark-mode palette.
-        const _cs = getComputedStyle(document.documentElement);
-        const _tw = (v) => _cs.getPropertyValue(v).trim() || undefined;
+        const colorToHex = (color) => {
+          const ctx = document.createElement('canvas').getContext('2d');
+          ctx.fillStyle = color;
+          const computed = ctx.fillStyle; // Returns "rgb(r, g, b)" or hex
+
+          // If it's already hex, return it
+          if (computed.startsWith('#')) return computed;
+
+          // Otherwise, convert "rgb(r, g, b)" to hex
+          const rgb = computed.match(/\d+/g).map(Number);
+          return '#' + rgb.map(x => x.toString(16).padStart(2, '0')).join('');
+        };
+
+        // Resolve Tailwind v4 oklch CSS variables to hex by letting the browser
+        // do the colour-space conversion — xterm.js only accepts sRGB hex.
+        const twHex = (varName) => {
+          const oklchValue = getComputedStyle(document.documentElement)
+            .getPropertyValue(varName).trim();
+
+          return colorToHex(oklchValue);
+        };
         term = new Terminal({
+					allowProposedApi: true,
 					cursorBlink: true,
 					fontSize: 13,
 					fontFamily: 'Menlo, Monaco, "Courier New", monospace',
-					theme: {
-						background:          _tw('--color-neutral-950'),
-						foreground:          _tw('--color-neutral-300'),
-						cursor:              _tw('--color-neutral-400'),
-						cursorAccent:        _tw('--color-neutral-950'),
-						selectionBackground: _tw('--color-neutral-700'),
-						// ANSI normal
-						black:               _tw('--color-neutral-800'),
-						red:                 _tw('--color-red-500'),
-						green:               _tw('--color-green-500'),
-						yellow:              _tw('--color-yellow-500'),
-						blue:                _tw('--color-blue-500'),
-						magenta:             _tw('--color-purple-500'),
-						cyan:                _tw('--color-cyan-500'),
-						white:               _tw('--color-neutral-300'),
-						// ANSI bright
-						brightBlack:         _tw('--color-neutral-600'),
-						brightRed:           _tw('--color-red-400'),
-						brightGreen:         _tw('--color-green-400'),
-						brightYellow:        _tw('--color-yellow-400'),
-						brightBlue:          _tw('--color-blue-400'),
-						brightMagenta:       _tw('--color-purple-400'),
-						brightCyan:          _tw('--color-cyan-400'),
-						brightWhite:         _tw('--color-neutral-100'),
-					}
 				});
+        if (false) {
+          term.options.theme = {
+            background:          twHex('--color-neutral-950'),
+            foreground:          twHex('--color-neutral-300'),
+            cursor:              twHex('--color-neutral-400'),
+            cursorAccent:        twHex('--color-neutral-950'),
+            selectionBackground: twHex('--color-neutral-700'),
+            // ANSI normal
+            black:               twHex('--color-neutral-800'),
+            red:                 twHex('--color-red-500'),
+            green:               twHex('--color-green-500'),
+            yellow:              twHex('--color-yellow-500'),
+            blue:                twHex('--color-blue-500'),
+            magenta:             twHex('--color-purple-500'),
+            cyan:                twHex('--color-cyan-500'),
+            white:               twHex('--color-neutral-300'),
+            // ANSI bright
+            brightBlack:         twHex('--color-neutral-600'),
+            brightRed:           twHex('--color-red-400'),
+            brightGreen:         twHex('--color-green-400'),
+            brightYellow:        twHex('--color-yellow-400'),
+            brightBlue:          twHex('--color-blue-400'),
+            brightMagenta:       twHex('--color-purple-400'),
+            brightCyan:          twHex('--color-cyan-400'),
+            brightWhite:         twHex('--color-neutral-100'),
+          };
+        }
 				fitAddon = new FitAddon();
 				term.loadAddon(fitAddon);
 				searchAddon = new SearchAddon();
