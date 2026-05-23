@@ -15,8 +15,36 @@ type Config struct {
 	Serial         Serial   `yaml:"serial"`
 	Firmware       Firmware `yaml:"firmware"`
 
-	Power    Power    `yaml:"power"`
-	Hardware Hardware `yaml:"-"`
+	Power     Power     `yaml:"power"`
+	Telemetry Telemetry `yaml:"telemetry"`
+	Hardware  Hardware  `yaml:"-"`
+}
+
+// Telemetry holds OpenTelemetry + Prometheus configuration.
+//
+// When Enabled is true:
+//   - Gin HTTP handlers are auto-instrumented (request count, latency, traces).
+//   - If Prometheus.Enabled, the OTel Prometheus exporter is served at
+//     Prometheus.Path on the existing HTTP server (default /metrics).
+//   - If OTLP.Endpoint is non-empty, traces and metrics are exported via OTLP
+//     gRPC to that endpoint (e.g. otel-collector:4317).
+type Telemetry struct {
+	Enabled     bool       `yaml:"enabled"`
+	ServiceName string     `yaml:"serviceName"`
+	Prometheus  Prometheus `yaml:"prometheus"`
+	OTLP        OTLP       `yaml:"otlp"`
+}
+
+type Prometheus struct {
+	Enabled bool   `yaml:"enabled"`
+	Path    string `yaml:"path"`
+}
+
+// OTLP configures the OpenTelemetry Protocol exporter (gRPC).
+// Insecure=true sends plaintext (suitable for sidecar collectors on localhost).
+type OTLP struct {
+	Endpoint string `yaml:"endpoint"`
+	Insecure bool   `yaml:"insecure"`
 }
 
 type Logger struct {

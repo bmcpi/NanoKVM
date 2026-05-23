@@ -5,15 +5,19 @@ package firmware
 // the downloaded image is the canonical bootable artefact, byte-for-byte.
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/ulikunitz/xz"
+
+	"github.com/BMCPi/NanoKVM/server/telemetry"
 )
 
 const downloadSentinel = "/tmp/.firmware_download_in_progress"
@@ -49,7 +53,7 @@ func (c *Controller) IsDownloading() bool {
 // downloadImageLocked downloads c.imageURL to c.imagePath. Must hold c.mu.
 // Unpresents the gadget for the duration so writes to c.imagePath don't
 // race with the gadget's view of the file.
-func (c *Controller) downloadImageLocked() error {
+func (c *Controller) downloadImageLocked() (retErr error) {
 	if _, err := os.Stat(downloadSentinel); err == nil {
 		return fmt.Errorf("download already in progress")
 	}
@@ -57,6 +61,15 @@ func (c *Controller) downloadImageLocked() error {
 		return fmt.Errorf("create sentinel: %w", err)
 	}
 	defer os.Remove(downloadSentinel)
+
+	started := time.Now()
+	defer func() {
+		outcome := "ok"
+		if retErr != nil {
+			outcome = "error"
+		}
+		telemetry.FirmwareDownload(context.Background(), outcome, time.Since(started).Seconds())
+	}()
 
 	if c.imageURL == "" {
 		return fmt.Errorf("imageURL not configured")

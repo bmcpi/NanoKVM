@@ -1,11 +1,13 @@
 package ipmi
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"net"
 	"sync"
 
+	"github.com/BMCPi/NanoKVM/server/telemetry"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -80,6 +82,7 @@ func (s *Server) listen() {
 		pkt := make([]byte, n)
 		copy(pkt, buf[:n])
 
+		telemetry.IPMIPacketReceived(context.Background())
 		go s.handlePacket(pkt, addr)
 	}
 }
@@ -166,7 +169,9 @@ func (s *Server) handleIPMI(body []byte, addr *net.UDPAddr) {
 func (s *Server) send(data []byte, addr *net.UDPAddr) {
 	if _, err := s.conn.WriteToUDP(data, addr); err != nil {
 		log.Errorf("IPMI send error: %s", err)
+		return
 	}
+	telemetry.IPMIPacketSent(context.Background())
 }
 
 // wrapRMCP prepends an RMCP header to a payload.

@@ -7,16 +7,44 @@ import (
 	"github.com/BMCPi/NanoKVM/server/assets"
 	"github.com/BMCPi/NanoKVM/server/config"
 	"github.com/BMCPi/NanoKVM/server/middleware"
+	"github.com/BMCPi/NanoKVM/server/telemetry"
 	"github.com/BMCPi/NanoKVM/server/templates"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 func Init(r *gin.Engine) {
+	telemetryRoutes(r)
 	web(r)
 	server(r)
 	log.Debugf("router init done")
+}
+
+// telemetryRoutes wires up the otelgin middleware (when enabled) and the
+// Prometheus scrape endpoint. Must run before any handlers are registered
+// so the middleware wraps them all.
+func telemetryRoutes(r *gin.Engine) {
+	tcfg := config.GetInstance().Telemetry
+	if !tcfg.Enabled {
+		return
+	}
+
+	r.Use(otelgin.Middleware(tcfg.ServiceName))
+
+	if tcfg.Prometheus.Enabled {
+		path := tcfg.Prometheus.Path
+		if path == "" {
+			path = "/metrics"
+		}
+		handler := promhttp.HandlerFor(telemetry.PromRegistry, promhttp.HandlerOpts{
+			Registry: telemetry.PromRegistry,
+		})
+		r.GET(path, gin.WrapH(handler))
+		log.Infof("telemetry: prometheus exposed at %s", path)
+	}
 }
 
 func web(r *gin.Engine) {

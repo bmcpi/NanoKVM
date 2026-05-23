@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/BMCPi/NanoKVM/server/config"
 	"github.com/BMCPi/NanoKVM/server/logger"
@@ -14,6 +16,7 @@ import (
 	"github.com/BMCPi/NanoKVM/server/service/application"
 	"github.com/BMCPi/NanoKVM/server/service/firmware"
 	"github.com/BMCPi/NanoKVM/server/service/ipmi"
+	"github.com/BMCPi/NanoKVM/server/telemetry"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -40,8 +43,14 @@ func initialize() {
 
 	// Propagate build-time version to the application service.
 	application.Version = version
+	telemetry.Version = version
 
 	logger.Init()
+
+	// Initialize OpenTelemetry + Prometheus (no-op when disabled in config).
+	if err := telemetry.Init(context.Background()); err != nil {
+		log.Printf("telemetry init: %v", err)
+	}
 
 	// Start IPMI server on standard port 623
 	srv, err := ipmi.Start(623)
@@ -112,4 +121,7 @@ func dispose() {
 	if ipmiServer != nil {
 		ipmiServer.Stop()
 	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	telemetry.Shutdown(shutdownCtx)
 }

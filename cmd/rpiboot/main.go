@@ -194,13 +194,11 @@ func readIntFile(path string) (int, error) {
 }
 
 func claimInterface(fd, intf int) error {
-	v := uint32(intf)
-	return ioctl(fd, usbdevfsClaimInterface, uintptr(unsafe.Pointer(&v)))
+	return unix.IoctlSetPointerInt(fd, usbdevfsClaimInterface, intf)
 }
 
 func releaseInterface(fd, intf int) error {
-	v := uint32(intf)
-	return ioctl(fd, usbdevfsReleaseInterface, uintptr(unsafe.Pointer(&v)))
+	return unix.IoctlSetPointerInt(fd, usbdevfsReleaseInterface, intf)
 }
 
 // bulkTransfer issues a USBDEVFS_BULK ioctl. Direction is encoded in
@@ -216,21 +214,14 @@ func bulkTransfer(fd int, ep uint8, buf []byte, timeoutMs uint32) (int, error) {
 		Timeout:  timeoutMs,
 		Data:     uintptr(unsafe.Pointer(&buf[0])),
 	}
-	r, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), usbdevfsBulk, uintptr(unsafe.Pointer(&t)))
-	if errno != 0 {
-		return 0, fmt.Errorf("USBDEVFS_BULK ep=0x%02x: %w", ep, errno)
+	err := unix.IoctlSetInt(fd, usbdevfsBulk, int(uintptr(unsafe.Pointer(&t))))
+	r := t.Length
+	if err != nil {
+		return 0, fmt.Errorf("USBDEVFS_BULK ep=0x%02x: %w", ep, err)
 	}
 	// Keep buf alive across the syscall.
 	runtime.KeepAlive(buf)
 	return int(r), nil
-}
-
-func ioctl(fd int, req, arg uintptr) error {
-	_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), req, arg)
-	if errno != 0 {
-		return errno
-	}
-	return nil
 }
 
 // _IOC encoding (see linux/ioctl.h).
@@ -248,9 +239,9 @@ const (
 	iocWrite = 1
 )
 
-func ioc(dir, typ, nr, size uintptr) uintptr {
-	return (dir << iocDirShift) | (typ << iocTypeShift) | (nr << iocNRShift) | (size << iocSizeShift)
+func ioc(dir, typ, nr, size uintptr) uint {
+	return uint((dir << iocDirShift) | (typ << iocTypeShift) | (nr << iocNRShift) | (size << iocSizeShift))
 }
 
-func ior(typ, nr, size uintptr) uintptr  { return ioc(iocRead, typ, nr, size) }
-func iowr(typ, nr, size uintptr) uintptr { return ioc(iocRead|iocWrite, typ, nr, size) }
+func ior(typ, nr, size uintptr) uint  { return ioc(iocRead, typ, nr, size) }
+func iowr(typ, nr, size uintptr) uint { return ioc(iocRead|iocWrite, typ, nr, size) }

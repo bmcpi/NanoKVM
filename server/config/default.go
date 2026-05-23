@@ -58,6 +58,18 @@ var defaultConfig = &Config{
 	Power: Power{
 		LegacyMode: false,
 	},
+	Telemetry: Telemetry{
+		Enabled:     false,
+		ServiceName: "nanokvm",
+		Prometheus: Prometheus{
+			Enabled: true,
+			Path:    "/metrics",
+		},
+		OTLP: OTLP{
+			Endpoint: "",
+			Insecure: true,
+		},
+	},
 }
 
 func checkDefaultValue() {
@@ -125,6 +137,13 @@ func checkDefaultValue() {
 	}
 	if instance.Firmware.MediaDir == "" {
 		instance.Firmware.MediaDir = defaultConfig.Firmware.MediaDir
+	}
+
+	if instance.Telemetry.ServiceName == "" {
+		instance.Telemetry.ServiceName = defaultConfig.Telemetry.ServiceName
+	}
+	if instance.Telemetry.Prometheus.Path == "" {
+		instance.Telemetry.Prometheus.Path = defaultConfig.Telemetry.Prometheus.Path
 	}
 
 	instance.Hardware = getHardware()

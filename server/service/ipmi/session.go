@@ -1,6 +1,7 @@
 package ipmi
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha1"
@@ -12,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/BMCPi/NanoKVM/server/service/serial"
+	"github.com/BMCPi/NanoKVM/server/telemetry"
 )
 
 // sessionState tracks RMCP+ authentication progress.
@@ -69,6 +71,7 @@ func (sm *sessionManager) newSession() *session {
 	sm.mu.Lock()
 	sm.sessions[id] = sess
 	sm.mu.Unlock()
+	telemetry.IPMISessionOpened(context.Background())
 	return sess
 }
 
@@ -80,8 +83,12 @@ func (sm *sessionManager) get(id uint32) *session {
 
 func (sm *sessionManager) remove(id uint32) {
 	sm.mu.Lock()
+	_, existed := sm.sessions[id]
 	delete(sm.sessions, id)
 	sm.mu.Unlock()
+	if existed {
+		telemetry.IPMISessionClosed(context.Background())
+	}
 }
 
 func (sm *sessionManager) closeAll() {

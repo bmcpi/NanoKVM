@@ -1,6 +1,7 @@
 package firmware
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"os"
@@ -10,6 +11,8 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+
+	"github.com/BMCPi/NanoKVM/server/telemetry"
 )
 
 const (
@@ -81,6 +84,7 @@ func (c *Controller) presentImage() error {
 	}
 
 	c.presented = true
+	telemetry.FirmwarePresented(context.Background(), true)
 	log.Infof("firmware: presented %s via USB gadget", c.imagePath)
 	return nil
 }
@@ -101,6 +105,7 @@ func (c *Controller) unpresentImage() error {
 	time.Sleep(100 * time.Millisecond)
 
 	c.presented = false
+	telemetry.FirmwarePresented(context.Background(), false)
 	log.Info("firmware: unpresented USB gadget")
 	return nil
 }
