@@ -3,17 +3,17 @@
 /*
  * templui requires Tailwind v4 with shadcn-style CSS variables.
  *
- * To rebuild output.css after templui or template changes:
+ * Rebuild via `go generate ./server/assets/...` (also wired through
+ * `make generate`). The go:generate directives in server/assets/assets.go
+ * write the templui module's templ source path into sources.generated.css
+ * (resolved via `go list -m`), run this Tailwind build, and then delete
+ * the transient file — no `go mod vendor` step.
  *
- *   1. Vendor templui sources so Tailwind can scan them for class names:
- *        go mod vendor
- *   2. Run the Tailwind CLI:
- *        npx @tailwindcss/cli -i server/assets/css/input.css -o server/assets/css/output.css
- *
- * The @source directive below tells Tailwind to scan templui's templ
- * files (in addition to this project's own templates).
+ * @import below pulls in that transient file during the build. It is
+ * expected to exist only while go generate is running.
  */
-@source "../../../vendor/github.com/templui/templui/components";
+@import "./sources.generated.css";
+@source "../../../**/*.templ";
 
 @custom-variant dark (&:where(.dark, .dark *));
 

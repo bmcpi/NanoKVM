@@ -1,0 +1,21 @@
+package templates
+
+// selectOption is one entry in a native styled <select>.
+type selectOption struct {
+	Value string
+	Label string
+}
+
+// nativeSelect is a thin wrapper around a native <select> styled to match
+// templui's input control. Used where templui's full SelectBox component
+// would be heavier than needed (inside dropdowns, narrow side panels).
+templ nativeSelect(id string, options []selectOption) {
+	<select
+		id={ id }
+		class="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm dark:bg-input/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+	>
+		for _, o := range options {
+			<option value={ o.Value }>{ o.Label }</option>
+		}
+	</select>
+}

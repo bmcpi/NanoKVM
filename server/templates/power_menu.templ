@@ -1,0 +1,160 @@
+package templates
+
+import (
+	"github.com/templui/templui/components/badge"
+	"github.com/templui/templui/components/button"
+	"github.com/templui/templui/components/dropdown"
+	"github.com/templui/templui/components/icon"
+)
+
+// PowerMenu is the navbar power-state pill and the dropdown holding power
+// actions + boot-device override. Polled by the inline script below; clicks
+// on items dispatch /api/vm/gpio.
+templ PowerMenu() {
+	@dropdown.Dropdown() {
+		@dropdown.Trigger() {
+			@button.Button(button.Props{
+				Variant: button.VariantGhost,
+				Size:    button.SizeSm,
+			}) {
+				<span id="power-dot" class="inline-block size-2 rounded-full bg-destructive"></span>
+				<span id="power-text">Checking…</span>
+				@icon.ChevronDown()
+			}
+		}
+		@dropdown.Content(dropdown.ContentProps{Class: "w-72", Placement: dropdown.PlacementBottomStart}) {
+			@dropdown.Label() {
+				Power Actions
+			}
+			@dropdownIconItem("powerAction('on')", "", icon.Power, "Power On")
+			@dropdownIconItem("powerAction('off')", "", icon.PowerOff, "Power Off")
+			@dropdownIconItem("powerAction('reset')", "", icon.RefreshCw, "Reset")
+			@dropdownIconItem("if(confirm('Force power off?')) powerAction('forceoff')", "text-destructive", icon.CircleX, "Force Off")
+			@dropdown.Separator()
+			@dropdown.Label() {
+				Boot Device Override
+			}
+			<div class="flex flex-col gap-2 px-2 pb-2">
+				@nativeSelect("boot-device", []selectOption{
+					{Value: "None", Label: "Default"},
+					{Value: "Pxe", Label: "PXE / Network"},
+					{Value: "Hdd", Label: "HDD / SD / NVMe"},
+					{Value: "Cd", Label: "USB / CD-ROM"},
+					{Value: "BiosSetup", Label: "BIOS Setup"},
+				})
+				@nativeSelect("boot-persist", []selectOption{
+					{Value: "Once", Label: "Once (default)"},
+					{Value: "Continuous", Label: "Continuous"},
+				})
+				<div class="flex gap-2">
+					@button.Button(button.Props{
+						Size:       button.SizeSm,
+						Class:      "flex-1",
+						Attributes: templ.Attributes{"onclick": "applyBootOverride()"},
+					}) {
+						Apply
+					}
+					@button.Button(button.Props{
+						Variant:    button.VariantDestructive,
+						Size:       button.SizeSm,
+						Attributes: templ.Attributes{"onclick": "clearBootOverride()"},
+					}) {
+						Clear
+					}
+				</div>
+				<p id="boot-status" class="text-xs text-muted-foreground"></p>
+			</div>
+		}
+	}
+	@powerMenuScript()
+}
+
+// dropdownIconItem is the standard "icon + label" dropdown item pattern.
+// Wrapping in <span class="flex items-center gap-2"> keeps the icon next to
+// the label — without the wrapper, dropdown.Item's own justify-between
+// pushes them to opposite edges.
+templ dropdownIconItem(onclick, class string, ico func(...icon.Props) templ.Component, label string) {
+	@dropdown.Item(dropdown.ItemProps{
+		Class:      class,
+		Attributes: templ.Attributes{"onclick": onclick},
+	}) {
+		<span class="flex items-center gap-2">
+			@ico()
+			{ label }
+		</span>
+	}
+}
+
+// PowerBadge is a small inline pill showing the current power state.
+// Exposed for use outside the dropdown trigger (e.g. status surfaces).
+templ PowerBadge(on bool) {
+	if on {
+		@badge.Badge(badge.Props{Variant: badge.VariantSecondary, Class: "bg-green-500/15 text-green-500"}) {
+			On
+		}
+	} else {
+		@badge.Badge(badge.Props{Variant: badge.VariantDestructive}) {
+			Off
+		}
+	}
+}
+
+templ powerMenuScript() {
+	<script>
+		async function pollPower() {
+			try {
+				const r = await fetch('/api/vm/gpio', { headers: getAuthHeaders() });
+				const data = await r.json();
+				if (data.code !== 0) return;
+				const on = data.data.pwr;
+				const dot = document.getElementById('power-dot');
+				dot.className = 'inline-block size-2 rounded-full ' + (on ? 'bg-green-500' : 'bg-destructive');
+				document.getElementById('power-text').textContent = on ? 'Power On' : 'Power Off';
+			} catch(e) {}
+		}
+		pollPower();
+		setInterval(pollPower, 5000);
+
+		async function powerAction(action) {
+			try {
+				await fetch('/api/vm/gpio', {
+					method: 'POST', headers: getAuthHeaders(),
+					body: JSON.stringify({action}),
+				});
+			} catch(e) { console.error(e); }
+			setTimeout(pollPower, 2000);
+		}
+
+		async function applyBootOverride() {
+			const device = document.getElementById('boot-device').value || 'None';
+			const persist = document.getElementById('boot-persist').value || 'Once';
+			const statusEl = document.getElementById('boot-status');
+			try {
+				const r = await fetch('/redfish/v1/Systems/1', {
+					method: 'PATCH', headers: getAuthHeaders(),
+					body: JSON.stringify({ Boot: { BootSourceOverrideTarget: device, BootSourceOverrideEnabled: persist } })
+				});
+				const data = await r.json();
+				const b = data.Boot;
+				statusEl.textContent = b ? `Set: ${b.BootSourceOverrideTarget} (${b.BootSourceOverrideEnabled})` : 'Applied';
+			} catch(e) {
+				statusEl.textContent = 'Failed';
+			}
+			if (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();
+		}
+
+		async function clearBootOverride() {
+			const statusEl = document.getElementById('boot-status');
+			try {
+				const r = await fetch('/redfish/v1/Systems/1', {
+					method: 'PATCH', headers: getAuthHeaders(),
+					body: JSON.stringify({ Boot: { BootSourceOverrideTarget: 'None', BootSourceOverrideEnabled: 'Disabled' } })
+				});
+				statusEl.textContent = r.ok ? 'Cleared' : 'Failed';
+			} catch(e) {
+				statusEl.textContent = 'Failed';
+			}
+			if (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();
+		}
+	</script>
+}

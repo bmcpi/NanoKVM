@@ -9,15 +9,23 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
+	"github.com/templui/templui/components/badge"
 	"github.com/templui/templui/components/button"
 	"github.com/templui/templui/components/icon"
+	"github.com/templui/templui/components/separator"
 )
 
-// ServerOverview renders the slide-in side panel. The custom width animation
-// can't be expressed cleanly with templui primitives, so the outer shell
-// stays as inline CSS — but every interior surface now uses the shared
-// templui theme tokens (border, card, popover, muted-foreground, etc.).
-func ServerOverview() templ.Component {
+// OverviewSheet is a self-contained right-side drawer: a backdrop + an
+// <aside> that slides in via a CSS class toggle. No templui Sheet — that
+// component depends on Tailwind utilities (translate-x-full, fixed inset-0,
+// z-50, etc.) that aren't in the project's current compiled output.css.
+//
+// All positioning is in a scoped <style> block so the drawer renders
+// correctly regardless of which Tailwind utilities the build emitted.
+//
+// Trigger from anywhere with onclick="openOverview()". The navbar wires it
+// via the Server Overview button.
+func OverviewSheet() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -38,7 +46,11 @@ func ServerOverview() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<style>\n\t\t#overview-panel {\n\t\t\twidth: 0;\n\t\t\tmax-width: 493px;\n\t\t\tbackground: var(--popover);\n\t\t\tborder-left: 1px solid var(--border);\n\t\t\tbox-shadow: -10px 0 25px rgba(0,0,0,0.4);\n\t\t\toverflow: hidden;\n\t\t\tflex-shrink: 0;\n\t\t\ttransition: width 0.2s ease;\n\t\t\tdisplay: flex;\n\t\t\tflex-direction: column;\n\t\t}\n\t\t#overview-panel.open { width: 100%; }\n\t\t@media (min-width: 640px) {\n\t\t\t#overview-panel.open { width: 493px; }\n\t\t}\n\t\t.ov-inner {\n\t\t\twidth: 493px;\n\t\t\tmax-width: 100%;\n\t\t\theight: 100%;\n\t\t\tdisplay: flex;\n\t\t\tflex-direction: column;\n\t\t}\n\t\t.ov-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.375rem 0; border-bottom: 1px solid var(--border); }\n\t\t.ov-row:last-child { border-bottom: none; }\n\t\t.ov-label { font-size: 0.75rem; color: var(--muted-foreground); flex-shrink: 0; }\n\t\t.ov-value { font-size: 0.75rem; color: var(--foreground); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; text-align: right; word-break: break-word; min-width: 0; }\n\t\t.ov-status-text { font-size: 0.6875rem; color: var(--muted-foreground); }\n\t</style><aside id=\"overview-panel\" aria-hidden=\"true\"><div class=\"ov-inner\"><div class=\"flex items-center justify-between border-b border-border bg-card px-4 py-2.5\"><h2 class=\"text-sm font-semibold\">Server Overview</h2>")
+		templ_7745c5c3_Err = overviewStyles().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"overview-backdrop\" class=\"ov-backdrop\" onclick=\"closeOverview()\" aria-hidden=\"true\"></div><aside id=\"overview-panel\" class=\"ov-panel\" aria-hidden=\"true\" aria-labelledby=\"overview-title\"><div class=\"ov-header\"><div><h2 id=\"overview-title\" class=\"text-sm font-semibold\">Server Overview</h2><p class=\"text-xs text-muted-foreground\">Identity, network, and firmware state of the managed server.</p></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -54,11 +66,7 @@ func ServerOverview() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = icon.X(icon.Props{Class: "size-3.5"}).Render(ctx, templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <span>Hide</span>")
+			templ_7745c5c3_Err = icon.X().Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -66,87 +74,152 @@ func ServerOverview() templ.Component {
 		})
 		templ_7745c5c3_Err = button.Button(button.Props{
 			Variant:    button.VariantGhost,
-			Size:       button.SizeSm,
-			Attributes: templ.Attributes{"onclick": "toggleServerOverview()", "title": "Close"},
+			Size:       button.SizeIcon,
+			Attributes: templ.Attributes{"onclick": "closeOverview()", "aria-label": "Close"},
 		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div><div class=\"flex-1 min-h-0 overflow-y-auto p-4 space-y-6\"><section><h3 class=\"text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground mb-2 pb-1.5 border-b border-border\">Server Information</h3><div class=\"ov-row\"><span class=\"ov-label\">Board</span><span class=\"ov-value\" id=\"info-board\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Vendor</span><span class=\"ov-value\" id=\"info-vendor\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">CPU / SoC</span><span class=\"ov-value\" id=\"info-cpu\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Serial</span><span class=\"ov-value\" id=\"info-board-serial\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Revision</span><span class=\"ov-value\" id=\"info-board-rev\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Board MAC</span><span class=\"ov-value\" id=\"info-board-mac\">—</span></div></section><section><h3 class=\"text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground mb-2 pb-1.5 border-b border-border\">BMC Information</h3><div class=\"ov-row\"><span class=\"ov-label\">Application</span> <span class=\"ov-value\"><span id=\"info-app\">—</span> <button id=\"btn-app-update\" class=\"hidden ml-1.5 rounded-md border border-input px-2 py-0.5 text-[0.6875rem] hover:bg-accent\" onclick=\"updateApplication()\" title=\"Update to latest\"></button> <span id=\"info-app-latest-badge\" class=\"ov-status-text hidden ml-1.5 text-green-400\">(Latest)</span> <span id=\"info-app-update-status\" class=\"ov-status-text ml-1.5\"></span></span></div><div class=\"ov-row\"><span class=\"ov-label\">Image</span><span class=\"ov-value\" id=\"info-image\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Hardware</span><span class=\"ov-value\" id=\"info-hw\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">IP Address</span><span class=\"ov-value\" id=\"info-ip\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">MAC</span><span class=\"ov-value\" id=\"info-mac\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Interfaces</span> <span class=\"ov-value\">IPMI :623 · <a href=\"/redfish/v1\" class=\"underline underline-offset-4 hover:text-foreground\">Redfish</a></span></div></section><section><h3 class=\"text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground mb-2 pb-1.5 border-b border-border\">BIOS Information</h3><div class=\"ov-row\"><span class=\"ov-label\">Firmware</span><span class=\"ov-value\" id=\"info-fw-status\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">U-Boot</span> <span class=\"ov-value\"><span id=\"info-bios-ver\">—</span> <button id=\"btn-bios-update\" class=\"hidden ml-1.5 rounded-md border border-input px-2 py-0.5 text-[0.6875rem] hover:bg-accent\" onclick=\"updateBIOS()\" title=\"Update to latest\"></button> <span id=\"info-bios-latest-badge\" class=\"ov-status-text hidden ml-1.5 text-green-400\">(Latest)</span> <span id=\"info-bios-update-status\" class=\"ov-status-text ml-1.5\"></span></span></div><div class=\"ov-row\"><span class=\"ov-label\">Device Tree</span><span class=\"ov-value\" id=\"info-fdtfile\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Boot Targets</span><span class=\"ov-value\" id=\"info-boot-target\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Boot Override</span><span class=\"ov-value\" id=\"info-boot-override\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Boot Methods</span><span class=\"ov-value\" id=\"info-bootmeths\">—</span></div><div class=\"py-2\"><div class=\"ov-label mb-1.5\">Set Boot Override</div><div class=\"flex flex-wrap items-center gap-1.5\"><select id=\"boot-override-select\" class=\"h-8 rounded-md border border-input bg-transparent px-2 text-xs dark:bg-input/30\"><option value=\"None\">None (default)</option> <option value=\"Pxe\">PXE (network)</option> <option value=\"Hdd\">HDD / MMC / NVMe</option> <option value=\"Cd\">CD / USB</option> <option value=\"BiosSetup\">BIOS Setup</option> <option value=\"UefiHttp\">UEFI HTTP Boot</option></select>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</div><div class=\"ov-body\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Var3 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-			if !templ_7745c5c3_IsBuffer {
-				defer func() {
-					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err == nil {
-						templ_7745c5c3_Err = templ_7745c5c3_BufErr
-					}
-				}()
-			}
-			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "Once")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			return nil
-		})
-		templ_7745c5c3_Err = button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Attributes: templ.Attributes{"onclick": "setBootOverride(false)"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = serverInfoSection().Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Var4 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-			if !templ_7745c5c3_IsBuffer {
-				defer func() {
-					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err == nil {
-						templ_7745c5c3_Err = templ_7745c5c3_BufErr
-					}
-				}()
-			}
-			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "Persistent")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			return nil
-		})
-		templ_7745c5c3_Err = button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Attributes: templ.Attributes{"onclick": "setBootOverride(true)"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var4), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = bmcInfoSection().Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<span id=\"boot-override-status\" class=\"ov-status-text\"></span></div></div><div class=\"py-2 hidden\" id=\"fw-download-item\"><div class=\"ov-label mb-1.5\">Firmware Image</div>")
+		templ_7745c5c3_Err = biosInfoSection().Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Var5 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-			if !templ_7745c5c3_IsBuffer {
-				defer func() {
-					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err == nil {
-						templ_7745c5c3_Err = templ_7745c5c3_BufErr
-					}
-				}()
-			}
-			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "Download")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			return nil
-		})
-		templ_7745c5c3_Err = button.Button(button.Props{ID: "btn-fw-download", Variant: button.VariantOutline, Size: button.SizeSm, Attributes: templ.Attributes{"onclick": "downloadFirmware()"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div></aside>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div><div class=\"py-2\"><div class=\"ov-label mb-1.5\">Kernel Version</div><div class=\"flex flex-wrap items-center gap-1.5\"><select id=\"bios-kernel-select\" class=\"h-8 flex-1 min-w-[10rem] rounded-md border border-input bg-transparent px-2 text-xs dark:bg-input/30\" onchange=\"updateKernelButtons()\"><option value=\"\">Select kernel version…</option></select>")
+		templ_7745c5c3_Err = overviewToggleScript().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// overviewStyles owns the drawer positioning + transition. Keeping it inline
+// here means the component works without any Tailwind classes being present.
+func overviewStyles() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var3 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var3 == nil {
+			templ_7745c5c3_Var3 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<style>\n\t\t.ov-backdrop {\n\t\t\tposition: fixed;\n\t\t\tinset: 0;\n\t\t\tbackground: rgba(0, 0, 0, 0.5);\n\t\t\topacity: 0;\n\t\t\tpointer-events: none;\n\t\t\ttransition: opacity 0.2s ease;\n\t\t\tz-index: 40;\n\t\t}\n\t\t.ov-backdrop.open { opacity: 1; pointer-events: auto; }\n\n\t\t.ov-panel {\n\t\t\tposition: fixed;\n\t\t\ttop: 0;\n\t\t\tright: 0;\n\t\t\tbottom: 0;\n\t\t\twidth: min(28rem, 100vw);\n\t\t\tbackground: var(--card);\n\t\t\tborder-left: 1px solid var(--border);\n\t\t\tbox-shadow: -10px 0 25px rgba(0, 0, 0, 0.4);\n\t\t\ttransform: translateX(100%);\n\t\t\ttransition: transform 0.2s ease;\n\t\t\tz-index: 50;\n\t\t\tdisplay: flex;\n\t\t\tflex-direction: column;\n\t\t}\n\t\t.ov-panel.open { transform: translateX(0); }\n\n\t\t.ov-header {\n\t\t\tdisplay: flex;\n\t\t\talign-items: flex-start;\n\t\t\tjustify-content: space-between;\n\t\t\tgap: 1rem;\n\t\t\tpadding: 1rem;\n\t\t\tborder-bottom: 1px solid var(--border);\n\t\t}\n\t\t.ov-body {\n\t\t\tflex: 1;\n\t\t\tmin-height: 0;\n\t\t\toverflow-y: auto;\n\t\t\tpadding: 1rem;\n\t\t\tdisplay: flex;\n\t\t\tflex-direction: column;\n\t\t\tgap: 1rem;\n\t\t}\n\n\t\t.ov-section {\n\t\t\tborder: 1px solid var(--border);\n\t\t\tborder-radius: 0.5rem;\n\t\t\tbackground: var(--card);\n\t\t}\n\t\t.ov-section-header {\n\t\t\tpadding: 0.75rem 1rem;\n\t\t\tborder-bottom: 1px solid var(--border);\n\t\t\tfont-size: 0.875rem;\n\t\t\tfont-weight: 600;\n\t\t}\n\t\t.ov-section-body { padding: 0.5rem 1rem 1rem; }\n\n\t\t.ov-row {\n\t\t\tdisplay: flex;\n\t\t\talign-items: center;\n\t\t\tjustify-content: space-between;\n\t\t\tgap: 0.5rem;\n\t\t\tpadding: 0.375rem 0;\n\t\t\tborder-bottom: 1px solid var(--border);\n\t\t}\n\t\t.ov-row:last-child { border-bottom: none; }\n\t\t.ov-label { font-size: 0.75rem; color: var(--muted-foreground); flex-shrink: 0; }\n\t\t.ov-value {\n\t\t\tfont-size: 0.75rem;\n\t\t\tfont-family: var(--font-mono);\n\t\t\ttext-align: right;\n\t\t\tword-break: break-all;\n\t\t\tmin-width: 0;\n\t\t}\n\t</style>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// serverInfoSection renders the managed-server identity rows.
+func serverInfoSection() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var4 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var4 == nil {
+			templ_7745c5c3_Var4 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<section class=\"ov-section\"><div class=\"ov-section-header\">Server Information</div><div class=\"ov-section-body\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = kvRow("Board", "info-board").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = kvRow("Vendor", "info-vendor").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = kvRow("CPU / SoC", "info-cpu").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = kvRow("Serial", "info-board-serial").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = kvRow("Revision", "info-board-rev").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = kvRow("Board MAC", "info-board-mac").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div></section>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// bmcInfoSection renders the BMC build + network identity + app update.
+func bmcInfoSection() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var5 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var5 == nil {
+			templ_7745c5c3_Var5 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<section class=\"ov-section\"><div class=\"ov-section-header\">BMC Information</div><div class=\"ov-section-body\"><div class=\"ov-row\"><span class=\"ov-label\">Application</span> <span class=\"ov-value flex items-center gap-1.5 justify-end\"><span id=\"info-app\">—</span>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -162,13 +235,19 @@ func ServerOverview() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "Download")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "Update")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = button.Button(button.Props{ID: "btn-kernel-download", Variant: button.VariantOutline, Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "downloadKernelBIOS()"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = button.Button(button.Props{
+			ID:         "btn-app-update",
+			Variant:    button.VariantOutline,
+			Size:       button.SizeSm,
+			Class:      "hidden h-6 px-2 text-xs",
+			Attributes: templ.Attributes{"onclick": "updateApplication()"},
+		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -184,17 +263,83 @@ func ServerOverview() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "↻ Refresh")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "Latest")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = button.Button(button.Props{ID: "btn-kernel-refresh", Variant: button.VariantOutline, Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "refreshKernelBIOS()", "title": "Re-download to overwrite existing cached image"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = badge.Badge(badge.Props{
+			ID:      "info-app-latest-badge",
+			Variant: badge.VariantSecondary,
+			Class:   "hidden bg-green-500/15 text-green-500",
+		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Var8 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<span id=\"info-app-update-status\" class=\"text-[0.6875rem] text-muted-foreground\"></span></span></div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = kvRow("Image", "info-image").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = kvRow("Hardware", "info-hw").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = kvRow("IP Address", "info-ip").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = kvRow("MAC", "info-mac").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"ov-row\"><span class=\"ov-label\">Interfaces</span> <span class=\"ov-value\">IPMI :623 · <a href=\"/redfish/v1\" class=\"underline underline-offset-4 hover:text-foreground\">Redfish</a></span></div></div></section>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// biosInfoSection renders U-Boot details + boot override / kernel controls.
+func biosInfoSection() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var8 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var8 == nil {
+			templ_7745c5c3_Var8 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<section class=\"ov-section\"><div class=\"ov-section-header\">BIOS Information</div><div class=\"ov-section-body\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = kvRow("Firmware", "info-fw-status").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "<div class=\"ov-row\"><span class=\"ov-label\">U-Boot</span> <span class=\"ov-value flex items-center gap-1.5 justify-end\"><span id=\"info-bios-ver\">—</span>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var9 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -206,17 +351,325 @@ func ServerOverview() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "Activate")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "Update")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = button.Button(button.Props{ID: "btn-kernel-activate", Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "activateKernelBIOS()"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var8), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = button.Button(button.Props{
+			ID:         "btn-bios-update",
+			Variant:    button.VariantOutline,
+			Size:       button.SizeSm,
+			Class:      "hidden h-6 px-2 text-xs",
+			Attributes: templ.Attributes{"onclick": "updateBIOS()"},
+		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var9), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div><div id=\"bios-kernel-status\" class=\"ov-status-text mt-1\"></div></div></section></div></div></aside><script>\n\t\twindow.toggleServerOverview = function() {\n\t\t\tconst panel = document.getElementById('overview-panel');\n\t\t\tconst open = panel.classList.toggle('open');\n\t\t\tpanel.setAttribute('aria-hidden', open ? 'false' : 'true');\n\t\t};\n\t\tdocument.addEventListener('keydown', (e) => {\n\t\t\tif (e.key === 'Escape') {\n\t\t\t\tconst panel = document.getElementById('overview-panel');\n\t\t\t\tif (panel && panel.classList.contains('open')) {\n\t\t\t\t\twindow.toggleServerOverview();\n\t\t\t\t}\n\t\t\t}\n\t\t});\n\t</script>")
+		templ_7745c5c3_Var10 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "Latest")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = badge.Badge(badge.Props{
+			ID:      "info-bios-latest-badge",
+			Variant: badge.VariantSecondary,
+			Class:   "hidden bg-green-500/15 text-green-500",
+		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var10), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<span id=\"info-bios-update-status\" class=\"text-[0.6875rem] text-muted-foreground\"></span></span></div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = kvRow("Device Tree", "info-fdtfile").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = kvRow("Boot Targets", "info-boot-target").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = kvRow("Boot Override", "info-boot-override").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = kvRow("Boot Methods", "info-bootmeths").Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = separator.Separator(separator.Props{Class: "my-2"}).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<div class=\"space-y-1.5\"><div class=\"text-xs text-muted-foreground\">Set Boot Override</div><select id=\"boot-override-select\" class=\"h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs dark:bg-input/30\"><option value=\"None\">None (default)</option> <option value=\"Pxe\">PXE (network)</option> <option value=\"Hdd\">HDD / MMC / NVMe</option> <option value=\"Cd\">CD / USB</option> <option value=\"BiosSetup\">BIOS Setup</option> <option value=\"UefiHttp\">UEFI HTTP Boot</option></select><div class=\"flex items-center gap-1.5 flex-wrap\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var11 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "Once")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = button.Button(button.Props{
+			Variant:    button.VariantOutline,
+			Size:       button.SizeSm,
+			Attributes: templ.Attributes{"onclick": "setBootOverride(false)"},
+		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var11), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var12 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "Persistent")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = button.Button(button.Props{
+			Variant:    button.VariantOutline,
+			Size:       button.SizeSm,
+			Attributes: templ.Attributes{"onclick": "setBootOverride(true)"},
+		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var12), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<span id=\"boot-override-status\" class=\"text-[0.6875rem] text-muted-foreground\"></span></div></div><div id=\"fw-download-item\" class=\"hidden space-y-1.5 pt-2\"><div class=\"text-xs text-muted-foreground\">Firmware Image</div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var13 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "Download")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = button.Button(button.Props{
+			ID:         "btn-fw-download",
+			Variant:    button.VariantOutline,
+			Size:       button.SizeSm,
+			Attributes: templ.Attributes{"onclick": "downloadFirmware()"},
+		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var13), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = separator.Separator(separator.Props{Class: "my-2"}).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<div class=\"space-y-1.5\"><div class=\"text-xs text-muted-foreground\">Kernel Version</div><div class=\"flex flex-wrap items-center gap-1.5\"><select id=\"bios-kernel-select\" class=\"h-8 flex-1 min-w-[10rem] rounded-md border border-input bg-transparent px-2 text-xs dark:bg-input/30\" onchange=\"updateKernelButtons()\"><option value=\"\">Select kernel version…</option></select>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var14 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "Download")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = button.Button(button.Props{ID: "btn-kernel-download", Variant: button.VariantOutline, Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "downloadKernelBIOS()"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var14), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var15 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "Refresh")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = button.Button(button.Props{ID: "btn-kernel-refresh", Variant: button.VariantOutline, Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "refreshKernelBIOS()", "title": "Re-download to overwrite existing cached image"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var15), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var16 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "Activate")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = button.Button(button.Props{ID: "btn-kernel-activate", Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "activateKernelBIOS()"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</div><div id=\"bios-kernel-status\" class=\"text-[0.6875rem] text-muted-foreground\"></div></div></div></section>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// kvRow renders a single label / value row in an overview section.
+func kvRow(label, valueID string) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var17 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var17 == nil {
+			templ_7745c5c3_Var17 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<div class=\"ov-row\"><span class=\"ov-label\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var18 string
+		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(label)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview.templ`, Line: 285, Col: 32}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</span> <span id=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var19 string
+		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(valueID)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview.templ`, Line: 286, Col: 20}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\" class=\"ov-value\">—</span></div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// overviewToggleScript exposes openOverview / closeOverview / toggleOverview
+// globally so the navbar trigger + ESC handler can drive the drawer.
+func overviewToggleScript() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var20 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var20 == nil {
+			templ_7745c5c3_Var20 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<script>\n\t\twindow.openOverview = function() {\n\t\t\tdocument.getElementById('overview-panel').classList.add('open');\n\t\t\tdocument.getElementById('overview-backdrop').classList.add('open');\n\t\t\tdocument.getElementById('overview-panel').setAttribute('aria-hidden', 'false');\n\t\t};\n\t\twindow.closeOverview = function() {\n\t\t\tdocument.getElementById('overview-panel').classList.remove('open');\n\t\t\tdocument.getElementById('overview-backdrop').classList.remove('open');\n\t\t\tdocument.getElementById('overview-panel').setAttribute('aria-hidden', 'true');\n\t\t};\n\t\twindow.toggleOverview = function() {\n\t\t\tconst panel = document.getElementById('overview-panel');\n\t\t\tpanel.classList.contains('open') ? closeOverview() : openOverview();\n\t\t};\n\t\tdocument.addEventListener('keydown', (e) => {\n\t\t\tif (e.key === 'Escape' && document.getElementById('overview-panel').classList.contains('open')) {\n\t\t\t\tcloseOverview();\n\t\t\t}\n\t\t});\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

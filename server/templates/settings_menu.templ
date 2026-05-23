@@ -1,0 +1,83 @@
+package templates
+
+import (
+	"github.com/templui/templui/components/button"
+	"github.com/templui/templui/components/dropdown"
+	"github.com/templui/templui/components/icon"
+	"github.com/templui/templui/components/label"
+	switchcomp "github.com/templui/templui/components/switch"
+)
+
+// SettingsMenu houses SSH/TLS toggles, change-password, and reboot. The
+// templui Switch component is checkbox-driven, so JS just watches `change`
+// events — no manual class swapping.
+templ SettingsMenu() {
+	@dropdown.Dropdown() {
+		@dropdown.Trigger() {
+			@button.Button(button.Props{
+				Variant: button.VariantGhost,
+				Size:    button.SizeSm,
+			}) {
+				@icon.Settings()
+				<span>Settings</span>
+				@icon.ChevronDown()
+			}
+		}
+		@dropdown.Content(dropdown.ContentProps{Class: "w-72", Placement: dropdown.PlacementBottomEnd}) {
+			@dropdown.Label() {
+				Network
+			}
+			<div class="flex items-center justify-between px-2 py-1.5 text-sm">
+				@label.Label(label.Props{For: "ssh-switch"}) {
+					SSH
+				}
+				@switchcomp.Switch(switchcomp.Props{ID: "ssh-switch", Attributes: templ.Attributes{"onchange": "toggleSSH(this.checked)"}})
+			</div>
+			@dropdown.Separator()
+			@dropdown.Label() {
+				Security
+			}
+			<div class="flex items-center justify-between px-2 py-1.5 text-sm">
+				@label.Label(label.Props{For: "tls-switch"}) {
+					TLS / HTTPS
+				}
+				@switchcomp.Switch(switchcomp.Props{ID: "tls-switch", Attributes: templ.Attributes{"onchange": "toggleTLS(this.checked)"}})
+			</div>
+			@dropdownIconItem("window.location.href='/auth/password'", "", icon.KeyRound, "Change Password")
+			@dropdown.Separator()
+			@dropdown.Label() {
+				System
+			}
+			@dropdownIconItem("if(confirm('Reboot the BMC?')) rebootSystem()", "text-destructive", icon.RefreshCw, "Reboot BMC")
+		}
+	}
+	@settingsMenuScript()
+}
+
+templ settingsMenuScript() {
+	<script>
+		async function toggleSSH(enable) {
+			try { await apiPost(enable ? '/api/vm/ssh/enable' : '/api/vm/ssh/disable'); }
+			catch(e) { console.error(e); }
+		}
+		async function toggleTLS(enable) {
+			try { await apiPost('/api/vm/tls', { enabled: enable }); }
+			catch(e) { console.error(e); }
+			alert('TLS ' + (enable ? 'enabled' : 'disabled') + '. Page may reload.');
+		}
+		async function rebootSystem() {
+			try { await apiPost('/api/vm/system/reboot'); }
+			catch(e) { console.error(e); }
+		}
+		// Load initial SSH state — TLS is reflected by current scheme.
+		(async function() {
+			try {
+				const s = await apiGet('/api/vm/ssh');
+				const el = document.getElementById('ssh-switch');
+				if (el) el.checked = !!(s.data?.enabled);
+			} catch(e) {}
+			const tls = document.getElementById('tls-switch');
+			if (tls) tls.checked = window.location.protocol === 'https:';
+		})();
+	</script>
+}

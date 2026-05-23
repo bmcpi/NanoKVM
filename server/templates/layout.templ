@@ -1,16 +1,20 @@
 package templates
 
 import (
-	"github.com/templui/templui/components/button"
+	"github.com/templui/templui/components/dialog"
 	"github.com/templui/templui/components/dropdown"
-	"github.com/templui/templui/components/icon"
 	"github.com/templui/templui/components/input"
 	"github.com/templui/templui/components/popover"
 )
 
-// layout renders the common HTML document shell. The dark class on <html>
-// activates templui's dark theme tokens (defined in input.css). Page-specific
-// content is rendered into the <main> slot; the navbar is shared chrome.
+// layout renders the common HTML document shell. The `dark` class on <html>
+// activates templui's dark theme tokens (defined in input.css).
+//
+// templui ships templ component sources outside the project tree, so Tailwind
+// can't see their utility classes during the normal build. The fallback
+// stylesheet (templuiFallback) carries the handful of templui-base utilities
+// the current output.css is missing — enough for Buttons / Inputs / Cards to
+// render correctly without a full Tailwind rebuild against vendored sources.
 templ layout(title string, showNav bool) {
 	<!DOCTYPE html>
 	<html lang="en" class="dark">
@@ -20,578 +24,96 @@ templ layout(title string, showNav bool) {
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ title }</title>
 			<link rel="stylesheet" href="/css/output.css"/>
-			<script>
-				// Auth helpers — defined early so page scripts can use them.
-				function getCookie(name) {
-					const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-					return match ? decodeURIComponent(match[2]) : null;
-				}
-				function getAuthHeaders() {
-					const token = getCookie('nano-kvm-token') || '';
-					return { 'Content-Type': 'application/json', 'token': token };
-				}
-			</script>
+			@templuiFallback()
+			@authHelperScript()
 		</head>
 		<body class="min-h-screen">
 			<div class="flex h-screen flex-col">
 				if showNav {
-					@navbar()
+					@Navbar()
 				}
-				<div class="flex min-h-0 flex-1 overflow-hidden">
-					<main class="min-h-0 flex-1 overflow-hidden">
-						{ children... }
-					</main>
-					if showNav {
-						@ServerOverview()
-					}
-				</div>
+				<main class="min-h-0 flex-1 overflow-hidden">
+					{ children... }
+				</main>
 			</div>
-			// templui component scripts (popover backs dropdowns; input drives
-			// password toggles + tooltips). All are emitted at most once.
+			// templui scripts (each gated by its own scriptOnce handle).
 			@popover.Script()
 			@dropdown.Script()
+			@dialog.Script()
 			@input.Script()
-			if showNav {
-				@navbarScript()
-			}
 		</body>
 	</html>
 }
 
-// navbar is the top BMC nav: status, power actions, virtual media, server
-// overview toggle, settings, and logout.
-templ navbar() {
-	<header class="flex items-center justify-between border-b border-border bg-card px-4 py-2">
-		<div class="flex items-center gap-3">
-			<span class="text-sm font-bold tracking-wide">NanoKVM BMC</span>
-			@powerDropdown()
-			@virtualMediaDropdown()
-		</div>
-		<div class="flex items-center gap-2">
-			@button.Button(button.Props{
-				Variant:    button.VariantGhost,
-				Size:       button.SizeSm,
-				Attributes: templ.Attributes{"onclick": "toggleServerOverview()", "title": "Server Overview"},
-			}) {
-				@icon.MonitorSpeaker(icon.Props{Class: "size-3.5"})
-				<span>Server Overview</span>
-			}
-			@settingsDropdown()
-			@button.Button(button.Props{
-				Variant:    button.VariantGhost,
-				Size:       button.SizeIcon,
-				Attributes: templ.Attributes{"onclick": "doLogout()", "title": "Logout"},
-			}) {
-				@icon.LogOut(icon.Props{Class: "size-4"})
-			}
-		</div>
-	</header>
+// templuiFallback supplies the Tailwind utilities templui's components rely
+// on that aren't in the project's compiled output.css. Add to this list when
+// a templui component renders broken because a class it uses is missing.
+templ templuiFallback() {
+	<style>
+		/* Flex + positioning utilities used by templui Button / Card / Sheet. */
+		.inline-flex { display: inline-flex; }
+		.shrink-0   { flex-shrink: 0; }
+		.whitespace-nowrap { white-space: nowrap; }
+		.inset-0    { inset: 0; }
+		.inset-y-0  { top: 0; bottom: 0; }
+		.top-0      { top: 0; }
+		.right-0    { right: 0; }
+		.bottom-0   { bottom: 0; }
+		.left-0     { left: 0; }
+		.z-40       { z-index: 40; }
+		.z-50       { z-index: 50; }
+		.z-\[60\]   { z-index: 60; }
+		.shadow-xs  { box-shadow: 0 1px 2px 0 rgba(0,0,0,.05); }
+		.shadow-md  { box-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1); }
+		.shadow-lg  { box-shadow: 0 10px 15px -3px rgba(0,0,0,.4), 0 4px 6px -4px rgba(0,0,0,.4); }
+		.shadow-xl  { box-shadow: 0 20px 25px -5px rgba(0,0,0,.5), 0 8px 10px -6px rgba(0,0,0,.4); }
+
+		/* Auto-size SVG children inside Buttons (templui's default rule). */
+		button [class*="size-"]               { /* honour explicit sizes */ }
+		button > svg:not([class*="size-"])    { width: 1rem; height: 1rem; }
+		a > svg:not([class*="size-"])         { width: 1rem; height: 1rem; }
+		[role="menuitem"] svg:not([class*="size-"]) { width: 1rem; height: 1rem; }
+
+		/* Backgrounds + text colours used by templui Button / Badge / Popover. */
+		.bg-primary           { background-color: var(--primary); }
+		.text-primary-foreground { color: var(--primary-foreground); }
+		.bg-secondary         { background-color: var(--secondary); }
+		.text-secondary-foreground { color: var(--secondary-foreground); }
+		.text-accent-foreground { color: var(--accent-foreground); }
+		.bg-popover           { background-color: var(--popover); }
+		.text-popover-foreground { color: var(--popover-foreground); }
+		.text-card-foreground { color: var(--card-foreground); }
+
+		/* Hover/disabled helpers. */
+		.disabled\:opacity-50:disabled { opacity: .5; }
+		.disabled\:pointer-events-none:disabled { pointer-events: none; }
+		.hover\:bg-primary\/90:hover { background-color: color-mix(in oklab, var(--primary) 90%, transparent); }
+		.hover\:bg-accent:hover { background-color: var(--accent); }
+		.hover\:bg-destructive\/90:hover { background-color: color-mix(in oklab, var(--destructive) 90%, transparent); }
+	</style>
 }
 
-// powerDropdown surfaces current power state as the trigger pill, and the
-// dropdown content exposes power actions + boot device override.
-templ powerDropdown() {
-	@dropdown.Dropdown() {
-		@dropdown.Trigger() {
-			@button.Button(button.Props{
-				Variant: button.VariantGhost,
-				Size:    button.SizeSm,
-				Class:   "gap-2",
-			}) {
-				<span id="power-dot" class="inline-block size-2.5 rounded-full bg-destructive"></span>
-				<span id="power-text">Checking…</span>
-				@icon.ChevronDown(icon.Props{Class: "size-3"})
-			}
-		}
-		@dropdown.Content(dropdown.ContentProps{Class: "w-72", Placement: dropdown.PlacementBottomStart}) {
-			@dropdown.Label() {
-				Power Actions
-			}
-			@dropdown.Item(dropdown.ItemProps{Attributes: templ.Attributes{"onclick": "powerAction('on')"}}) {
-				@icon.Power(icon.Props{Class: "size-4"})
-				<span>Power On</span>
-			}
-			@dropdown.Item(dropdown.ItemProps{Attributes: templ.Attributes{"onclick": "powerAction('off')"}}) {
-				@icon.PowerOff(icon.Props{Class: "size-4"})
-				<span>Power Off</span>
-			}
-			@dropdown.Item(dropdown.ItemProps{Attributes: templ.Attributes{"onclick": "powerAction('reset')"}}) {
-				@icon.RefreshCw(icon.Props{Class: "size-4"})
-				<span>Reset</span>
-			}
-			@dropdown.Item(dropdown.ItemProps{
-				Class:      "text-destructive",
-				Attributes: templ.Attributes{"onclick": "if(confirm('Force power off?')) powerAction('forceoff')"},
-			}) {
-				@icon.CircleX(icon.Props{Class: "size-4"})
-				<span>Force Off</span>
-			}
-			@dropdown.Separator()
-			@dropdown.Label() {
-				Boot Device Override
-			}
-			<div class="px-2 pb-2 flex flex-col gap-2">
-				<select id="boot-device" class="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm dark:bg-input/30">
-					<option value="None">Default</option>
-					<option value="Pxe">PXE / Network</option>
-					<option value="Hdd">HDD / SD / NVMe</option>
-					<option value="Cd">USB / CD-ROM</option>
-					<option value="BiosSetup">BIOS Setup</option>
-				</select>
-				<select id="boot-persist" class="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm dark:bg-input/30">
-					<option value="Once">Once (default)</option>
-					<option value="Continuous">Continuous</option>
-				</select>
-				<div class="flex gap-2">
-					@button.Button(button.Props{
-						Size:       button.SizeSm,
-						Class:      "flex-1",
-						Attributes: templ.Attributes{"onclick": "applyBootOverride()"},
-					}) {
-						Apply
-					}
-					@button.Button(button.Props{
-						Variant:    button.VariantDestructive,
-						Size:       button.SizeSm,
-						Attributes: templ.Attributes{"onclick": "clearBootOverride()"},
-					}) {
-						Clear
-					}
-				</div>
-				<p id="boot-status" class="text-xs text-muted-foreground"></p>
-			</div>
-		}
-	}
-}
-
-// virtualMediaDropdown is the navbar's virtual-media picker. It has two views
-// (mounted-state + add-media) that the existing JS toggles via display.
-templ virtualMediaDropdown() {
-	@dropdown.Dropdown(dropdown.Props{ID: "vm-dropdown"}) {
-		@dropdown.Trigger(dropdown.TriggerProps{Attributes: templ.Attributes{"onclick": "navVmRefresh()"}}) {
-			@button.Button(button.Props{
-				Variant: button.VariantGhost,
-				Size:    button.SizeSm,
-				Class:   "gap-2",
-			}) {
-				@icon.HardDrive(icon.Props{Class: "size-3.5"})
-				<span>Virtual Media</span>
-				@icon.ChevronDown(icon.Props{Class: "size-3"})
-			}
-		}
-		@dropdown.Content(dropdown.ContentProps{Class: "w-96", Placement: dropdown.PlacementBottomStart}) {
-			// Mounted-state view
-			<div id="nav-vm-view" class="p-2 flex flex-col gap-2">
-				<div>
-					<div class="text-sm font-semibold">Virtual Media</div>
-					<div class="text-xs text-muted-foreground">Mount an image to boot from or install an OS.</div>
-				</div>
-				<div id="nav-vm-card" class="rounded-md border border-dashed border-border px-3 py-5 flex flex-col items-center justify-center text-center gap-2">
-					<div id="nav-vm-icon" class="size-9 rounded-full border border-border flex items-center justify-center text-muted-foreground">
-						@icon.Plus(icon.Props{Class: "size-4"})
-					</div>
-					<div id="nav-vm-title" class="text-sm font-semibold">No mounted media</div>
-					<div id="nav-vm-sub" class="text-xs text-muted-foreground">Add a file to get started</div>
-				</div>
-				<div class="flex items-center justify-end gap-2">
-					@button.Button(button.Props{
-						ID:         "nav-vm-eject",
-						Variant:    button.VariantDestructive,
-						Size:       button.SizeSm,
-						Class:      "hidden",
-						Attributes: templ.Attributes{"onclick": "navVmEject()"},
-					}) {
-						Eject
-					}
-					@button.Button(button.Props{
-						Variant: button.VariantOutline,
-						Size:    button.SizeSm,
-						Attributes: templ.Attributes{
-							"onclick": "window.tui?.popover?.closeNearest(this)",
-						},
-					}) {
-						Close
-					}
-					@button.Button(button.Props{
-						Size:       button.SizeSm,
-						Attributes: templ.Attributes{"onclick": "navVmShowAdd()"},
-					}) {
-						+ Add New Media
-					}
-				</div>
-				<p id="nav-vm-status" class="text-xs text-muted-foreground"></p>
-			</div>
-			// Add-media view (hidden until user clicks Add)
-			<div id="nav-vm-add" class="p-2 flex flex-col gap-2 hidden">
-				<div class="flex items-center justify-between">
-					<div class="text-sm font-semibold">Add New Media</div>
-					@button.Button(button.Props{
-						Variant:    button.VariantOutline,
-						Size:       button.SizeSm,
-						Attributes: templ.Attributes{"onclick": "navVmShowView()"},
-					}) {
-						Back
-					}
-				</div>
-				<div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-1">Existing ISOs</div>
-				<div class="flex items-center gap-2">
-					<select id="nav-vm-select" class="flex-1 h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:bg-input/30"></select>
-					@button.Button(button.Props{
-						Size:       button.SizeSm,
-						Attributes: templ.Attributes{"onclick": "navVmInsert()"},
-					}) {
-						Mount
-					}
-				</div>
-				<div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-1">Upload File</div>
-				<div class="flex items-center gap-2">
-					@input.Input(input.Props{
-						ID:         "nav-vm-file",
-						Type:       input.TypeFile,
-						FileAccept: ".iso,.img",
-						Class:      "flex-1",
-					})
-					@button.Button(button.Props{
-						Size:       button.SizeSm,
-						Attributes: templ.Attributes{"onclick": "navVmUpload()"},
-					}) {
-						Upload
-					}
-				</div>
-				<div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-1">Fetch from URL</div>
-				@input.Input(input.Props{
-					ID:          "nav-vm-url",
-					Type:        input.TypeURL,
-					Placeholder: "https://example.com/image.iso",
-				})
-				<div class="flex items-center gap-2">
-					@input.Input(input.Props{
-						ID:          "nav-vm-url-name",
-						Placeholder: "filename.iso (optional)",
-						Class:       "flex-1",
-					})
-					@button.Button(button.Props{
-						Size:       button.SizeSm,
-						Attributes: templ.Attributes{"onclick": "navVmFetch()"},
-					}) {
-						Fetch
-					}
-				</div>
-				<p id="nav-vm-add-status" class="text-xs text-muted-foreground"></p>
-			</div>
-		}
-	}
-}
-
-// settingsDropdown exposes SSH/TLS toggles, change-password, and reboot.
-templ settingsDropdown() {
-	@dropdown.Dropdown() {
-		@dropdown.Trigger() {
-			@button.Button(button.Props{
-				Variant: button.VariantGhost,
-				Size:    button.SizeSm,
-				Class:   "gap-2",
-			}) {
-				@icon.Settings(icon.Props{Class: "size-3.5"})
-				<span>Settings</span>
-				@icon.ChevronDown(icon.Props{Class: "size-3"})
-			}
-		}
-		@dropdown.Content(dropdown.ContentProps{Class: "w-72", Placement: dropdown.PlacementBottomEnd}) {
-			@dropdown.Label() {
-				Network
-			}
-			<div class="flex items-center justify-between px-2 py-1.5 text-sm">
-				<span>SSH</span>
-				@button.Button(button.Props{
-					ID:         "ssh-toggle",
-					Variant:    button.VariantOutline,
-					Size:       button.SizeSm,
-					Attributes: templ.Attributes{"onclick": "toggleSSH()"},
-				}) {
-					Off
-				}
-			</div>
-			@dropdown.Separator()
-			@dropdown.Label() {
-				Security
-			}
-			<div class="flex items-center justify-between px-2 py-1.5 text-sm">
-				<span>TLS / HTTPS</span>
-				@button.Button(button.Props{
-					ID:         "tls-toggle",
-					Variant:    button.VariantOutline,
-					Size:       button.SizeSm,
-					Attributes: templ.Attributes{"onclick": "toggleTLS()"},
-				}) {
-					Off
-				}
-			</div>
-			@dropdown.Item(dropdown.ItemProps{Href: "/auth/password"}) {
-				@icon.KeyRound(icon.Props{Class: "size-4"})
-				<span>Change Password</span>
-			}
-			@dropdown.Separator()
-			@dropdown.Label() {
-				System
-			}
-			@dropdown.Item(dropdown.ItemProps{
-				Class:      "text-destructive",
-				Attributes: templ.Attributes{"onclick": "if(confirm('Reboot the BMC?')) rebootSystem()"},
-			}) {
-				@icon.RefreshCw(icon.Props{Class: "size-4"})
-				<span>Reboot BMC</span>
-			}
-		}
-	}
-}
-
-// navbarScript carries the per-page client logic for the navbar's dropdowns.
-// Functions are global so dropdown-item onclick handlers can reach them.
-templ navbarScript() {
+// authHelperScript exposes cookie + auth-header helpers used by every page's
+// inline fetch() calls. Defined early so handlers in <body> can call them.
+templ authHelperScript() {
 	<script>
-		// --- Power ---
-		async function pollPower() {
-			try {
-				const r = await fetch('/api/vm/gpio', { headers: getAuthHeaders() });
-				const data = await r.json();
-				if (data.code === 0) {
-					const on = data.data.pwr;
-					const dot = document.getElementById('power-dot');
-					dot.className = 'inline-block size-2.5 rounded-full ' + (on ? 'bg-green-500' : 'bg-destructive');
-					document.getElementById('power-text').textContent = on ? 'Power On' : 'Power Off';
-				}
-			} catch(e) {}
+		function getCookie(name) {
+			const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+			return match ? decodeURIComponent(match[2]) : null;
 		}
-		pollPower();
-		setInterval(pollPower, 5000);
-
-		async function powerAction(action) {
-			try {
-				await fetch('/api/vm/gpio', { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({action}) });
-			} catch(e) { console.error(e); }
-			setTimeout(pollPower, 2000);
+		function getAuthHeaders() {
+			const token = getCookie('nano-kvm-token') || '';
+			return { 'Content-Type': 'application/json', 'token': token };
 		}
-
-		async function applyBootOverride() {
-			const device = document.getElementById('boot-device').value || 'None';
-			const persist = document.getElementById('boot-persist').value || 'Once';
-			const statusEl = document.getElementById('boot-status');
-			try {
-				const r = await fetch('/redfish/v1/Systems/1', {
-					method: 'PATCH', headers: getAuthHeaders(),
-					body: JSON.stringify({ Boot: { BootSourceOverrideTarget: device, BootSourceOverrideEnabled: persist } })
-				});
-				const data = await r.json();
-				const b = data.Boot;
-				statusEl.textContent = b ? `Set: ${b.BootSourceOverrideTarget} (${b.BootSourceOverrideEnabled})` : 'Applied';
-			} catch(e) {
-				statusEl.textContent = 'Failed';
-			}
-			if (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();
-		}
-
-		async function clearBootOverride() {
-			const statusEl = document.getElementById('boot-status');
-			try {
-				const r = await fetch('/redfish/v1/Systems/1', {
-					method: 'PATCH', headers: getAuthHeaders(),
-					body: JSON.stringify({ Boot: { BootSourceOverrideTarget: 'None', BootSourceOverrideEnabled: 'Disabled' } })
-				});
-				statusEl.textContent = r.ok ? 'Cleared' : 'Failed';
-			} catch(e) {
-				statusEl.textContent = 'Failed';
-			}
-			if (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();
-		}
-
-		// --- Settings ---
 		async function apiGet(url) {
 			return (await fetch(url, { headers: getAuthHeaders() })).json();
 		}
 		async function apiPost(url, body) {
-			return (await fetch(url, { method: 'POST', headers: getAuthHeaders(), body: body ? JSON.stringify(body) : undefined })).json();
-		}
-		function updateToggle(id, on) {
-			const btn = document.getElementById(id);
-			if (!btn) return;
-			btn.textContent = on ? 'On' : 'Off';
-			// Recolour by swapping templui variant classes.
-			if (on) {
-				btn.classList.remove('border', 'bg-background');
-				btn.classList.add('bg-primary', 'text-primary-foreground');
-			} else {
-				btn.classList.add('border', 'bg-background');
-				btn.classList.remove('bg-primary', 'text-primary-foreground');
-			}
-		}
-
-		let sshEnabled = false;
-		let tlsEnabled = false;
-
-		async function toggleSSH() {
-			const enable = !sshEnabled;
-			await apiPost(enable ? '/api/vm/ssh/enable' : '/api/vm/ssh/disable');
-			sshEnabled = enable;
-			updateToggle('ssh-toggle', sshEnabled);
-		}
-		async function toggleTLS() {
-			const enable = !tlsEnabled;
-			await apiPost('/api/vm/tls', { enabled: enable });
-			tlsEnabled = enable;
-			updateToggle('tls-toggle', tlsEnabled);
-			alert('TLS ' + (enable ? 'enabled' : 'disabled') + '. Page may reload.');
-		}
-		async function rebootSystem() {
-			await apiPost('/api/vm/system/reboot');
-		}
-
-		// --- Virtual Media (navbar dropdown) ---
-		async function navVmRefresh() {
-			try {
-				const r = await fetch('/api/firmware/media', { headers: getAuthHeaders() });
-				if (!r.ok) return;
-				const data = await r.json();
-
-				const sel = document.getElementById('nav-vm-select');
-				const prev = sel.value;
-				sel.innerHTML = '<option value="">— select ISO —</option>';
-				(data.files || []).forEach(f => {
-					const o = document.createElement('option');
-					o.value = f; o.textContent = f;
-					sel.appendChild(o);
-				});
-				if (prev && (data.files || []).includes(prev)) sel.value = prev;
-
-				const title = document.getElementById('nav-vm-title');
-				const sub = document.getElementById('nav-vm-sub');
-				const eject = document.getElementById('nav-vm-eject');
-				if (data.inserted) {
-					title.textContent = data.inserted;
-					title.classList.add('text-green-400');
-					sub.textContent = 'Mounted as virtual media';
-					eject.classList.remove('hidden');
-				} else {
-					title.textContent = 'No mounted media';
-					title.classList.remove('text-green-400');
-					sub.textContent = 'Add a file to get started';
-					eject.classList.add('hidden');
-				}
-			} catch(e) {}
-		}
-		navVmRefresh();
-
-		function navVmShowAdd() {
-			document.getElementById('nav-vm-view').classList.add('hidden');
-			document.getElementById('nav-vm-add').classList.remove('hidden');
-		}
-		function navVmShowView() {
-			document.getElementById('nav-vm-add').classList.add('hidden');
-			document.getElementById('nav-vm-view').classList.remove('hidden');
-		}
-
-		async function navVmInsert() {
-			const name = document.getElementById('nav-vm-select').value;
-			const status = document.getElementById('nav-vm-add-status');
-			if (!name) { status.textContent = 'Select an ISO first'; return; }
-			status.textContent = 'Mounting…';
-			try {
-				const r = await fetch('/api/firmware/media/insert', {
-					method: 'POST', headers: getAuthHeaders(),
-					body: JSON.stringify({ name }),
-				});
-				if (r.ok) {
-					status.textContent = '';
-					navVmRefresh();
-					navVmShowView();
-					if (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();
-				} else {
-					const err = await r.json().catch(() => ({}));
-					status.textContent = 'Error: ' + (err.error || r.statusText);
-				}
-			} catch(e) { status.textContent = 'Error: ' + e.message; }
-		}
-
-		async function navVmEject() {
-			const status = document.getElementById('nav-vm-status');
-			status.textContent = 'Ejecting…';
-			try {
-				const r = await fetch('/api/firmware/media/eject', {
-					method: 'POST', headers: getAuthHeaders(),
-				});
-				if (r.ok) {
-					status.textContent = '';
-					navVmRefresh();
-					if (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();
-				} else {
-					const err = await r.json().catch(() => ({}));
-					status.textContent = 'Error: ' + (err.error || r.statusText);
-				}
-			} catch(e) { status.textContent = 'Error: ' + e.message; }
-		}
-
-		async function navVmUpload() {
-			const fileInput = document.getElementById('nav-vm-file');
-			const status = document.getElementById('nav-vm-add-status');
-			if (!fileInput.files || !fileInput.files.length) {
-				status.textContent = 'Select a file first';
-				return;
-			}
-			const token = getCookie('nano-kvm-token') || '';
-			const form = new FormData();
-			form.append('file', fileInput.files[0]);
-			status.textContent = 'Uploading…';
-			try {
-				const r = await fetch('/api/firmware/media/upload', {
-					method: 'POST', headers: { 'token': token }, body: form,
-				});
-				if (r.ok) {
-					const d = await r.json();
-					status.textContent = 'Saved: ' + d.file;
-					fileInput.value = '';
-					navVmRefresh();
-				} else {
-					const err = await r.json().catch(() => ({}));
-					status.textContent = 'Error: ' + (err.error || r.statusText);
-				}
-			} catch(e) { status.textContent = 'Error: ' + e.message; }
-		}
-
-		async function navVmFetch() {
-			const urlInput = document.getElementById('nav-vm-url');
-			const nameInput = document.getElementById('nav-vm-url-name');
-			const status = document.getElementById('nav-vm-add-status');
-			const isoUrl = urlInput.value.trim();
-			if (!isoUrl) { status.textContent = 'Enter a URL first'; return; }
-			status.textContent = 'Fetching…';
-			try {
-				const r = await fetch('/api/firmware/media/fetch', {
-					method: 'POST', headers: getAuthHeaders(),
-					body: JSON.stringify({ url: isoUrl, name: nameInput.value.trim() || undefined }),
-				});
-				if (r.ok) {
-					const d = await r.json();
-					status.textContent = 'Saved: ' + d.file;
-					urlInput.value = '';
-					nameInput.value = '';
-					navVmRefresh();
-				} else {
-					const err = await r.json().catch(() => ({}));
-					status.textContent = 'Error: ' + (err.error || r.statusText);
-				}
-			} catch(e) { status.textContent = 'Error: ' + e.message; }
-		}
-
-		// Load initial settings state
-		(async function() {
-			try { const s = await apiGet('/api/vm/ssh'); sshEnabled = !!(s.data?.enabled); updateToggle('ssh-toggle', sshEnabled); } catch(e) {}
-		})();
-
-		// --- Logout ---
-		async function doLogout() {
-			try { await apiPost('/api/auth/logout'); } catch(e) {}
-			document.cookie = 'nano-kvm-token=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
-			window.location.replace('/auth/login');
+			return (await fetch(url, {
+				method: 'POST',
+				headers: getAuthHeaders(),
+				body: body ? JSON.stringify(body) : undefined,
+			})).json();
 		}
 	</script>
 }

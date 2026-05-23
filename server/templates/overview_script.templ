@@ -1,0 +1,412 @@
+package templates
+
+// overviewDataScript loads server/BMC/BIOS info into the IDs rendered by
+// OverviewSheet. Lives next to the dashboard because it polls firmware +
+// kernel state used by the dashboard's "boot device" controls too.
+templ overviewDataScript() {
+	<script>
+		// ── /api/vm/info → BMC identity (always available) ─────────────────
+		(async function() {
+			try {
+				const r = await fetch('/api/vm/info', { headers: getAuthHeaders() });
+				const data = await r.json();
+				if (data.code !== 0) return;
+				const i = data.data;
+				document.getElementById('info-app').textContent = i.application || '—';
+				document.getElementById('info-image').textContent = i.imageVersion || '—';
+				document.getElementById('info-hw').textContent = i.hardware || '—';
+				document.getElementById('info-ip').textContent = i.ip || '—';
+				document.getElementById('info-mac').textContent = i.mac || '—';
+			} catch(e) {}
+		})();
+
+		// ── Application version (current vs GitHub latest) ─────────────────
+		async function loadAppVersion() {
+			const btn = document.getElementById('btn-app-update');
+			const badge = document.getElementById('info-app-latest-badge');
+			const status = document.getElementById('info-app-update-status');
+			try {
+				const r = await fetch('/api/application/version', { headers: getAuthHeaders() });
+				const data = await r.json();
+				if (data.code !== 0) return;
+				const cur = (data.data.current || '').replace(/^v/, '');
+				const latest = (data.data.latest || '').replace(/^v/, '');
+				document.getElementById('info-app').textContent = cur ? 'v' + cur : '—';
+				status.textContent = '';
+				if (latest && cur && latest !== cur) {
+					btn.textContent = 'Update → v' + latest;
+					btn.classList.remove('hidden');
+					badge.classList.add('hidden');
+				} else if (latest && cur && latest === cur) {
+					btn.classList.add('hidden');
+					badge.classList.remove('hidden');
+				} else {
+					btn.classList.add('hidden');
+					badge.classList.add('hidden');
+				}
+			} catch(e) { console.warn('version check failed:', e); }
+		}
+		loadAppVersion();
+
+		window.updateApplication = async function() {
+			const btn = document.getElementById('btn-app-update');
+			const status = document.getElementById('info-app-update-status');
+			if (!confirm('Download and install the latest application? The service will restart.')) return;
+			btn.disabled = true;
+			const original = btn.textContent;
+			btn.textContent = 'Updating…';
+			status.textContent = '';
+			try {
+				const r = await fetch('/api/application/update', { method: 'POST', headers: getAuthHeaders() });
+				const data = await r.json().catch(() => ({}));
+				if (r.ok && data.code === 0) {
+					status.textContent = 'Restarting…';
+					btn.classList.add('hidden');
+					setTimeout(() => window.location.reload(), 5000);
+				} else {
+					status.textContent = 'Error: ' + (data.msg || r.statusText);
+					btn.disabled = false;
+					btn.textContent = original;
+				}
+			} catch(e) {
+				status.textContent = 'Error: ' + e.message;
+				btn.disabled = false;
+				btn.textContent = original;
+			}
+		};
+
+		// ── Firmware status + inventory + boot state ───────────────────────
+		async function loadFirmwareInfo() {
+			try {
+				const r = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
+				if (!r.ok) {
+					document.getElementById('info-fw-status').textContent = 'Not available';
+					document.getElementById('fw-download-item').classList.add('hidden');
+					return;
+				}
+				const st = await r.json();
+				let txt = '';
+				if (!st.downloaded) {
+					txt = 'Not downloaded';
+					document.getElementById('fw-download-item').classList.remove('hidden');
+				} else {
+					txt = 'Ready';
+					document.getElementById('fw-download-item').classList.add('hidden');
+				}
+				if (st.presented) txt += ' · USB Active';
+				document.getElementById('info-fw-status').textContent = txt;
+			} catch(e) {
+				document.getElementById('info-fw-status').textContent = 'Error';
+			}
+
+			try {
+				const r = await fetch('/api/firmware/inventory', { headers: getAuthHeaders() });
+				if (r.ok) {
+					const inv = await r.json();
+					document.getElementById('info-board').textContent = inv.board_name || '—';
+					document.getElementById('info-vendor').textContent = inv.vendor || '—';
+					document.getElementById('info-cpu').textContent = (inv.cpu || '—') + (inv.soc ? ' / ' + inv.soc : '');
+					document.getElementById('info-board-serial').textContent = inv['serial#'] || '—';
+					document.getElementById('info-board-rev').textContent = inv.board_revision || '—';
+					document.getElementById('info-board-mac').textContent = inv.ethaddr || '—';
+					document.getElementById('info-fdtfile').textContent = inv.fdtfile || '—';
+					document.getElementById('info-bios-ver').textContent = inv.ver || '—';
+					document.getElementById('info-bootmeths').textContent = inv.bootmeths || '—';
+				}
+			} catch(e) {}
+
+			try {
+				const r = await fetch('/api/firmware/boot', { headers: getAuthHeaders() });
+				if (r.ok) {
+					const b = await r.json();
+					document.getElementById('info-boot-target').textContent = b.effective || 'default';
+					const override = b.once ? `once: ${b.once}` : b.persistent ? `continuous: ${b.persistent}` : 'none';
+					document.getElementById('info-boot-override').textContent = override;
+				}
+			} catch(e) {}
+		}
+		window.loadFirmwareInfo = loadFirmwareInfo;
+		loadFirmwareInfo();
+
+		// ── BIOS (U-Boot) version ──────────────────────────────────────────
+		async function loadBIOSVersion() {
+			const btn = document.getElementById('btn-bios-update');
+			const badge = document.getElementById('info-bios-latest-badge');
+			const status = document.getElementById('info-bios-update-status');
+			try {
+				const r = await fetch('/api/firmware/bios/version', { headers: getAuthHeaders() });
+				if (!r.ok) return;
+				const data = await r.json();
+				const cur = (data.current || '').replace(/^v/, '');
+				const latest = (data.latest || '').replace(/^v/, '');
+				if (cur) document.getElementById('info-bios-ver').textContent = 'v' + cur;
+				status.textContent = '';
+				if (latest && cur && latest !== cur) {
+					btn.textContent = 'Update → v' + latest;
+					btn.classList.remove('hidden');
+					badge.classList.add('hidden');
+				} else if (latest && cur && latest === cur) {
+					btn.classList.add('hidden');
+					badge.classList.remove('hidden');
+				} else {
+					btn.classList.add('hidden');
+					badge.classList.add('hidden');
+				}
+			} catch(e) { console.warn('bios version check failed:', e); }
+		}
+		loadBIOSVersion();
+
+		window.updateBIOS = async function() {
+			const btn = document.getElementById('btn-bios-update');
+			const status = document.getElementById('info-bios-update-status');
+			if (!confirm('Download the latest BIOS (U-Boot) firmware? Env files (machine.env, persistent.env, once.env) are preserved.')) return;
+			btn.disabled = true;
+			const original = btn.textContent;
+			btn.textContent = 'Updating…';
+			status.textContent = '';
+			try {
+				const r = await fetch('/api/firmware/bios/update', { method: 'POST', headers: getAuthHeaders() });
+				if (r.ok) {
+					status.textContent = 'Update started…';
+					const poll = setInterval(async () => {
+						try {
+							const sr = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
+							const st = await sr.json();
+							if (st.downloaded && !st.downloading) {
+								clearInterval(poll);
+								status.textContent = 'Update complete';
+								btn.disabled = false;
+								btn.textContent = original;
+								loadFirmwareInfo();
+								loadBIOSVersion();
+							}
+						} catch(e) {}
+					}, 5000);
+				} else {
+					const err = await r.json().catch(() => ({}));
+					status.textContent = 'Error: ' + (err.error || r.statusText);
+					btn.disabled = false;
+					btn.textContent = original;
+				}
+			} catch(e) {
+				status.textContent = 'Error: ' + e.message;
+				btn.disabled = false;
+				btn.textContent = original;
+			}
+		};
+
+		window.setBootOverride = async function(persistent) {
+			const target = document.getElementById('boot-override-select').value;
+			const status = document.getElementById('boot-override-status');
+			status.textContent = 'Applying…';
+			try {
+				const r = await fetch('/redfish/v1/Systems/1', {
+					method: 'PATCH',
+					headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+					body: JSON.stringify({ Boot: {
+						BootSourceOverrideTarget: target,
+						BootSourceOverrideEnabled: persistent ? 'Continuous' : 'Once',
+					} })
+				});
+				if (r.ok) {
+					status.textContent = persistent ? 'Set (persistent)' : 'Set (once)';
+					loadFirmwareInfo();
+				} else {
+					const err = await r.json().catch(() => ({}));
+					status.textContent = 'Error: ' + (err.error?.message || r.statusText);
+				}
+			} catch(e) { status.textContent = 'Error: ' + e.message; }
+		};
+
+		window.downloadFirmware = async function() {
+			const btn = document.getElementById('btn-fw-download');
+			btn.disabled = true;
+			btn.textContent = 'Downloading…';
+			try {
+				const r = await fetch('/api/firmware/download', { method: 'POST', headers: getAuthHeaders() });
+				if (r.ok) {
+					btn.textContent = 'Started…';
+					const poll = setInterval(async () => {
+						const sr = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
+						const st = await sr.json();
+						if (st.downloaded) {
+							clearInterval(poll);
+							loadFirmwareInfo();
+						}
+					}, 5000);
+				} else {
+					const err = await r.json();
+					btn.textContent = err.error || 'Failed';
+					btn.disabled = false;
+				}
+			} catch(e) {
+				btn.textContent = 'Error';
+				btn.disabled = false;
+			}
+		};
+
+		// ── Kernel-version → U-Boot image selector ─────────────────────────
+		async function loadKernelVersions() {
+			try {
+				const r = await fetch('/api/firmware/bios/kernels', { headers: getAuthHeaders() });
+				if (!r.ok) return;
+				const data = await r.json();
+				const select = document.getElementById('bios-kernel-select');
+				if (!select) return;
+				while (select.options.length > 1) select.remove(1);
+				for (const k of (data.kernels || [])) {
+					const opt = document.createElement('option');
+					opt.value = k.kernel;
+					let label = `Linux ${k.kernel} → U-Boot ${k.uboot}`;
+					if (k.active) label += ' ★ Active';
+					else if (k.downloaded) label += ' (Downloaded)';
+					opt.textContent = label;
+					opt.dataset.downloaded = k.downloaded ? '1' : '';
+					opt.dataset.active = k.active ? '1' : '';
+					select.appendChild(opt);
+				}
+				updateKernelButtons();
+			} catch(e) { console.warn('kernel version list failed:', e); }
+		}
+		loadKernelVersions();
+
+		window.updateKernelButtons = function() {
+			const select = document.getElementById('bios-kernel-select');
+			if (!select) return;
+			const opt = select.options[select.selectedIndex];
+			const dlBtn = document.getElementById('btn-kernel-download');
+			const rfBtn = document.getElementById('btn-kernel-refresh');
+			const actBtn = document.getElementById('btn-kernel-activate');
+			const status = document.getElementById('bios-kernel-status');
+			if (!opt || !opt.value) {
+				dlBtn.classList.add('hidden');
+				if (rfBtn) rfBtn.classList.add('hidden');
+				actBtn.classList.add('hidden');
+				status.textContent = '';
+				return;
+			}
+			const downloaded = !!opt.dataset.downloaded;
+			const active = !!opt.dataset.active;
+			dlBtn.classList.toggle('hidden', downloaded);
+			if (rfBtn) rfBtn.classList.toggle('hidden', !downloaded);
+			actBtn.classList.toggle('hidden', !(downloaded && !active));
+			status.textContent = active ? '★ Active' : '';
+		};
+
+		window.downloadKernelBIOS = async function() {
+			const kernel = document.getElementById('bios-kernel-select').value;
+			if (!kernel) return;
+			const dlBtn = document.getElementById('btn-kernel-download');
+			const status = document.getElementById('bios-kernel-status');
+			dlBtn.disabled = true;
+			dlBtn.textContent = 'Downloading…';
+			status.textContent = '';
+			try {
+				const r = await fetch(`/api/firmware/bios/kernel/${encodeURIComponent(kernel)}/download`, {
+					method: 'POST', headers: getAuthHeaders()
+				});
+				if (r.ok) {
+					status.textContent = 'Download started…';
+					const poll = setInterval(async () => {
+						try {
+							const sr = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
+							const st = await sr.json();
+							if (!st.downloading) {
+								clearInterval(poll);
+								await loadKernelVersions();
+								dlBtn.disabled = false;
+								dlBtn.textContent = 'Download';
+							}
+						} catch(e) {}
+					}, 5000);
+				} else {
+					const err = await r.json().catch(() => ({}));
+					status.textContent = 'Error: ' + (err.error || r.statusText);
+					dlBtn.disabled = false;
+					dlBtn.textContent = 'Download';
+				}
+			} catch(e) {
+				status.textContent = 'Error: ' + e.message;
+				dlBtn.disabled = false;
+				dlBtn.textContent = 'Download';
+			}
+		};
+
+		window.refreshKernelBIOS = async function() {
+			const select = document.getElementById('bios-kernel-select');
+			const kernel = select.value;
+			if (!kernel) return;
+			const opt = select.options[select.selectedIndex];
+			const ubootVer = opt ? opt.textContent.match(/U-Boot (\S+)/)?.[1] || kernel : kernel;
+			if (!confirm(`Re-download U-Boot image for Linux ${kernel} (${ubootVer})? The existing cached image will be overwritten.`)) return;
+			const rfBtn = document.getElementById('btn-kernel-refresh');
+			const status = document.getElementById('bios-kernel-status');
+			rfBtn.disabled = true;
+			rfBtn.textContent = 'Downloading…';
+			status.textContent = '';
+			try {
+				const r = await fetch(`/api/firmware/bios/kernel/${encodeURIComponent(kernel)}/download?force=true`, {
+					method: 'POST', headers: getAuthHeaders()
+				});
+				if (r.ok) {
+					status.textContent = 'Re-downloading…';
+					const poll = setInterval(async () => {
+						try {
+							const sr = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
+							const st = await sr.json();
+							if (!st.downloading) {
+								clearInterval(poll);
+								status.textContent = 'Image refreshed.';
+								setTimeout(() => { status.textContent = ''; }, 4000);
+								await loadKernelVersions();
+								rfBtn.disabled = false;
+								rfBtn.textContent = 'Refresh';
+							}
+						} catch(e) {}
+					}, 5000);
+				} else {
+					const err = await r.json().catch(() => ({}));
+					status.textContent = 'Error: ' + (err.error || r.statusText);
+					rfBtn.disabled = false;
+					rfBtn.textContent = 'Refresh';
+				}
+			} catch(e) {
+				status.textContent = 'Error: ' + e.message;
+				rfBtn.disabled = false;
+				rfBtn.textContent = 'Refresh';
+			}
+		};
+
+		window.activateKernelBIOS = async function() {
+			const kernel = document.getElementById('bios-kernel-select').value;
+			if (!kernel) return;
+			if (!confirm(`Activate U-Boot for Linux ${kernel}? Env files (machine.env, persistent.env, once.env) are preserved.`)) return;
+			const actBtn = document.getElementById('btn-kernel-activate');
+			const status = document.getElementById('bios-kernel-status');
+			actBtn.disabled = true;
+			actBtn.textContent = 'Activating…';
+			status.textContent = '';
+			try {
+				const r = await fetch(`/api/firmware/bios/kernel/${encodeURIComponent(kernel)}/activate`, {
+					method: 'POST', headers: getAuthHeaders()
+				});
+				if (r.ok) {
+					status.textContent = '★ Activated';
+					actBtn.classList.add('hidden');
+					loadFirmwareInfo();
+					loadBIOSVersion();
+					await loadKernelVersions();
+				} else {
+					const err = await r.json().catch(() => ({}));
+					status.textContent = 'Error: ' + (err.error || r.statusText);
+					actBtn.disabled = false;
+					actBtn.textContent = 'Activate';
+				}
+			} catch(e) {
+				status.textContent = 'Error: ' + e.message;
+				actBtn.disabled = false;
+				actBtn.textContent = 'Activate';
+			}
+		};
+	</script>
+}
