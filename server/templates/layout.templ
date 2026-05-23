@@ -1,7 +1,16 @@
 package templates
 
-// layout renders the common HTML document shell for BMC pages.
-// Includes Tailwind CSS via CDN and a dark theme base.
+import (
+	"github.com/templui/templui/components/button"
+	"github.com/templui/templui/components/dropdown"
+	"github.com/templui/templui/components/icon"
+	"github.com/templui/templui/components/input"
+	"github.com/templui/templui/components/popover"
+)
+
+// layout renders the common HTML document shell. The dark class on <html>
+// activates templui's dark theme tokens (defined in input.css). Page-specific
+// content is rendered into the <main> slot; the navbar is shared chrome.
 templ layout(title string, showNav bool) {
 	<!DOCTYPE html>
 	<html lang="en" class="dark">
@@ -11,55 +20,6 @@ templ layout(title string, showNav bool) {
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ title }</title>
 			<link rel="stylesheet" href="/css/output.css"/>
-			<style>
-				body { background: #0a0a0a; color: #e5e5e5; font-family: system-ui, -apple-system, sans-serif; }
-				.card { background: #171717; border: 1px solid #262626; border-radius: 0.5rem; padding: 1.5rem; }
-				.btn { padding: 0.5rem 1rem; border-radius: 0.375rem; font-size: 0.875rem; cursor: pointer; transition: background 0.15s; border: none; }
-				.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-				.btn-blue { background: #1d4ed8; color: white; }
-				.btn-blue:hover:not(:disabled) { background: #2563eb; }
-				.btn-red { background: #b91c1c; color: white; }
-				.btn-red:hover:not(:disabled) { background: #dc2626; }
-				.btn-yellow { background: #a16207; color: white; }
-				.btn-yellow:hover:not(:disabled) { background: #ca8a04; }
-				.btn-green { background: #15803d; color: white; }
-				.btn-green:hover:not(:disabled) { background: #16a34a; }
-				.btn-neutral { background: #404040; color: white; }
-				.btn-neutral:hover:not(:disabled) { background: #525252; }
-				.status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-				.status-on { background: #22c55e; }
-				.status-off { background: #ef4444; }
-
-				/* Dropdown menus */
-				.dropdown { position: relative; }
-				.dropdown-toggle { display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.75rem; border-radius: 0.375rem; font-size: 0.8125rem; cursor: pointer; background: transparent; color: #a3a3a3; border: 1px solid transparent; transition: all 0.15s; }
-				.dropdown-toggle:hover { background: #262626; color: #e5e5e5; }
-				.dropdown-toggle.active { background: #262626; color: #e5e5e5; border-color: #404040; }
-				.dropdown-menu { display: none; position: absolute; top: calc(100% + 4px); right: 0; min-width: 280px; background: #171717; border: 1px solid #303030; border-radius: 0.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 50; overflow: hidden; }
-				.dropdown-menu.open { display: block; }
-				.dropdown-menu.left { left: 0; right: auto; }
-				.dropdown-section { padding: 0.75rem; }
-				.dropdown-section + .dropdown-section { border-top: 1px solid #262626; }
-				.dropdown-section-label { font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #737373; margin-bottom: 0.5rem; }
-				.dropdown-item { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.5rem 0.75rem; border-radius: 0.25rem; font-size: 0.8125rem; color: #d4d4d4; cursor: pointer; background: none; border: none; text-align: left; transition: background 0.1s; }
-				.dropdown-item:hover { background: #262626; }
-				.dropdown-item.danger { color: #fca5a5; }
-				.dropdown-item.danger:hover { background: #371717; }
-				.dropdown-row { display: flex; align-items: center; justify-content: space-between; padding: 0.375rem 0.75rem; font-size: 0.8125rem; }
-				.dropdown-row label { color: #a3a3a3; }
-				.dropdown-row .value { color: #e5e5e5; }
-				.mini-input { background: #0a0a0a; border: 1px solid #404040; border-radius: 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; color: #e5e5e5; width: 100%; }
-				.mini-input:focus { outline: none; border-color: #1d4ed8; }
-				.mini-select { background: #0a0a0a; border: 1px solid #404040; border-radius: 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; color: #e5e5e5; }
-				.mini-btn { padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.6875rem; cursor: pointer; border: none; }
-				.toggle-btn { padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.6875rem; cursor: pointer; border: none; }
-				.toggle-on { background: #15803d; color: white; }
-				.toggle-off { background: #404040; color: #a3a3a3; }
-
-				/* Caret icon */
-				.caret { display: inline-block; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 4px solid currentColor; transition: transform 0.15s; }
-				.dropdown-toggle.active .caret { transform: rotate(180deg); }
-			</style>
 			<script>
 				// Auth helpers — defined early so page scripts can use them.
 				function getCookie(name) {
@@ -72,168 +32,10 @@ templ layout(title string, showNav bool) {
 				}
 			</script>
 		</head>
-		<body>
+		<body class="min-h-screen">
 			<div class="flex h-screen flex-col">
 				if showNav {
-					<header class="flex items-center justify-between border-b border-neutral-800 px-4 py-2">
-						<div class="flex items-center space-x-3">
-							<span class="text-sm font-bold tracking-wide">NanoKVM BMC</span>
-							<!-- Power Dropdown -->
-							<div class="dropdown" id="power-dropdown">
-								<button class="dropdown-toggle" onclick="toggleDropdown('power-dropdown')">
-									<span class="status-dot status-off" id="power-dot"></span>
-									<span id="power-text">Checking...</span>
-									<span class="caret"></span>
-								</button>
-								<div class="dropdown-menu left">
-									<div class="dropdown-section">
-										<div class="dropdown-section-label">Power Actions</div>
-										<button class="dropdown-item" onclick="powerAction('on'); closeDropdowns()">
-											<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="3" x2="12" y2="12"></line></svg>
-											Power On
-										</button>
-										<button class="dropdown-item" onclick="powerAction('off'); closeDropdowns()">
-											<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="3" x2="12" y2="12"></line></svg>
-											Power Off
-										</button>
-										<button class="dropdown-item" onclick="powerAction('reset'); closeDropdowns()">
-											<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-											Reset
-										</button>
-										<button class="dropdown-item danger" onclick="if(confirm('Force power off?')){powerAction('forceoff'); closeDropdowns()}">
-											<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><line x1="9" y1="9" x2="15" y2="15"></line><line x1="15" y1="9" x2="9" y2="15"></line></svg>
-											Force Off
-										</button>
-									</div>
-									<div class="dropdown-section">
-										<div class="dropdown-section-label">Boot Device Override</div>
-										<div style="display:flex;flex-direction:column;gap:0.375rem;padding:0 0.25rem">
-											<select id="boot-device" class="mini-select">
-												<option value="None">Default</option>
-												<option value="Pxe">PXE / Network</option>
-												<option value="Hdd">HDD / SD / NVMe</option>
-												<option value="Cd">USB / CD-ROM</option>
-												<option value="BiosSetup">BIOS Setup</option>
-											</select>
-											<select id="boot-persist" class="mini-select">
-												<option value="Once">Once (default)</option>
-												<option value="Continuous">Continuous</option>
-											</select>
-											<div style="display:flex;gap:0.375rem">
-												<button class="mini-btn btn-blue" style="flex:1" onclick="applyBootOverride()">Apply</button>
-												<button class="mini-btn btn-red" onclick="clearBootOverride()">Clear</button>
-											</div>
-										</div>
-										<p id="boot-status" class="text-xs text-neutral-600 mt-1 px-1"></p>
-									</div>
-								</div>
-							</div>
-							<!-- Virtual Media Dropdown -->
-							<div class="dropdown" id="vm-dropdown">
-								<button class="dropdown-toggle" onclick="toggleDropdown('vm-dropdown'); navVmRefresh()">
-									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="7" cy="12" r="1" fill="currentColor"></circle><line x1="11" y1="12" x2="18" y2="12"></line></svg>
-									Virtual Media
-									<span class="caret"></span>
-								</button>
-								<div class="dropdown-menu left" style="min-width: 360px">
-									<!-- Mounted state view -->
-									<div id="nav-vm-view" class="dropdown-section">
-										<div class="flex flex-col gap-1">
-											<div class="text-sm font-semibold text-neutral-100">Virtual Media</div>
-											<div class="text-xs text-neutral-500">Mount an image to boot from or install an OS.</div>
-										</div>
-										<div id="nav-vm-card" class="mt-3 rounded-md border border-dashed border-neutral-700 px-3 py-5 flex flex-col items-center justify-center text-center gap-2">
-											<div id="nav-vm-icon" class="w-9 h-9 rounded-full border border-neutral-700 flex items-center justify-center text-neutral-300">
-												<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-											</div>
-											<div id="nav-vm-title" class="text-sm font-semibold text-neutral-100">No mounted media</div>
-											<div id="nav-vm-sub" class="text-xs text-neutral-500">Add a file to get started</div>
-										</div>
-										<div class="mt-3 flex items-center justify-end gap-2">
-											<button class="mini-btn btn-red" id="nav-vm-eject" style="display:none" onclick="navVmEject()">Eject</button>
-											<button class="mini-btn btn-neutral" onclick="closeDropdowns()">Close</button>
-											<button class="mini-btn btn-blue" onclick="navVmShowAdd()">+ Add New Media</button>
-										</div>
-										<p id="nav-vm-status" class="text-xs text-neutral-600 mt-2"></p>
-									</div>
-									<!-- Add new media view -->
-									<div id="nav-vm-add" class="dropdown-section" style="display:none">
-										<div class="flex items-center justify-between mb-2">
-											<div class="text-sm font-semibold text-neutral-100">Add New Media</div>
-											<button class="mini-btn btn-neutral" onclick="navVmShowView()">Back</button>
-										</div>
-										<div class="flex flex-col gap-2">
-											<div class="dropdown-section-label">Existing ISOs</div>
-											<div class="flex items-center gap-2">
-												<select id="nav-vm-select" class="mini-select flex-1">
-													<option value="">— select ISO —</option>
-												</select>
-												<button class="mini-btn btn-blue" onclick="navVmInsert()">Mount</button>
-											</div>
-											<div class="dropdown-section-label mt-3">Upload File</div>
-											<div class="flex items-center gap-2">
-												<input type="file" id="nav-vm-file" accept=".iso,.img" class="mini-input flex-1" style="padding:0.125rem 0.25rem"/>
-												<button class="mini-btn btn-blue" onclick="navVmUpload()">Upload</button>
-											</div>
-											<div class="dropdown-section-label mt-3">Fetch from URL</div>
-											<input type="url" id="nav-vm-url" class="mini-input" placeholder="https://example.com/image.iso"/>
-											<div class="flex items-center gap-2">
-												<input type="text" id="nav-vm-url-name" class="mini-input flex-1" placeholder="filename.iso (optional)"/>
-												<button class="mini-btn btn-blue" onclick="navVmFetch()">Fetch</button>
-											</div>
-											<p id="nav-vm-add-status" class="text-xs text-neutral-600 mt-1"></p>
-										</div>
-									</div>
-								</div>
-							</div>
-						</div>
-						<div class="flex items-center space-x-2">
-							<!-- Server Overview toggle -->
-							<button class="dropdown-toggle" onclick="toggleServerOverview()" title="Server Overview">
-								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"></rect><line x1="7" y1="20" x2="17" y2="20"></line><line x1="12" y1="16" x2="12" y2="20"></line></svg>
-								Server Overview
-							</button>
-							<!-- Settings Dropdown -->
-							<div class="dropdown" id="settings-dropdown">
-								<button class="dropdown-toggle" onclick="toggleDropdown('settings-dropdown')">
-									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-									Settings
-									<span class="caret"></span>
-								</button>
-								<div class="dropdown-menu" style="min-width: 320px">
-									<div class="dropdown-section">
-										<div class="dropdown-section-label">Network</div>
-										<div class="dropdown-row">
-											<label>SSH</label>
-											<button id="ssh-toggle" class="toggle-btn toggle-off" onclick="toggleSSH()">Off</button>
-										</div>
-									</div>
-									<div class="dropdown-section">
-										<div class="dropdown-section-label">Security</div>
-										<div class="dropdown-row">
-											<label>TLS / HTTPS</label>
-											<button id="tls-toggle" class="toggle-btn toggle-off" onclick="toggleTLS()">Off</button>
-										</div>
-										<button class="dropdown-item" onclick="window.location.href='/auth/password'">
-											<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-											Change Password
-										</button>
-									</div>
-									<div class="dropdown-section">
-										<div class="dropdown-section-label">System</div>
-										<button class="dropdown-item danger" onclick="if(confirm('Reboot the BMC?')){rebootSystem(); closeDropdowns()}">
-											<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-											Reboot BMC
-										</button>
-									</div>
-								</div>
-							</div>
-							<!-- Logout -->
-							<button class="dropdown-toggle" onclick="doLogout()" title="Logout">
-								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-							</button>
-						</div>
-					</header>
+					@navbar()
 				}
 				<div class="flex min-h-0 flex-1 overflow-hidden">
 					<main class="min-h-0 flex-1 overflow-hidden">
@@ -244,273 +46,552 @@ templ layout(title string, showNav bool) {
 					}
 				</div>
 			</div>
+			// templui component scripts (popover backs dropdowns; input drives
+			// password toggles + tooltips). All are emitted at most once.
+			@popover.Script()
+			@dropdown.Script()
+			@input.Script()
 			if showNav {
-				<script>
-				// --- Dropdown logic ---
-				function toggleDropdown(id) {
-					const dd = document.getElementById(id);
-					const menu = dd.querySelector('.dropdown-menu');
-					const toggle = dd.querySelector('.dropdown-toggle');
-					const isOpen = menu.classList.contains('open');
-					closeDropdowns();
-					if (!isOpen) {
-						menu.classList.add('open');
-						toggle.classList.add('active');
-					}
-				}
-				function closeDropdowns() {
-					document.querySelectorAll('.dropdown-menu.open').forEach(m => m.classList.remove('open'));
-					document.querySelectorAll('.dropdown-toggle.active').forEach(t => t.classList.remove('active'));
-				}
-				// Close dropdowns when clicking outside
-				document.addEventListener('click', (e) => {
-					if (!e.target.closest('.dropdown')) closeDropdowns();
-				});
-
-				// --- Power ---
-				async function pollPower() {
-					try {
-						const r = await fetch('/api/vm/gpio', { headers: getAuthHeaders() });
-						const data = await r.json();
-						if (data.code === 0) {
-							const on = data.data.pwr;
-							document.getElementById('power-dot').className = 'status-dot ' + (on ? 'status-on' : 'status-off');
-							document.getElementById('power-text').textContent = on ? 'Power On' : 'Power Off';
-						}
-					} catch(e) {}
-				}
-				pollPower();
-				setInterval(pollPower, 5000);
-
-				async function powerAction(action) {
-					try {
-						await fetch('/api/vm/gpio', { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({action}) });
-					} catch(e) { console.error(e); }
-					setTimeout(pollPower, 2000);
-				}
-
-				async function applyBootOverride() {
-					const device = document.getElementById('boot-device').value;
-					const persist = document.getElementById('boot-persist').value;
-					const statusEl = document.getElementById('boot-status');
-					try {
-						const r = await fetch('/redfish/v1/Systems/1', {
-							method: 'PATCH', headers: getAuthHeaders(),
-							body: JSON.stringify({ Boot: { BootSourceOverrideTarget: device, BootSourceOverrideEnabled: persist } })
-						});
-						const data = await r.json();
-						const b = data.Boot;
-						statusEl.textContent = b ? `Set: ${b.BootSourceOverrideTarget} (${b.BootSourceOverrideEnabled})` : 'Applied';
-					} catch(e) {
-						statusEl.textContent = 'Failed';
-					}
-					if (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();
-				}
-
-				async function clearBootOverride() {
-					const statusEl = document.getElementById('boot-status');
-					try {
-						const r = await fetch('/redfish/v1/Systems/1', {
-							method: 'PATCH', headers: getAuthHeaders(),
-							body: JSON.stringify({ Boot: { BootSourceOverrideTarget: 'None', BootSourceOverrideEnabled: 'Disabled' } })
-						});
-						statusEl.textContent = r.ok ? 'Cleared' : 'Failed';
-					} catch(e) {
-						statusEl.textContent = 'Failed';
-					}
-					if (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();
-				}
-
-				// --- Settings ---
-				async function apiGet(url) {
-					return (await fetch(url, { headers: getAuthHeaders() })).json();
-				}
-				async function apiPost(url, body) {
-					return (await fetch(url, { method: 'POST', headers: getAuthHeaders(), body: body ? JSON.stringify(body) : undefined })).json();
-				}
-				function updateToggle(id, on) {
-					const btn = document.getElementById(id);
-					if (!btn) return;
-					btn.textContent = on ? 'On' : 'Off';
-					btn.className = 'toggle-btn ' + (on ? 'toggle-on' : 'toggle-off');
-				}
-
-				let sshEnabled = false;
-				let tlsEnabled = false;
-
-				async function toggleSSH() {
-					const enable = !sshEnabled;
-					await apiPost(enable ? '/api/vm/ssh/enable' : '/api/vm/ssh/disable');
-					sshEnabled = enable;
-					updateToggle('ssh-toggle', sshEnabled);
-				}
-				async function toggleTLS() {
-					const enable = !tlsEnabled;
-					await apiPost('/api/vm/tls', { enabled: enable });
-					tlsEnabled = enable;
-					updateToggle('tls-toggle', tlsEnabled);
-					alert('TLS ' + (enable ? 'enabled' : 'disabled') + '. Page may reload.');
-				}
-				async function rebootSystem() {
-					await apiPost('/api/vm/system/reboot');
-				}
-
-				// --- Virtual Media (navbar dropdown) ---
-				async function navVmRefresh() {
-					try {
-						const r = await fetch('/api/firmware/media', { headers: getAuthHeaders() });
-						if (!r.ok) return;
-						const data = await r.json();
-
-						// Populate select
-						const sel = document.getElementById('nav-vm-select');
-						const prev = sel.value;
-						sel.innerHTML = '<option value="">— select ISO —</option>';
-						(data.files || []).forEach(f => {
-							const o = document.createElement('option');
-							o.value = f; o.textContent = f;
-							sel.appendChild(o);
-						});
-						if (prev && (data.files || []).includes(prev)) sel.value = prev;
-
-						// Update mounted-state card
-						const title = document.getElementById('nav-vm-title');
-						const sub = document.getElementById('nav-vm-sub');
-						const icon = document.getElementById('nav-vm-icon');
-						const eject = document.getElementById('nav-vm-eject');
-						if (data.inserted) {
-							title.textContent = data.inserted;
-							title.style.color = '#86efac';
-							sub.textContent = 'Mounted as virtual media';
-							icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
-							icon.style.color = '#22c55e';
-							eject.style.display = '';
-						} else {
-							title.textContent = 'No mounted media';
-							title.style.color = '';
-							sub.textContent = 'Add a file to get started';
-							icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-							icon.style.color = '';
-							eject.style.display = 'none';
-						}
-					} catch(e) {}
-				}
-				navVmRefresh();
-
-				function navVmShowAdd() {
-					document.getElementById('nav-vm-view').style.display = 'none';
-					document.getElementById('nav-vm-add').style.display = '';
-				}
-				function navVmShowView() {
-					document.getElementById('nav-vm-add').style.display = 'none';
-					document.getElementById('nav-vm-view').style.display = '';
-				}
-
-				async function navVmInsert() {
-					const name = document.getElementById('nav-vm-select').value;
-					const status = document.getElementById('nav-vm-add-status');
-					if (!name) { status.textContent = 'Select an ISO first'; return; }
-					status.textContent = 'Mounting…';
-					try {
-						const r = await fetch('/api/firmware/media/insert', {
-							method: 'POST', headers: getAuthHeaders(),
-							body: JSON.stringify({ name }),
-						});
-						if (r.ok) {
-							status.textContent = '';
-							navVmRefresh();
-							navVmShowView();
-							if (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();
-						} else {
-							const err = await r.json().catch(() => ({}));
-							status.textContent = 'Error: ' + (err.error || r.statusText);
-						}
-					} catch(e) { status.textContent = 'Error: ' + e.message; }
-				}
-
-				async function navVmEject() {
-					const status = document.getElementById('nav-vm-status');
-					status.textContent = 'Ejecting…';
-					try {
-						const r = await fetch('/api/firmware/media/eject', {
-							method: 'POST', headers: getAuthHeaders(),
-						});
-						if (r.ok) {
-							status.textContent = '';
-							navVmRefresh();
-							if (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();
-						} else {
-							const err = await r.json().catch(() => ({}));
-							status.textContent = 'Error: ' + (err.error || r.statusText);
-						}
-					} catch(e) { status.textContent = 'Error: ' + e.message; }
-				}
-
-				async function navVmUpload() {
-					const fileInput = document.getElementById('nav-vm-file');
-					const status = document.getElementById('nav-vm-add-status');
-					if (!fileInput.files || !fileInput.files.length) {
-						status.textContent = 'Select a file first';
-						return;
-					}
-					const token = getCookie('nano-kvm-token') || '';
-					const form = new FormData();
-					form.append('file', fileInput.files[0]);
-					status.textContent = 'Uploading…';
-					try {
-						const r = await fetch('/api/firmware/media/upload', {
-							method: 'POST', headers: { 'token': token }, body: form,
-						});
-						if (r.ok) {
-							const d = await r.json();
-							status.textContent = 'Saved: ' + d.file;
-							fileInput.value = '';
-							navVmRefresh();
-						} else {
-							const err = await r.json().catch(() => ({}));
-							status.textContent = 'Error: ' + (err.error || r.statusText);
-						}
-					} catch(e) { status.textContent = 'Error: ' + e.message; }
-				}
-
-				async function navVmFetch() {
-					const urlInput = document.getElementById('nav-vm-url');
-					const nameInput = document.getElementById('nav-vm-url-name');
-					const status = document.getElementById('nav-vm-add-status');
-					const isoUrl = urlInput.value.trim();
-					if (!isoUrl) { status.textContent = 'Enter a URL first'; return; }
-					status.textContent = 'Fetching…';
-					try {
-						const r = await fetch('/api/firmware/media/fetch', {
-							method: 'POST', headers: getAuthHeaders(),
-							body: JSON.stringify({ url: isoUrl, name: nameInput.value.trim() || undefined }),
-						});
-						if (r.ok) {
-							const d = await r.json();
-							status.textContent = 'Saved: ' + d.file;
-							urlInput.value = '';
-							nameInput.value = '';
-							navVmRefresh();
-						} else {
-							const err = await r.json().catch(() => ({}));
-							status.textContent = 'Error: ' + (err.error || r.statusText);
-						}
-					} catch(e) { status.textContent = 'Error: ' + e.message; }
-				}
-
-				// Load initial settings state
-				(async function() {
-					try { const s = await apiGet('/api/vm/ssh'); sshEnabled = !!(s.data?.enabled); updateToggle('ssh-toggle', sshEnabled); } catch(e) {}
-				})();
-
-				// --- Logout ---
-				async function doLogout() {
-					try { await apiPost('/api/auth/logout'); } catch(e) {}
-					document.cookie = 'nano-kvm-token=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
-					window.location.replace('/auth/login');
-				}
-			</script>
+				@navbarScript()
 			}
 		</body>
 	</html>
+}
+
+// navbar is the top BMC nav: status, power actions, virtual media, server
+// overview toggle, settings, and logout.
+templ navbar() {
+	<header class="flex items-center justify-between border-b border-border bg-card px-4 py-2">
+		<div class="flex items-center gap-3">
+			<span class="text-sm font-bold tracking-wide">NanoKVM BMC</span>
+			@powerDropdown()
+			@virtualMediaDropdown()
+		</div>
+		<div class="flex items-center gap-2">
+			@button.Button(button.Props{
+				Variant:    button.VariantGhost,
+				Size:       button.SizeSm,
+				Attributes: templ.Attributes{"onclick": "toggleServerOverview()", "title": "Server Overview"},
+			}) {
+				@icon.MonitorSpeaker(icon.Props{Class: "size-3.5"})
+				<span>Server Overview</span>
+			}
+			@settingsDropdown()
+			@button.Button(button.Props{
+				Variant:    button.VariantGhost,
+				Size:       button.SizeIcon,
+				Attributes: templ.Attributes{"onclick": "doLogout()", "title": "Logout"},
+			}) {
+				@icon.LogOut(icon.Props{Class: "size-4"})
+			}
+		</div>
+	</header>
+}
+
+// powerDropdown surfaces current power state as the trigger pill, and the
+// dropdown content exposes power actions + boot device override.
+templ powerDropdown() {
+	@dropdown.Dropdown() {
+		@dropdown.Trigger() {
+			@button.Button(button.Props{
+				Variant: button.VariantGhost,
+				Size:    button.SizeSm,
+				Class:   "gap-2",
+			}) {
+				<span id="power-dot" class="inline-block size-2.5 rounded-full bg-destructive"></span>
+				<span id="power-text">Checking…</span>
+				@icon.ChevronDown(icon.Props{Class: "size-3"})
+			}
+		}
+		@dropdown.Content(dropdown.ContentProps{Class: "w-72", Placement: dropdown.PlacementBottomStart}) {
+			@dropdown.Label() {
+				Power Actions
+			}
+			@dropdown.Item(dropdown.ItemProps{Attributes: templ.Attributes{"onclick": "powerAction('on')"}}) {
+				@icon.Power(icon.Props{Class: "size-4"})
+				<span>Power On</span>
+			}
+			@dropdown.Item(dropdown.ItemProps{Attributes: templ.Attributes{"onclick": "powerAction('off')"}}) {
+				@icon.PowerOff(icon.Props{Class: "size-4"})
+				<span>Power Off</span>
+			}
+			@dropdown.Item(dropdown.ItemProps{Attributes: templ.Attributes{"onclick": "powerAction('reset')"}}) {
+				@icon.RefreshCw(icon.Props{Class: "size-4"})
+				<span>Reset</span>
+			}
+			@dropdown.Item(dropdown.ItemProps{
+				Class:      "text-destructive",
+				Attributes: templ.Attributes{"onclick": "if(confirm('Force power off?')) powerAction('forceoff')"},
+			}) {
+				@icon.CircleX(icon.Props{Class: "size-4"})
+				<span>Force Off</span>
+			}
+			@dropdown.Separator()
+			@dropdown.Label() {
+				Boot Device Override
+			}
+			<div class="px-2 pb-2 flex flex-col gap-2">
+				<select id="boot-device" class="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm dark:bg-input/30">
+					<option value="None">Default</option>
+					<option value="Pxe">PXE / Network</option>
+					<option value="Hdd">HDD / SD / NVMe</option>
+					<option value="Cd">USB / CD-ROM</option>
+					<option value="BiosSetup">BIOS Setup</option>
+				</select>
+				<select id="boot-persist" class="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm dark:bg-input/30">
+					<option value="Once">Once (default)</option>
+					<option value="Continuous">Continuous</option>
+				</select>
+				<div class="flex gap-2">
+					@button.Button(button.Props{
+						Size:       button.SizeSm,
+						Class:      "flex-1",
+						Attributes: templ.Attributes{"onclick": "applyBootOverride()"},
+					}) {
+						Apply
+					}
+					@button.Button(button.Props{
+						Variant:    button.VariantDestructive,
+						Size:       button.SizeSm,
+						Attributes: templ.Attributes{"onclick": "clearBootOverride()"},
+					}) {
+						Clear
+					}
+				</div>
+				<p id="boot-status" class="text-xs text-muted-foreground"></p>
+			</div>
+		}
+	}
+}
+
+// virtualMediaDropdown is the navbar's virtual-media picker. It has two views
+// (mounted-state + add-media) that the existing JS toggles via display.
+templ virtualMediaDropdown() {
+	@dropdown.Dropdown(dropdown.Props{ID: "vm-dropdown"}) {
+		@dropdown.Trigger(dropdown.TriggerProps{Attributes: templ.Attributes{"onclick": "navVmRefresh()"}}) {
+			@button.Button(button.Props{
+				Variant: button.VariantGhost,
+				Size:    button.SizeSm,
+				Class:   "gap-2",
+			}) {
+				@icon.HardDrive(icon.Props{Class: "size-3.5"})
+				<span>Virtual Media</span>
+				@icon.ChevronDown(icon.Props{Class: "size-3"})
+			}
+		}
+		@dropdown.Content(dropdown.ContentProps{Class: "w-96", Placement: dropdown.PlacementBottomStart}) {
+			// Mounted-state view
+			<div id="nav-vm-view" class="p-2 flex flex-col gap-2">
+				<div>
+					<div class="text-sm font-semibold">Virtual Media</div>
+					<div class="text-xs text-muted-foreground">Mount an image to boot from or install an OS.</div>
+				</div>
+				<div id="nav-vm-card" class="rounded-md border border-dashed border-border px-3 py-5 flex flex-col items-center justify-center text-center gap-2">
+					<div id="nav-vm-icon" class="size-9 rounded-full border border-border flex items-center justify-center text-muted-foreground">
+						@icon.Plus(icon.Props{Class: "size-4"})
+					</div>
+					<div id="nav-vm-title" class="text-sm font-semibold">No mounted media</div>
+					<div id="nav-vm-sub" class="text-xs text-muted-foreground">Add a file to get started</div>
+				</div>
+				<div class="flex items-center justify-end gap-2">
+					@button.Button(button.Props{
+						ID:         "nav-vm-eject",
+						Variant:    button.VariantDestructive,
+						Size:       button.SizeSm,
+						Class:      "hidden",
+						Attributes: templ.Attributes{"onclick": "navVmEject()"},
+					}) {
+						Eject
+					}
+					@button.Button(button.Props{
+						Variant: button.VariantOutline,
+						Size:    button.SizeSm,
+						Attributes: templ.Attributes{
+							"onclick": "window.tui?.popover?.closeNearest(this)",
+						},
+					}) {
+						Close
+					}
+					@button.Button(button.Props{
+						Size:       button.SizeSm,
+						Attributes: templ.Attributes{"onclick": "navVmShowAdd()"},
+					}) {
+						+ Add New Media
+					}
+				</div>
+				<p id="nav-vm-status" class="text-xs text-muted-foreground"></p>
+			</div>
+			// Add-media view (hidden until user clicks Add)
+			<div id="nav-vm-add" class="p-2 flex flex-col gap-2 hidden">
+				<div class="flex items-center justify-between">
+					<div class="text-sm font-semibold">Add New Media</div>
+					@button.Button(button.Props{
+						Variant:    button.VariantOutline,
+						Size:       button.SizeSm,
+						Attributes: templ.Attributes{"onclick": "navVmShowView()"},
+					}) {
+						Back
+					}
+				</div>
+				<div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-1">Existing ISOs</div>
+				<div class="flex items-center gap-2">
+					<select id="nav-vm-select" class="flex-1 h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:bg-input/30"></select>
+					@button.Button(button.Props{
+						Size:       button.SizeSm,
+						Attributes: templ.Attributes{"onclick": "navVmInsert()"},
+					}) {
+						Mount
+					}
+				</div>
+				<div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-1">Upload File</div>
+				<div class="flex items-center gap-2">
+					@input.Input(input.Props{
+						ID:         "nav-vm-file",
+						Type:       input.TypeFile,
+						FileAccept: ".iso,.img",
+						Class:      "flex-1",
+					})
+					@button.Button(button.Props{
+						Size:       button.SizeSm,
+						Attributes: templ.Attributes{"onclick": "navVmUpload()"},
+					}) {
+						Upload
+					}
+				</div>
+				<div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-1">Fetch from URL</div>
+				@input.Input(input.Props{
+					ID:          "nav-vm-url",
+					Type:        input.TypeURL,
+					Placeholder: "https://example.com/image.iso",
+				})
+				<div class="flex items-center gap-2">
+					@input.Input(input.Props{
+						ID:          "nav-vm-url-name",
+						Placeholder: "filename.iso (optional)",
+						Class:       "flex-1",
+					})
+					@button.Button(button.Props{
+						Size:       button.SizeSm,
+						Attributes: templ.Attributes{"onclick": "navVmFetch()"},
+					}) {
+						Fetch
+					}
+				</div>
+				<p id="nav-vm-add-status" class="text-xs text-muted-foreground"></p>
+			</div>
+		}
+	}
+}
+
+// settingsDropdown exposes SSH/TLS toggles, change-password, and reboot.
+templ settingsDropdown() {
+	@dropdown.Dropdown() {
+		@dropdown.Trigger() {
+			@button.Button(button.Props{
+				Variant: button.VariantGhost,
+				Size:    button.SizeSm,
+				Class:   "gap-2",
+			}) {
+				@icon.Settings(icon.Props{Class: "size-3.5"})
+				<span>Settings</span>
+				@icon.ChevronDown(icon.Props{Class: "size-3"})
+			}
+		}
+		@dropdown.Content(dropdown.ContentProps{Class: "w-72", Placement: dropdown.PlacementBottomEnd}) {
+			@dropdown.Label() {
+				Network
+			}
+			<div class="flex items-center justify-between px-2 py-1.5 text-sm">
+				<span>SSH</span>
+				@button.Button(button.Props{
+					ID:         "ssh-toggle",
+					Variant:    button.VariantOutline,
+					Size:       button.SizeSm,
+					Attributes: templ.Attributes{"onclick": "toggleSSH()"},
+				}) {
+					Off
+				}
+			</div>
+			@dropdown.Separator()
+			@dropdown.Label() {
+				Security
+			}
+			<div class="flex items-center justify-between px-2 py-1.5 text-sm">
+				<span>TLS / HTTPS</span>
+				@button.Button(button.Props{
+					ID:         "tls-toggle",
+					Variant:    button.VariantOutline,
+					Size:       button.SizeSm,
+					Attributes: templ.Attributes{"onclick": "toggleTLS()"},
+				}) {
+					Off
+				}
+			</div>
+			@dropdown.Item(dropdown.ItemProps{Href: "/auth/password"}) {
+				@icon.KeyRound(icon.Props{Class: "size-4"})
+				<span>Change Password</span>
+			}
+			@dropdown.Separator()
+			@dropdown.Label() {
+				System
+			}
+			@dropdown.Item(dropdown.ItemProps{
+				Class:      "text-destructive",
+				Attributes: templ.Attributes{"onclick": "if(confirm('Reboot the BMC?')) rebootSystem()"},
+			}) {
+				@icon.RefreshCw(icon.Props{Class: "size-4"})
+				<span>Reboot BMC</span>
+			}
+		}
+	}
+}
+
+// navbarScript carries the per-page client logic for the navbar's dropdowns.
+// Functions are global so dropdown-item onclick handlers can reach them.
+templ navbarScript() {
+	<script>
+		// --- Power ---
+		async function pollPower() {
+			try {
+				const r = await fetch('/api/vm/gpio', { headers: getAuthHeaders() });
+				const data = await r.json();
+				if (data.code === 0) {
+					const on = data.data.pwr;
+					const dot = document.getElementById('power-dot');
+					dot.className = 'inline-block size-2.5 rounded-full ' + (on ? 'bg-green-500' : 'bg-destructive');
+					document.getElementById('power-text').textContent = on ? 'Power On' : 'Power Off';
+				}
+			} catch(e) {}
+		}
+		pollPower();
+		setInterval(pollPower, 5000);
+
+		async function powerAction(action) {
+			try {
+				await fetch('/api/vm/gpio', { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({action}) });
+			} catch(e) { console.error(e); }
+			setTimeout(pollPower, 2000);
+		}
+
+		async function applyBootOverride() {
+			const device = document.getElementById('boot-device').value || 'None';
+			const persist = document.getElementById('boot-persist').value || 'Once';
+			const statusEl = document.getElementById('boot-status');
+			try {
+				const r = await fetch('/redfish/v1/Systems/1', {
+					method: 'PATCH', headers: getAuthHeaders(),
+					body: JSON.stringify({ Boot: { BootSourceOverrideTarget: device, BootSourceOverrideEnabled: persist } })
+				});
+				const data = await r.json();
+				const b = data.Boot;
+				statusEl.textContent = b ? `Set: ${b.BootSourceOverrideTarget} (${b.BootSourceOverrideEnabled})` : 'Applied';
+			} catch(e) {
+				statusEl.textContent = 'Failed';
+			}
+			if (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();
+		}
+
+		async function clearBootOverride() {
+			const statusEl = document.getElementById('boot-status');
+			try {
+				const r = await fetch('/redfish/v1/Systems/1', {
+					method: 'PATCH', headers: getAuthHeaders(),
+					body: JSON.stringify({ Boot: { BootSourceOverrideTarget: 'None', BootSourceOverrideEnabled: 'Disabled' } })
+				});
+				statusEl.textContent = r.ok ? 'Cleared' : 'Failed';
+			} catch(e) {
+				statusEl.textContent = 'Failed';
+			}
+			if (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();
+		}
+
+		// --- Settings ---
+		async function apiGet(url) {
+			return (await fetch(url, { headers: getAuthHeaders() })).json();
+		}
+		async function apiPost(url, body) {
+			return (await fetch(url, { method: 'POST', headers: getAuthHeaders(), body: body ? JSON.stringify(body) : undefined })).json();
+		}
+		function updateToggle(id, on) {
+			const btn = document.getElementById(id);
+			if (!btn) return;
+			btn.textContent = on ? 'On' : 'Off';
+			// Recolour by swapping templui variant classes.
+			if (on) {
+				btn.classList.remove('border', 'bg-background');
+				btn.classList.add('bg-primary', 'text-primary-foreground');
+			} else {
+				btn.classList.add('border', 'bg-background');
+				btn.classList.remove('bg-primary', 'text-primary-foreground');
+			}
+		}
+
+		let sshEnabled = false;
+		let tlsEnabled = false;
+
+		async function toggleSSH() {
+			const enable = !sshEnabled;
+			await apiPost(enable ? '/api/vm/ssh/enable' : '/api/vm/ssh/disable');
+			sshEnabled = enable;
+			updateToggle('ssh-toggle', sshEnabled);
+		}
+		async function toggleTLS() {
+			const enable = !tlsEnabled;
+			await apiPost('/api/vm/tls', { enabled: enable });
+			tlsEnabled = enable;
+			updateToggle('tls-toggle', tlsEnabled);
+			alert('TLS ' + (enable ? 'enabled' : 'disabled') + '. Page may reload.');
+		}
+		async function rebootSystem() {
+			await apiPost('/api/vm/system/reboot');
+		}
+
+		// --- Virtual Media (navbar dropdown) ---
+		async function navVmRefresh() {
+			try {
+				const r = await fetch('/api/firmware/media', { headers: getAuthHeaders() });
+				if (!r.ok) return;
+				const data = await r.json();
+
+				const sel = document.getElementById('nav-vm-select');
+				const prev = sel.value;
+				sel.innerHTML = '<option value="">— select ISO —</option>';
+				(data.files || []).forEach(f => {
+					const o = document.createElement('option');
+					o.value = f; o.textContent = f;
+					sel.appendChild(o);
+				});
+				if (prev && (data.files || []).includes(prev)) sel.value = prev;
+
+				const title = document.getElementById('nav-vm-title');
+				const sub = document.getElementById('nav-vm-sub');
+				const eject = document.getElementById('nav-vm-eject');
+				if (data.inserted) {
+					title.textContent = data.inserted;
+					title.classList.add('text-green-400');
+					sub.textContent = 'Mounted as virtual media';
+					eject.classList.remove('hidden');
+				} else {
+					title.textContent = 'No mounted media';
+					title.classList.remove('text-green-400');
+					sub.textContent = 'Add a file to get started';
+					eject.classList.add('hidden');
+				}
+			} catch(e) {}
+		}
+		navVmRefresh();
+
+		function navVmShowAdd() {
+			document.getElementById('nav-vm-view').classList.add('hidden');
+			document.getElementById('nav-vm-add').classList.remove('hidden');
+		}
+		function navVmShowView() {
+			document.getElementById('nav-vm-add').classList.add('hidden');
+			document.getElementById('nav-vm-view').classList.remove('hidden');
+		}
+
+		async function navVmInsert() {
+			const name = document.getElementById('nav-vm-select').value;
+			const status = document.getElementById('nav-vm-add-status');
+			if (!name) { status.textContent = 'Select an ISO first'; return; }
+			status.textContent = 'Mounting…';
+			try {
+				const r = await fetch('/api/firmware/media/insert', {
+					method: 'POST', headers: getAuthHeaders(),
+					body: JSON.stringify({ name }),
+				});
+				if (r.ok) {
+					status.textContent = '';
+					navVmRefresh();
+					navVmShowView();
+					if (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();
+				} else {
+					const err = await r.json().catch(() => ({}));
+					status.textContent = 'Error: ' + (err.error || r.statusText);
+				}
+			} catch(e) { status.textContent = 'Error: ' + e.message; }
+		}
+
+		async function navVmEject() {
+			const status = document.getElementById('nav-vm-status');
+			status.textContent = 'Ejecting…';
+			try {
+				const r = await fetch('/api/firmware/media/eject', {
+					method: 'POST', headers: getAuthHeaders(),
+				});
+				if (r.ok) {
+					status.textContent = '';
+					navVmRefresh();
+					if (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();
+				} else {
+					const err = await r.json().catch(() => ({}));
+					status.textContent = 'Error: ' + (err.error || r.statusText);
+				}
+			} catch(e) { status.textContent = 'Error: ' + e.message; }
+		}
+
+		async function navVmUpload() {
+			const fileInput = document.getElementById('nav-vm-file');
+			const status = document.getElementById('nav-vm-add-status');
+			if (!fileInput.files || !fileInput.files.length) {
+				status.textContent = 'Select a file first';
+				return;
+			}
+			const token = getCookie('nano-kvm-token') || '';
+			const form = new FormData();
+			form.append('file', fileInput.files[0]);
+			status.textContent = 'Uploading…';
+			try {
+				const r = await fetch('/api/firmware/media/upload', {
+					method: 'POST', headers: { 'token': token }, body: form,
+				});
+				if (r.ok) {
+					const d = await r.json();
+					status.textContent = 'Saved: ' + d.file;
+					fileInput.value = '';
+					navVmRefresh();
+				} else {
+					const err = await r.json().catch(() => ({}));
+					status.textContent = 'Error: ' + (err.error || r.statusText);
+				}
+			} catch(e) { status.textContent = 'Error: ' + e.message; }
+		}
+
+		async function navVmFetch() {
+			const urlInput = document.getElementById('nav-vm-url');
+			const nameInput = document.getElementById('nav-vm-url-name');
+			const status = document.getElementById('nav-vm-add-status');
+			const isoUrl = urlInput.value.trim();
+			if (!isoUrl) { status.textContent = 'Enter a URL first'; return; }
+			status.textContent = 'Fetching…';
+			try {
+				const r = await fetch('/api/firmware/media/fetch', {
+					method: 'POST', headers: getAuthHeaders(),
+					body: JSON.stringify({ url: isoUrl, name: nameInput.value.trim() || undefined }),
+				});
+				if (r.ok) {
+					const d = await r.json();
+					status.textContent = 'Saved: ' + d.file;
+					urlInput.value = '';
+					nameInput.value = '';
+					navVmRefresh();
+				} else {
+					const err = await r.json().catch(() => ({}));
+					status.textContent = 'Error: ' + (err.error || r.statusText);
+				}
+			} catch(e) { status.textContent = 'Error: ' + e.message; }
+		}
+
+		// Load initial settings state
+		(async function() {
+			try { const s = await apiGet('/api/vm/ssh'); sshEnabled = !!(s.data?.enabled); updateToggle('ssh-toggle', sshEnabled); } catch(e) {}
+		})();
+
+		// --- Logout ---
+		async function doLogout() {
+			try { await apiPost('/api/auth/logout'); } catch(e) {}
+			document.cookie = 'nano-kvm-token=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+			window.location.replace('/auth/login');
+		}
+	</script>
 }

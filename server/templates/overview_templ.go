@@ -8,15 +8,15 @@ package templates
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-// ServerOverview renders the slide-in side panel with two sections:
-//
-//   - Server Information: identity, network and inventory of the managed
-//     server (board, vendor, CPU, MACs, interfaces).
-//   - BMC Information: U-Boot version, boot targets, boot override controls,
-//     firmware image management, and virtual media.
-//
-// All field IDs match what the dashboard JS already populates, so dropping
-// in this panel is a pure DOM relocation.
+import (
+	"github.com/templui/templui/components/button"
+	"github.com/templui/templui/components/icon"
+)
+
+// ServerOverview renders the slide-in side panel. The custom width animation
+// can't be expressed cleanly with templui primitives, so the outer shell
+// stays as inline CSS — but every interior surface now uses the shared
+// templui theme tokens (border, card, popover, muted-foreground, etc.).
 func ServerOverview() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -38,7 +38,185 @@ func ServerOverview() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<style>\n\t\t/* Inline slide-in drawer — sibling of <main>, animates width. */\n\t\t#overview-panel {\n\t\t\twidth: 0;\n\t\t\tmax-width: 493px;\n\t\t\tbackground: #0f0f0f;\n\t\t\tborder-left: 1px solid #262626;\n\t\t\tbox-shadow: -10px 0 25px rgba(0,0,0,0.4);\n\t\t\toverflow: hidden;\n\t\t\tflex-shrink: 0;\n\t\t\ttransition: width 0.2s ease;\n\t\t\tdisplay: flex;\n\t\t\tflex-direction: column;\n\t\t}\n\t\t#overview-panel.open { width: 100%; }\n\t\t@media (min-width: 640px) {\n\t\t\t#overview-panel.open { width: 493px; }\n\t\t}\n\t\t/* Inner wrapper keeps content at full width while the outer width animates. */\n\t\t.ov-inner {\n\t\t\twidth: 493px;\n\t\t\tmax-width: 100%;\n\t\t\theight: 100%;\n\t\t\tdisplay: flex;\n\t\t\tflex-direction: column;\n\t\t}\n\n\t\t.ov-header {\n\t\t\tdisplay: flex; align-items: center; justify-content: space-between;\n\t\t\tpadding: 0.625rem 1rem;\n\t\t\tborder-bottom: 1px solid #262626;\n\t\t\tbackground: #171717;\n\t\t\tflex-shrink: 0;\n\t\t}\n\t\t.ov-header h2 { font-size: 0.875rem; font-weight: 600; color: #fafafa; }\n\t\t.ov-body { flex: 1; min-height: 0; overflow-y: auto; padding: 1rem; }\n\t\t.ov-section + .ov-section { margin-top: 1.5rem; }\n\t\t.ov-section h3 {\n\t\t\tfont-size: 0.6875rem; font-weight: 600;\n\t\t\ttext-transform: uppercase; letter-spacing: 0.08em;\n\t\t\tcolor: #737373; margin-bottom: 0.5rem;\n\t\t\tpadding-bottom: 0.375rem; border-bottom: 1px solid #1f1f1f;\n\t\t}\n\t\t.ov-row {\n\t\t\tdisplay: flex; align-items: center; justify-content: space-between;\n\t\t\tpadding: 0.375rem 0;\n\t\t\tgap: 0.75rem;\n\t\t\tborder-bottom: 1px solid #161616;\n\t\t}\n\t\t.ov-row:last-child { border-bottom: none; }\n\t\t.ov-label { font-size: 0.75rem; color: #a3a3a3; flex-shrink: 0; }\n\t\t.ov-value {\n\t\t\tfont-size: 0.75rem; color: #e5e5e5;\n\t\t\tfont-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;\n\t\t\ttext-align: right;\n\t\t\tword-break: break-word;\n\t\t\tmin-width: 0;\n\t\t}\n\t\t.ov-block { padding: 0.5rem 0; }\n\t\t.ov-block-label { font-size: 0.75rem; color: #a3a3a3; margin-bottom: 0.375rem; }\n\t\t.ov-controls { display: flex; gap: 0.375rem; align-items: center; flex-wrap: wrap; }\n\t\t.ov-status-text { font-size: 0.6875rem; color: #71717a; }\n\t\t.ov-input,\n\t\t.ov-select {\n\t\t\tbackground: #0a0a0a;\n\t\t\tborder: 1px solid #303030;\n\t\t\tborder-radius: 0.25rem;\n\t\t\tpadding: 0.25rem 0.5rem;\n\t\t\tfont-size: 0.75rem;\n\t\t\tcolor: #e5e5e5;\n\t\t}\n\t\t.ov-input:focus, .ov-select:focus { outline: none; border-color: #1d4ed8; }\n\t\t.ov-tab {\n\t\t\tpadding: 0.125rem 0.625rem;\n\t\t\tborder-radius: 0.25rem;\n\t\t\tfont-size: 0.6875rem;\n\t\t\tcursor: pointer;\n\t\t\tborder: 1px solid #404040;\n\t\t\tbackground: transparent;\n\t\t\tcolor: #a3a3a3;\n\t\t}\n\t\t.ov-tab.active { border-color: #1d4ed8; background: #1d4ed8; color: white; }\n\t</style><aside id=\"overview-panel\" aria-hidden=\"true\"><div class=\"ov-inner\"><div class=\"ov-header\"><h2>Server Overview</h2><button class=\"toolbar-btn\" onclick=\"window.toggleServerOverview()\" title=\"Close\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"></line><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"></line></svg> Hide</button></div><div class=\"ov-body\"><!-- Server Information --><section class=\"ov-section\"><h3>Server Information</h3><div class=\"ov-row\"><span class=\"ov-label\">Board</span><span class=\"ov-value\" id=\"info-board\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Vendor</span><span class=\"ov-value\" id=\"info-vendor\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">CPU / SoC</span><span class=\"ov-value\" id=\"info-cpu\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Serial</span><span class=\"ov-value\" id=\"info-board-serial\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Revision</span><span class=\"ov-value\" id=\"info-board-rev\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Board MAC</span><span class=\"ov-value\" id=\"info-board-mac\">—</span></div></section><!-- BMC Information --><section class=\"ov-section\"><h3>BMC Information</h3><div class=\"ov-row\"><span class=\"ov-label\">Application</span> <span class=\"ov-value\"><span id=\"info-app\">—</span> <button id=\"btn-app-update\" class=\"toolbar-btn\" style=\"display:none; margin-left:0.375rem;\" onclick=\"updateApplication()\" title=\"Update to latest\"></button> <span id=\"info-app-latest-badge\" class=\"ov-status-text\" style=\"display:none; margin-left:0.375rem; color:#22c55e;\">(Latest)</span> <span id=\"info-app-update-status\" class=\"ov-status-text\" style=\"margin-left:0.375rem;\"></span></span></div><div class=\"ov-row\"><span class=\"ov-label\">Image</span><span class=\"ov-value\" id=\"info-image\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Hardware</span><span class=\"ov-value\" id=\"info-hw\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">IP Address</span><span class=\"ov-value\" id=\"info-ip\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">MAC</span><span class=\"ov-value\" id=\"info-mac\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Interfaces</span> <span class=\"ov-value\">IPMI :623 · <a href=\"/redfish/v1\" class=\"text-blue-400 hover:underline\">Redfish</a></span></div></section><!-- BIOS / U-Boot Information --><section class=\"ov-section\"><h3>BIOS Information</h3><div class=\"ov-row\"><span class=\"ov-label\">Firmware</span><span class=\"ov-value\" id=\"info-fw-status\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">U-Boot</span> <span class=\"ov-value\"><span id=\"info-bios-ver\">—</span> <button id=\"btn-bios-update\" class=\"toolbar-btn\" style=\"display:none; margin-left:0.375rem;\" onclick=\"updateBIOS()\" title=\"Update to latest\"></button> <span id=\"info-bios-latest-badge\" class=\"ov-status-text\" style=\"display:none; margin-left:0.375rem; color:#22c55e;\">(Latest)</span> <span id=\"info-bios-update-status\" class=\"ov-status-text\" style=\"margin-left:0.375rem;\"></span></span></div><div class=\"ov-row\"><span class=\"ov-label\">Device Tree</span><span class=\"ov-value\" id=\"info-fdtfile\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Boot Targets</span><span class=\"ov-value\" id=\"info-boot-target\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Boot Override</span><span class=\"ov-value\" id=\"info-boot-override\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Boot Methods</span><span class=\"ov-value\" id=\"info-bootmeths\">—</span></div><div class=\"ov-block\"><div class=\"ov-block-label\">Set Boot Override</div><div class=\"ov-controls\"><select id=\"boot-override-select\" class=\"ov-select\"><option value=\"None\">None (default)</option> <option value=\"Pxe\">PXE (network)</option> <option value=\"Hdd\">HDD / MMC / NVMe</option> <option value=\"Cd\">CD / USB</option> <option value=\"BiosSetup\">BIOS Setup</option> <option value=\"UefiHttp\">UEFI HTTP Boot</option></select> <button class=\"toolbar-btn\" onclick=\"setBootOverride(false)\">Once</button> <button class=\"toolbar-btn\" onclick=\"setBootOverride(true)\">Persistent</button> <span id=\"boot-override-status\" class=\"ov-status-text\"></span></div></div><div class=\"ov-block\" id=\"fw-download-item\" style=\"display:none\"><div class=\"ov-block-label\">Firmware Image</div><div class=\"ov-controls\"><button class=\"toolbar-btn\" id=\"btn-fw-download\" onclick=\"downloadFirmware()\">Download</button></div></div><div class=\"ov-block\"><div class=\"ov-block-label\">Kernel Version</div><div class=\"ov-controls\" style=\"flex-wrap:wrap; gap:0.375rem;\"><select id=\"bios-kernel-select\" class=\"ov-select\" onchange=\"updateKernelButtons()\" style=\"flex:1; min-width:10rem;\"><option value=\"\">Select kernel version…</option></select> <button class=\"toolbar-btn\" id=\"btn-kernel-download\" style=\"display:none\" onclick=\"downloadKernelBIOS()\">Download</button> <button class=\"toolbar-btn\" id=\"btn-kernel-refresh\" style=\"display:none\" onclick=\"refreshKernelBIOS()\" title=\"Re-download to overwrite existing cached image\">&#8635; Refresh</button> <button class=\"toolbar-btn\" id=\"btn-kernel-activate\" style=\"display:none\" onclick=\"activateKernelBIOS()\">Activate</button></div><div id=\"bios-kernel-status\" class=\"ov-status-text\" style=\"margin-top:0.25rem;\"></div></div></section></div></div></aside><script>\n\t\twindow.toggleServerOverview = function() {\n\t\t\tconst panel = document.getElementById('overview-panel');\n\t\t\tconst open = panel.classList.toggle('open');\n\t\t\tpanel.setAttribute('aria-hidden', open ? 'false' : 'true');\n\t\t};\n\t\t// Esc closes the panel.\n\t\tdocument.addEventListener('keydown', (e) => {\n\t\t\tif (e.key === 'Escape') {\n\t\t\t\tconst panel = document.getElementById('overview-panel');\n\t\t\t\tif (panel && panel.classList.contains('open')) {\n\t\t\t\t\twindow.toggleServerOverview();\n\t\t\t\t}\n\t\t\t}\n\t\t});\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<style>\n\t\t#overview-panel {\n\t\t\twidth: 0;\n\t\t\tmax-width: 493px;\n\t\t\tbackground: var(--popover);\n\t\t\tborder-left: 1px solid var(--border);\n\t\t\tbox-shadow: -10px 0 25px rgba(0,0,0,0.4);\n\t\t\toverflow: hidden;\n\t\t\tflex-shrink: 0;\n\t\t\ttransition: width 0.2s ease;\n\t\t\tdisplay: flex;\n\t\t\tflex-direction: column;\n\t\t}\n\t\t#overview-panel.open { width: 100%; }\n\t\t@media (min-width: 640px) {\n\t\t\t#overview-panel.open { width: 493px; }\n\t\t}\n\t\t.ov-inner {\n\t\t\twidth: 493px;\n\t\t\tmax-width: 100%;\n\t\t\theight: 100%;\n\t\t\tdisplay: flex;\n\t\t\tflex-direction: column;\n\t\t}\n\t\t.ov-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.375rem 0; border-bottom: 1px solid var(--border); }\n\t\t.ov-row:last-child { border-bottom: none; }\n\t\t.ov-label { font-size: 0.75rem; color: var(--muted-foreground); flex-shrink: 0; }\n\t\t.ov-value { font-size: 0.75rem; color: var(--foreground); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace; text-align: right; word-break: break-word; min-width: 0; }\n\t\t.ov-status-text { font-size: 0.6875rem; color: var(--muted-foreground); }\n\t</style><aside id=\"overview-panel\" aria-hidden=\"true\"><div class=\"ov-inner\"><div class=\"flex items-center justify-between border-b border-border bg-card px-4 py-2.5\"><h2 class=\"text-sm font-semibold\">Server Overview</h2>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var2 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = icon.X(icon.Props{Class: "size-3.5"}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " <span>Hide</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = button.Button(button.Props{
+			Variant:    button.VariantGhost,
+			Size:       button.SizeSm,
+			Attributes: templ.Attributes{"onclick": "toggleServerOverview()", "title": "Close"},
+		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div><div class=\"flex-1 min-h-0 overflow-y-auto p-4 space-y-6\"><section><h3 class=\"text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground mb-2 pb-1.5 border-b border-border\">Server Information</h3><div class=\"ov-row\"><span class=\"ov-label\">Board</span><span class=\"ov-value\" id=\"info-board\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Vendor</span><span class=\"ov-value\" id=\"info-vendor\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">CPU / SoC</span><span class=\"ov-value\" id=\"info-cpu\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Serial</span><span class=\"ov-value\" id=\"info-board-serial\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Revision</span><span class=\"ov-value\" id=\"info-board-rev\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Board MAC</span><span class=\"ov-value\" id=\"info-board-mac\">—</span></div></section><section><h3 class=\"text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground mb-2 pb-1.5 border-b border-border\">BMC Information</h3><div class=\"ov-row\"><span class=\"ov-label\">Application</span> <span class=\"ov-value\"><span id=\"info-app\">—</span> <button id=\"btn-app-update\" class=\"hidden ml-1.5 rounded-md border border-input px-2 py-0.5 text-[0.6875rem] hover:bg-accent\" onclick=\"updateApplication()\" title=\"Update to latest\"></button> <span id=\"info-app-latest-badge\" class=\"ov-status-text hidden ml-1.5 text-green-400\">(Latest)</span> <span id=\"info-app-update-status\" class=\"ov-status-text ml-1.5\"></span></span></div><div class=\"ov-row\"><span class=\"ov-label\">Image</span><span class=\"ov-value\" id=\"info-image\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Hardware</span><span class=\"ov-value\" id=\"info-hw\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">IP Address</span><span class=\"ov-value\" id=\"info-ip\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">MAC</span><span class=\"ov-value\" id=\"info-mac\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Interfaces</span> <span class=\"ov-value\">IPMI :623 · <a href=\"/redfish/v1\" class=\"underline underline-offset-4 hover:text-foreground\">Redfish</a></span></div></section><section><h3 class=\"text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground mb-2 pb-1.5 border-b border-border\">BIOS Information</h3><div class=\"ov-row\"><span class=\"ov-label\">Firmware</span><span class=\"ov-value\" id=\"info-fw-status\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">U-Boot</span> <span class=\"ov-value\"><span id=\"info-bios-ver\">—</span> <button id=\"btn-bios-update\" class=\"hidden ml-1.5 rounded-md border border-input px-2 py-0.5 text-[0.6875rem] hover:bg-accent\" onclick=\"updateBIOS()\" title=\"Update to latest\"></button> <span id=\"info-bios-latest-badge\" class=\"ov-status-text hidden ml-1.5 text-green-400\">(Latest)</span> <span id=\"info-bios-update-status\" class=\"ov-status-text ml-1.5\"></span></span></div><div class=\"ov-row\"><span class=\"ov-label\">Device Tree</span><span class=\"ov-value\" id=\"info-fdtfile\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Boot Targets</span><span class=\"ov-value\" id=\"info-boot-target\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Boot Override</span><span class=\"ov-value\" id=\"info-boot-override\">—</span></div><div class=\"ov-row\"><span class=\"ov-label\">Boot Methods</span><span class=\"ov-value\" id=\"info-bootmeths\">—</span></div><div class=\"py-2\"><div class=\"ov-label mb-1.5\">Set Boot Override</div><div class=\"flex flex-wrap items-center gap-1.5\"><select id=\"boot-override-select\" class=\"h-8 rounded-md border border-input bg-transparent px-2 text-xs dark:bg-input/30\"><option value=\"None\">None (default)</option> <option value=\"Pxe\">PXE (network)</option> <option value=\"Hdd\">HDD / MMC / NVMe</option> <option value=\"Cd\">CD / USB</option> <option value=\"BiosSetup\">BIOS Setup</option> <option value=\"UefiHttp\">UEFI HTTP Boot</option></select>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var3 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "Once")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Attributes: templ.Attributes{"onclick": "setBootOverride(false)"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var4 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "Persistent")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Attributes: templ.Attributes{"onclick": "setBootOverride(true)"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var4), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<span id=\"boot-override-status\" class=\"ov-status-text\"></span></div></div><div class=\"py-2 hidden\" id=\"fw-download-item\"><div class=\"ov-label mb-1.5\">Firmware Image</div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var5 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "Download")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = button.Button(button.Props{ID: "btn-fw-download", Variant: button.VariantOutline, Size: button.SizeSm, Attributes: templ.Attributes{"onclick": "downloadFirmware()"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div><div class=\"py-2\"><div class=\"ov-label mb-1.5\">Kernel Version</div><div class=\"flex flex-wrap items-center gap-1.5\"><select id=\"bios-kernel-select\" class=\"h-8 flex-1 min-w-[10rem] rounded-md border border-input bg-transparent px-2 text-xs dark:bg-input/30\" onchange=\"updateKernelButtons()\"><option value=\"\">Select kernel version…</option></select>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var6 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "Download")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = button.Button(button.Props{ID: "btn-kernel-download", Variant: button.VariantOutline, Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "downloadKernelBIOS()"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var7 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "↻ Refresh")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = button.Button(button.Props{ID: "btn-kernel-refresh", Variant: button.VariantOutline, Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "refreshKernelBIOS()", "title": "Re-download to overwrite existing cached image"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var8 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "Activate")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = button.Button(button.Props{ID: "btn-kernel-activate", Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "activateKernelBIOS()"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var8), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</div><div id=\"bios-kernel-status\" class=\"ov-status-text mt-1\"></div></div></section></div></div></aside><script>\n\t\twindow.toggleServerOverview = function() {\n\t\t\tconst panel = document.getElementById('overview-panel');\n\t\t\tconst open = panel.classList.toggle('open');\n\t\t\tpanel.setAttribute('aria-hidden', open ? 'false' : 'true');\n\t\t};\n\t\tdocument.addEventListener('keydown', (e) => {\n\t\t\tif (e.key === 'Escape') {\n\t\t\t\tconst panel = document.getElementById('overview-panel');\n\t\t\t\tif (panel && panel.classList.contains('open')) {\n\t\t\t\t\twindow.toggleServerOverview();\n\t\t\t\t}\n\t\t\t}\n\t\t});\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -1,23 +1,113 @@
 @import "tailwindcss";
 
-@variant dark (&:is(.dark *));
+/*
+ * templui requires Tailwind v4 with shadcn-style CSS variables.
+ *
+ * To rebuild output.css after templui or template changes:
+ *
+ *   1. Vendor templui sources so Tailwind can scan them for class names:
+ *        go mod vendor
+ *   2. Run the Tailwind CLI:
+ *        npx @tailwindcss/cli -i server/assets/css/input.css -o server/assets/css/output.css
+ *
+ * The @source directive below tells Tailwind to scan templui's templ
+ * files (in addition to this project's own templates).
+ */
+@source "../../../vendor/github.com/templui/templui/components";
 
-html, body {
-  padding: 0;
-  margin: 0;
-  background: #000;
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-selection: var(--selection);
+  --color-selection-foreground: var(--selection-foreground);
 }
 
-::-webkit-scrollbar {
-  width: 10px;
+/* Light theme defaults — present so non-dark contexts (rare here) still work. */
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --selection: oklch(0.145 0 0);
+  --selection-foreground: oklch(1 0 0);
 }
-::-webkit-scrollbar-track {
-  background: #000000;
+
+/* Dark theme — NanoKVM uses this as the default (html.dark in layout). */
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --selection: oklch(0.922 0 0);
+  --selection-foreground: oklch(0.205 0 0);
 }
-::-webkit-scrollbar-thumb {
-  background: #555;
-  border-radius: 5px;
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
 }
-::-webkit-scrollbar-thumb:hover {
-  background: #444;
-}
+
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: var(--background); }
+::-webkit-scrollbar-thumb { background: #555; border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: #444; }

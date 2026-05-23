@@ -3,12 +3,16 @@ package router
 import (
 	"io/fs"
 	"net/http"
+	"path"
+	"strings"
 
 	"github.com/BMCPi/NanoKVM/server/assets"
 	"github.com/BMCPi/NanoKVM/server/config"
 	"github.com/BMCPi/NanoKVM/server/middleware"
 	"github.com/BMCPi/NanoKVM/server/telemetry"
 	"github.com/BMCPi/NanoKVM/server/templates"
+	templuiAssets "github.com/templui/templui/assets"
+	templuiComponents "github.com/templui/templui/components"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -56,6 +60,8 @@ func web(r *gin.Engine) {
 	r.StaticFS("/css", http.FS(cssFS))
 	r.StaticFS("/js", http.FS(jsFS))
 	r.StaticFS("/img", http.FS(imgFS))
+
+	templuiRoutes(r)
 
 	// Favicon shortcut
 	r.GET("/favicon.ico", func(c *gin.Context) {
@@ -120,6 +126,63 @@ func web(r *gin.Engine) {
 	protected.GET("/settings", func(c *gin.Context) {
 		render := newRender(c.Request.Context(), http.StatusOK, templates.SettingsPage())
 		c.Render(http.StatusOK, render)
+	})
+}
+
+// templuiRoutes serves templui's per-component JavaScript (loaded by the
+// component Script() partials as <script src="/templui/js/<name>.min.js">)
+// and templui's static assets (fonts, etc.) directly from the Go module's
+// embedded filesystems. No build step is required.
+func templuiRoutes(r *gin.Engine) {
+	r.GET("/templui/js/*filepath", func(c *gin.Context) {
+		// Path looks like "/dropdown.min.js" or "/popover.min.js".
+		// templui embeds each component's JS at "<name>/<name>.min.js"
+		// (or "<name>/<name>.js" for the unminified variant).
+		file := strings.TrimPrefix(c.Param("filepath"), "/")
+		if file == "" || strings.Contains(file, "..") {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+		name := strings.TrimSuffix(strings.TrimSuffix(file, ".min.js"), ".js")
+		data, err := templuiComponents.TemplFiles.ReadFile(path.Join(name, file))
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		c.Data(http.StatusOK, "application/javascript; charset=utf-8", data)
+	})
+
+	// templui ships fonts/images under assets/. Mount them at /templui/assets
+	// so the CSS @font-face URLs (/assets/fonts/...) resolve when we expose
+	// them via a rewrite below.
+	r.GET("/assets/*filepath", func(c *gin.Context) {
+		file := strings.TrimPrefix(c.Param("filepath"), "/")
+		if file == "" || strings.Contains(file, "..") {
+			c.Status(http.StatusBadRequest)
+			return
+		}
+		data, err := templuiAssets.Assets.ReadFile(file)
+		if err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		// Best-effort content type — most are woff2/svg/png.
+		ctype := "application/octet-stream"
+		switch {
+		case strings.HasSuffix(file, ".woff2"):
+			ctype = "font/woff2"
+		case strings.HasSuffix(file, ".woff"):
+			ctype = "font/woff"
+		case strings.HasSuffix(file, ".svg"):
+			ctype = "image/svg+xml"
+		case strings.HasSuffix(file, ".png"):
+			ctype = "image/png"
+		case strings.HasSuffix(file, ".css"):
+			ctype = "text/css; charset=utf-8"
+		case strings.HasSuffix(file, ".js"):
+			ctype = "application/javascript; charset=utf-8"
+		}
+		c.Data(http.StatusOK, ctype, data)
 	})
 }
 

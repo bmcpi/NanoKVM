@@ -1,27 +1,13 @@
 package templates
 
-// CustomInput is a reusable text/password input component
-templ CustomInput(id, name, inputType, placeholder string, required bool) {
-	<input
-		id={ id }
-		name={ name }
-		type={ inputType }
-		if required {
-			required
-		}
-		minlength="1"
-		placeholder={ placeholder }
-		class="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm placeholder-neutral-500 focus:border-blue-600 focus:outline-none"
-	/>
-}
-
-// CustomCheckbox is a reusable checkbox component
-templ CustomCheckbox(id string, label string, title string) {
-	<label class="flex items-center gap-1 text-xs text-neutral-400 cursor-pointer select-none" title={ title }>
-		<input id={ id } type="checkbox" class="rounded border-neutral-600 bg-neutral-800 text-blue-600 focus:ring-0 focus:ring-offset-0" onchange="onSearchInput()"/>
-		{ label }
-	</label>
-}
+import (
+	"github.com/templui/templui/components/button"
+	"github.com/templui/templui/components/card"
+	"github.com/templui/templui/components/dialog"
+	"github.com/templui/templui/components/icon"
+	"github.com/templui/templui/components/input"
+	"github.com/templui/templui/components/label"
+)
 
 // LoginPage is the server-rendered login page.
 templ LoginPage() {
@@ -38,51 +24,32 @@ templ LoginPage() {
 						onclick="this.classList.add('animate-spin'); setTimeout(() => this.classList.remove('animate-spin'), 1000)"
 					/>
 				</div>
-				<div>
-					@CustomInput("username", "username", "text", "Username", true)
+				<div class="space-y-1.5">
+					@label.Label(label.Props{For: "username"}) {
+						Username
+					}
+					@input.Input(input.Props{ID: "username", Name: "username", Placeholder: "Username", Required: true})
 				</div>
-				<div>
-					@CustomInput("password", "password", "password", "Password", true)
+				<div class="space-y-1.5">
+					@label.Label(label.Props{For: "password"}) {
+						Password
+					}
+					@input.Input(input.Props{ID: "password", Name: "password", Type: input.TypePassword, Placeholder: "Password", Required: true})
 				</div>
-				<div id="login-error" class="text-sm text-red-500" style="min-height:1.25rem"></div>
-				<button
-					id="login-btn"
-					type="submit"
-					class="btn btn-blue w-full py-2"
-				>
+				<div id="login-error" class="text-sm text-destructive" style="min-height:1.25rem"></div>
+				@button.Button(button.Props{ID: "login-btn", Type: button.TypeSubmit, FullWidth: true}) {
 					Sign In
-				</button>
+				}
 				<div class="flex justify-end text-sm">
-					<span
-						class="cursor-pointer text-neutral-400 underline underline-offset-4 hover:text-neutral-200"
-						onclick="document.getElementById('tips-modal').classList.remove('hidden')"
-					>
+					<button type="button" class="text-muted-foreground underline underline-offset-4 hover:text-foreground" onclick="document.getElementById('tips-modal-trigger').click()">
 						Forgot Password?
-					</span>
+					</button>
 				</div>
 			</form>
 		</div>
-		<!-- Forgot Password Modal -->
-		<div id="tips-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 hidden" onclick="if(event.target===this) this.classList.add('hidden')">
-			<div class="card w-full max-w-md space-y-4">
-				<h3 class="text-lg font-semibold">Forgot Password?</h3>
-				<p>To reset the password, you can:</p>
-				<p>
-					Refer to the
-					<a href="https://wiki.sipeed.com/hardware/en/kvm/NanoKVM/reset.html" target="_blank" class="text-blue-400 hover:underline">wiki</a>
-					{ "for" } reset instructions.
-				</p>
-				<ul class="list-outside list-disc pl-5 space-y-1 text-sm text-neutral-300">
-					<li>Default web account: <code class="rounded bg-neutral-800 px-1.5 py-0.5">admin/admin</code></li>
-					<li>Default SSH account: <code class="rounded bg-neutral-800 px-1.5 py-0.5">root/root</code></li>
-				</ul>
-				<div class="flex justify-center pt-4">
-					<button class="btn btn-blue" onclick="document.getElementById('tips-modal').classList.add('hidden')">OK</button>
-				</div>
-			</div>
-		</div>
+		@forgotPasswordDialog()
+		@input.Script()
 		<script>
-			// Redirect if already authenticated (server validates token)
 			(async function() {
 				try {
 					const r = await fetch('/api/auth/check');
@@ -161,39 +128,87 @@ templ LoginPage() {
 	}
 }
 
+// forgotPasswordDialog is the help modal linked from the login page.
+templ forgotPasswordDialog() {
+	@dialog.Dialog(dialog.Props{ID: "tips-modal"}) {
+		@dialog.Trigger(dialog.TriggerProps{For: "tips-modal", Class: "hidden", Attributes: templ.Attributes{"id": "tips-modal-trigger"}}) {
+			<span></span>
+		}
+		@dialog.Content() {
+			@dialog.Header() {
+				@dialog.Title() {
+					Forgot Password?
+				}
+				@dialog.Description() {
+					Resetting the password requires console access.
+				}
+			}
+			<div class="space-y-3 text-sm">
+				<p>
+					Refer to the <a href="https://wiki.sipeed.com/hardware/en/kvm/NanoKVM/reset.html" target="_blank" class="underline underline-offset-4 hover:text-foreground">wiki</a> { "for" } reset instructions.
+				</p>
+				<ul class="list-disc list-outside pl-5 space-y-1 text-muted-foreground">
+					<li>Default web account: <code class="rounded bg-muted px-1.5 py-0.5 text-foreground">admin/admin</code></li>
+					<li>Default SSH account: <code class="rounded bg-muted px-1.5 py-0.5 text-foreground">root/root</code></li>
+				</ul>
+			</div>
+			@dialog.Footer() {
+				@dialog.Close(dialog.CloseProps{For: "tips-modal"}) {
+					OK
+				}
+			}
+		}
+	}
+	@dialog.Script()
+}
+
 // PasswordPage is the server-rendered password change page.
-// loggedIn controls whether the BMC navbar is shown (true when authenticated).
 templ PasswordPage(loggedIn bool) {
 	@layout("NanoKVM - Change Password", loggedIn) {
 		<script src="/js/crypto-js.min.js"></script>
-		<div class="flex h-full w-full flex-col items-center justify-center space-y-5">
-			<h2 class="text-xl font-semibold text-neutral-100">Change Password</h2>
-			<form id="pw-form" class="w-full max-w-sm space-y-4 px-4" onsubmit="return handleChangePassword(event)">
-				<div>
-					@CustomInput("pw-username", "username", "text", "Username", true)
+		<div class="flex h-full w-full flex-col items-center justify-center gap-5 p-4">
+			<h2 class="text-xl font-semibold">Change Password</h2>
+			<form id="pw-form" class="w-full max-w-sm space-y-4" onsubmit="return handleChangePassword(event)">
+				<div class="space-y-1.5">
+					@label.Label(label.Props{For: "pw-username"}) {
+						Username
+					}
+					@input.Input(input.Props{ID: "pw-username", Name: "username", Placeholder: "Username", Required: true})
 				</div>
-				<div>
-					@CustomInput("pw-password", "password", "password", "New Password", true)
+				<div class="space-y-1.5">
+					@label.Label(label.Props{For: "pw-password"}) {
+						New Password
+					}
+					@input.Input(input.Props{ID: "pw-password", Name: "password", Type: input.TypePassword, Placeholder: "New Password", Required: true})
 				</div>
-				<div>
-					@CustomInput("pw-confirm", "password2", "password", "Confirm Password", true)
+				<div class="space-y-1.5">
+					@label.Label(label.Props{For: "pw-confirm"}) {
+						Confirm Password
+					}
+					@input.Input(input.Props{ID: "pw-confirm", Name: "password2", Type: input.TypePassword, Placeholder: "Confirm Password", Required: true})
 				</div>
-				<div id="pw-error" class="text-sm text-red-500" style="min-height:1.25rem"></div>
-				<div class="flex w-full space-x-2">
-					<button type="submit" class="btn btn-blue w-1/2 py-2" id="pw-ok-btn">OK</button>
-					<button type="button" class="btn btn-neutral w-1/2 py-2" onclick="window.location.replace('/dashboard')">Cancel</button>
+				<div id="pw-error" class="text-sm text-destructive" style="min-height:1.25rem"></div>
+				<div class="flex gap-2">
+					@button.Button(button.Props{ID: "pw-ok-btn", Type: button.TypeSubmit, Class: "flex-1"}) {
+						OK
+					}
+					@button.Button(button.Props{Variant: button.VariantOutline, Class: "flex-1", Attributes: templ.Attributes{"onclick": "window.location.replace('/dashboard')"}}) {
+						Cancel
+					}
 				</div>
 			</form>
-			<div class="card w-full max-w-sm mx-4">
-				<div class="flex flex-col text-sm text-neutral-300 space-y-1">
-					<p>This will change both the web login and system root password.</p>
-					<ol class="list-outside list-decimal pl-5 space-y-0.5">
-						<li>Enter a new username and password.</li>
-						<li>You will be redirected to the login page after changing.</li>
-					</ol>
-					<p class="text-red-400">Do not use special characters: <code class="rounded bg-neutral-800 px-1">' " \ /</code></p>
-				</div>
-			</div>
+			@card.Card(card.Props{Class: "w-full max-w-sm"}) {
+				@card.Content() {
+					<div class="flex flex-col text-sm text-muted-foreground space-y-2">
+						<p>This will change both the web login and system root password.</p>
+						<ol class="list-decimal list-outside pl-5 space-y-0.5">
+							<li>Enter a new username and password.</li>
+							<li>You will be redirected to the login page after changing.</li>
+						</ol>
+						<p class="text-destructive">Do not use special characters: <code class="rounded bg-muted px-1 text-foreground">' " \ /</code></p>
+					</div>
+				}
+			}
 		</div>
 		<script>
 			function encryptPassword(password) {
@@ -268,88 +283,96 @@ templ PasswordPage(loggedIn bool) {
 	}
 }
 
-// DashboardPage is the main BMC page with embedded serial console.
+// DashboardPage is the main BMC page with the embedded serial console.
 templ DashboardPage() {
 	@layout("NanoKVM BMC", true) {
 		<link rel="stylesheet" href="/css/xterm.min.css"/>
 		<style>
 			#console-pane { display: flex; flex-direction: column; height: 100%; padding: 1rem; }
-			#console-pane.expanded { position: fixed; inset: 0; z-index: 40; background: #0a0a0a; }
+			#console-pane.expanded { position: fixed; inset: 0; z-index: 40; background: var(--background); }
 			#terminal-wrap { flex: 1; min-height: 0; position: relative; border-radius: 0.5rem; overflow: hidden; }
 			#terminal { height: 100%; }
-			.console-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 0.375rem 0.75rem; border-bottom: 1px solid #262626; background: #111; flex-shrink: 0; }
-			.console-toolbar .label { font-size: 0.75rem; color: #737373; }
-			.console-toolbar .controls { display: flex; align-items: center; gap: 0.5rem; }
-			.toolbar-btn { background: none; border: 1px solid #404040; border-radius: 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.6875rem; color: #a3a3a3; cursor: pointer; display: flex; align-items: center; gap: 0.25rem; }
-			.toolbar-btn:hover { background: #262626; color: #e5e5e5; border-color: #525252; }
-			.toolbar-btn.active { background: #1d4ed8; border-color: #1d4ed8; color: white; }
 		</style>
-		<!-- Serial Console Pane (full main area) -->
 		<div id="console-pane">
-			<div class="console-toolbar">
+			<div class="flex items-center justify-between rounded-t-md border border-border bg-card px-3 py-1.5">
 				<div class="flex items-center gap-2">
-					<span class="label">Serial Console</span>
-					<span class="label" style="color:#525252">/dev/ttyS1 @ 115200 8N1</span>
-					<span id="conn-status" class="label" style="color:#ef4444">● Disconnected</span>
+					<span class="text-xs text-muted-foreground">Serial Console</span>
+					<span class="text-xs text-muted-foreground/60">/dev/ttyS1 @ 115200 8N1</span>
+					<span id="conn-status" class="text-xs text-destructive">● Disconnected</span>
 				</div>
-				<div class="controls">
-					<button class="toolbar-btn" id="btn-serial-toggle" onclick="toggleSerialConnection()" style="border-color:#15803d; color:#22c55e">
-						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
-						Connect
-					</button>
-					<button class="toolbar-btn" id="btn-search" onclick="toggleSearch()" title="Search (Ctrl+F)">
-						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-					</button>
-					<button class="toolbar-btn" onclick="toggleExpand()" id="btn-expand" title="Expand console">
-						<svg id="expand-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-					</button>
-					<button class="toolbar-btn" onclick="toggleFullscreen()" id="btn-fullscreen" title="Fullscreen">
-						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
-					</button>
+				<div class="flex items-center gap-1">
+					@button.Button(button.Props{
+						ID:         "btn-serial-toggle",
+						Variant:    button.VariantOutline,
+						Size:       button.SizeSm,
+						Class:      "border-green-700 text-green-500",
+						Attributes: templ.Attributes{"onclick": "toggleSerialConnection()"},
+					}) {
+						@icon.ArrowRight(icon.Props{Class: "size-3"})
+						<span>Connect</span>
+					}
+					@button.Button(button.Props{
+						ID:         "btn-search",
+						Variant:    button.VariantOutline,
+						Size:       button.SizeIcon,
+						Class:      "size-8",
+						Attributes: templ.Attributes{"onclick": "toggleSearch()", "title": "Search (Ctrl+F)"},
+					}) {
+						@icon.Search(icon.Props{Class: "size-3.5"})
+					}
+					@button.Button(button.Props{
+						ID:         "btn-expand",
+						Variant:    button.VariantOutline,
+						Size:       button.SizeIcon,
+						Class:      "size-8",
+						Attributes: templ.Attributes{"onclick": "toggleExpand()", "title": "Expand console"},
+					}) {
+						<span id="expand-icon">
+							@icon.Maximize2(icon.Props{Class: "size-3.5"})
+						</span>
+					}
+					@button.Button(button.Props{
+						ID:         "btn-fullscreen",
+						Variant:    button.VariantOutline,
+						Size:       button.SizeIcon,
+						Class:      "size-8",
+						Attributes: templ.Attributes{"onclick": "toggleFullscreen()", "title": "Fullscreen"},
+					}) {
+						@icon.Expand(icon.Props{Class: "size-3.5"})
+					}
 				</div>
 			</div>
-			<!-- Search bar -->
-			<div id="search-bar" class="hidden items-center gap-2 border-b border-neutral-800 bg-neutral-900 px-3 py-1.5">
-				<div class="relative flex-1 max-w-xs">
-					<input
-						id="search-input"
-						type="text"
-						placeholder="Search terminal…"
-						autocomplete="off"
-						spellcheck="false"
-						class="w-full rounded border border-neutral-700 bg-neutral-800 px-3 py-1 text-xs text-neutral-200 placeholder-neutral-500 focus:border-blue-600 focus:outline-none"
-						oninput="onSearchInput()"
-						onkeydown="onSearchKeydown(event)"
-					/>
+			<div id="search-bar" class="hidden items-center gap-2 border-x border-b border-border bg-card px-3 py-1.5">
+				<div class="flex-1 max-w-xs">
+					@input.Input(input.Props{
+						ID:          "search-input",
+						Placeholder: "Search terminal…",
+						Class:       "h-8 text-xs",
+						Attributes:  templ.Attributes{"autocomplete": "off", "spellcheck": "false", "oninput": "onSearchInput()", "onkeydown": "onSearchKeydown(event)"},
+					})
 				</div>
-				<span id="search-count" class="text-xs text-neutral-500 min-w-[3rem] text-center select-none"></span>
+				<span id="search-count" class="text-xs text-muted-foreground min-w-[3rem] text-center select-none"></span>
 				<div class="flex items-center gap-2 ml-auto">
-					@CustomCheckbox("search-case", "Aa", "Case sensitive")
-					@CustomCheckbox("search-regex", ".*", "Regular expression")
-					<button
-						class="toolbar-btn"
-						onclick="findPrevious()"
-						title="Previous match (Shift+Enter)"
-					>
-						<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
-					</button>
-					<button
-						class="toolbar-btn"
-						onclick="findNext()"
-						title="Next match (Enter)"
-					>
-						<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-					</button>
-					<button
-						class="toolbar-btn"
-						onclick="closeSearch()"
-						title="Close (Esc)"
-					>
-						<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-					</button>
+					<label class="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer select-none" title="Case sensitive">
+						<input id="search-case" type="checkbox" class="rounded border-input" onchange="onSearchInput()"/>
+						Aa
+					</label>
+					<label class="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer select-none" title="Regular expression">
+						<input id="search-regex" type="checkbox" class="rounded border-input" onchange="onSearchInput()"/>
+						.*
+					</label>
+					@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeIcon, Class: "size-7", Attributes: templ.Attributes{"onclick": "findPrevious()", "title": "Previous match (Shift+Enter)"}}) {
+						@icon.ChevronUp(icon.Props{Class: "size-3"})
+					}
+					@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeIcon, Class: "size-7", Attributes: templ.Attributes{"onclick": "findNext()", "title": "Next match (Enter)"}}) {
+						@icon.ChevronDown(icon.Props{Class: "size-3"})
+					}
+					@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeIcon, Class: "size-7", Attributes: templ.Attributes{"onclick": "closeSearch()", "title": "Close (Esc)"}}) {
+						@icon.X(icon.Props{Class: "size-3"})
+					}
 				</div>
 			</div>
-			<div id="terminal-wrap">
+			<div id="terminal-wrap" class="border border-t-0 border-border bg-background">
 				<div id="terminal"></div>
 			</div>
 		</div>
@@ -379,13 +402,13 @@ templ DashboardPage() {
 			function updateSerialToggleBtn() {
 				const btn = document.getElementById('btn-serial-toggle');
 				if (serialConnected) {
-					btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Disconnect';
-					btn.style.borderColor = '#b91c1c';
-					btn.style.color = '#ef4444';
+					btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg><span>Disconnect</span>';
+					btn.classList.remove('border-green-700', 'text-green-500');
+					btn.classList.add('border-destructive', 'text-destructive');
 				} else {
-					btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg> Connect';
-					btn.style.borderColor = '#15803d';
-					btn.style.color = '#22c55e';
+					btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg><span>Connect</span>';
+					btn.classList.add('border-green-700', 'text-green-500');
+					btn.classList.remove('border-destructive', 'text-destructive');
 				}
 			}
 
@@ -400,60 +423,12 @@ templ DashboardPage() {
 			window.connectSerial = function() {
 				if (ws) disconnectSerial();
 
-        const colorToHex = (color) => {
-          const ctx = document.createElement('canvas').getContext('2d');
-          ctx.fillStyle = color;
-          const computed = ctx.fillStyle; // Returns "rgb(r, g, b)" or hex
-
-          // If it's already hex, return it
-          if (computed.startsWith('#')) return computed;
-
-          // Otherwise, convert "rgb(r, g, b)" to hex
-          const rgb = computed.match(/\d+/g).map(Number);
-          return '#' + rgb.map(x => x.toString(16).padStart(2, '0')).join('');
-        };
-
-        // Resolve Tailwind v4 oklch CSS variables to hex by letting the browser
-        // do the colour-space conversion — xterm.js only accepts sRGB hex.
-        const twHex = (varName) => {
-          const oklchValue = getComputedStyle(document.documentElement)
-            .getPropertyValue(varName).trim();
-
-          return colorToHex(oklchValue);
-        };
-        term = new Terminal({
+				term = new Terminal({
 					allowProposedApi: true,
 					cursorBlink: true,
 					fontSize: 13,
 					fontFamily: 'Menlo, Monaco, "Courier New", monospace',
 				});
-        if (false) {
-          term.options.theme = {
-            background:          twHex('--color-neutral-950'),
-            foreground:          twHex('--color-neutral-300'),
-            cursor:              twHex('--color-neutral-400'),
-            cursorAccent:        twHex('--color-neutral-950'),
-            selectionBackground: twHex('--color-neutral-700'),
-            // ANSI normal
-            black:               twHex('--color-neutral-800'),
-            red:                 twHex('--color-red-500'),
-            green:               twHex('--color-green-500'),
-            yellow:              twHex('--color-yellow-500'),
-            blue:                twHex('--color-blue-500'),
-            magenta:             twHex('--color-purple-500'),
-            cyan:                twHex('--color-cyan-500'),
-            white:               twHex('--color-neutral-300'),
-            // ANSI bright
-            brightBlack:         twHex('--color-neutral-600'),
-            brightRed:           twHex('--color-red-400'),
-            brightGreen:         twHex('--color-green-400'),
-            brightYellow:        twHex('--color-yellow-400'),
-            brightBlue:          twHex('--color-blue-400'),
-            brightMagenta:       twHex('--color-purple-400'),
-            brightCyan:          twHex('--color-cyan-400'),
-            brightWhite:         twHex('--color-neutral-100'),
-          };
-        }
 				fitAddon = new FitAddon();
 				term.loadAddon(fitAddon);
 				searchAddon = new SearchAddon();
@@ -465,31 +440,32 @@ templ DashboardPage() {
 
 				const url = getWsUrl() + '/api/vm/terminal';
 				ws = new WebSocket(url);
-				document.getElementById('conn-status').textContent = '● Connecting...';
-				document.getElementById('conn-status').style.color = '#a16207';
+				const status = document.getElementById('conn-status');
+				status.textContent = '● Connecting...';
+				status.className = 'text-xs text-yellow-600';
 				document.getElementById('btn-serial-toggle').disabled = true;
 
 				ws.onopen = () => {
 					const attachAddon = new AttachAddon(ws);
 					term.loadAddon(attachAddon);
-					document.getElementById('conn-status').textContent = '● Connected';
-					document.getElementById('conn-status').style.color = '#22c55e';
+					status.textContent = '● Connected';
+					status.className = 'text-xs text-green-500';
 					serialConnected = true;
 					document.getElementById('btn-serial-toggle').disabled = false;
 					updateSerialToggleBtn();
 				};
 
 				ws.onclose = () => {
-					document.getElementById('conn-status').textContent = '● Disconnected';
-					document.getElementById('conn-status').style.color = '#ef4444';
+					status.textContent = '● Disconnected';
+					status.className = 'text-xs text-destructive';
 					serialConnected = false;
 					document.getElementById('btn-serial-toggle').disabled = false;
 					updateSerialToggleBtn();
 				};
 
 				ws.onerror = () => {
-					document.getElementById('conn-status').textContent = '● Error';
-					document.getElementById('conn-status').style.color = '#ef4444';
+					status.textContent = '● Error';
+					status.className = 'text-xs text-destructive';
 					serialConnected = false;
 					document.getElementById('btn-serial-toggle').disabled = false;
 					updateSerialToggleBtn();
@@ -521,7 +497,7 @@ templ DashboardPage() {
 				const bar = document.getElementById('search-bar');
 				bar.classList.remove('hidden');
 				bar.classList.add('flex');
-				document.getElementById('btn-search').classList.add('active');
+				document.getElementById('btn-search').classList.add('bg-accent');
 				document.getElementById('search-input').focus();
 				document.getElementById('search-input').select();
 				if (fitAddon) fitAddon.fit();
@@ -532,7 +508,7 @@ templ DashboardPage() {
 				const bar = document.getElementById('search-bar');
 				bar.classList.add('hidden');
 				bar.classList.remove('flex');
-				document.getElementById('btn-search').classList.remove('active');
+				document.getElementById('btn-search').classList.remove('bg-accent');
 				document.getElementById('search-count').textContent = '';
 				if (searchAddon) searchAddon.clearDecorations();
 				if (fitAddon) fitAddon.fit();
@@ -590,23 +566,18 @@ templ DashboardPage() {
 				}
 			};
 
-			// Expand: console takes full viewport (within the SPA layout)
-			const expandSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
-			const collapseSvg = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>';
-
 			window.toggleExpand = function() {
 				const pane = document.getElementById('console-pane');
 				const btn = document.getElementById('btn-expand');
 				pane.classList.toggle('expanded');
 				const isExpanded = pane.classList.contains('expanded');
-				btn.innerHTML = isExpanded ? collapseSvg : expandSvg;
-				btn.classList.toggle('active', isExpanded);
+				btn.classList.toggle('bg-accent', isExpanded);
 				btn.title = isExpanded ? 'Collapse console' : 'Expand console';
-				document.querySelector('header').style.display = isExpanded ? 'none' : '';
+				const header = document.querySelector('header');
+				if (header) header.style.display = isExpanded ? 'none' : '';
 				setTimeout(() => { if (fitAddon) fitAddon.fit(); }, 50);
 			};
 
-			// True browser fullscreen
 			window.toggleFullscreen = function() {
 				const el = document.getElementById('console-pane');
 				if (!document.fullscreenElement) {
@@ -623,15 +594,15 @@ templ DashboardPage() {
 				if (!document.fullscreenElement) {
 					const pane = document.getElementById('console-pane');
 					pane.classList.remove('expanded');
-					document.querySelector('header').style.display = '';
-					document.getElementById('btn-expand').innerHTML = expandSvg;
-					document.getElementById('btn-expand').title = 'Expand console';
-					document.getElementById('btn-expand').classList.remove('active');
+					const header = document.querySelector('header');
+					if (header) header.style.display = '';
+					const btn = document.getElementById('btn-expand');
+					btn.title = 'Expand console';
+					btn.classList.remove('bg-accent');
 					setTimeout(() => { if (fitAddon) fitAddon.fit(); }, 50);
 				}
 			});
 
-			// Escape key exits expanded mode; Ctrl+F opens search
 			document.addEventListener('keydown', (e) => {
 				if (e.ctrlKey && e.key === 'f') {
 					e.preventDefault();
@@ -667,8 +638,6 @@ templ DashboardPage() {
 				} catch(e) {}
 			})();
 
-			// Load application version (current vs. latest from GitHub) and
-			// surface an "Update" button when a newer release is available.
 			async function loadAppVersion() {
 				const btn = document.getElementById('btn-app-update');
 				const badge = document.getElementById('info-app-latest-badge');
@@ -683,14 +652,14 @@ templ DashboardPage() {
 					status.textContent = '';
 					if (latest && cur && latest !== cur) {
 						btn.textContent = 'Update → v' + latest;
-						btn.style.display = '';
-						badge.style.display = 'none';
+						btn.classList.remove('hidden');
+						badge.classList.add('hidden');
 					} else if (latest && cur && latest === cur) {
-						btn.style.display = 'none';
-						badge.style.display = '';
+						btn.classList.add('hidden');
+						badge.classList.remove('hidden');
 					} else {
-						btn.style.display = 'none';
-						badge.style.display = 'none';
+						btn.classList.add('hidden');
+						badge.classList.add('hidden');
 					}
 				} catch(e) {
 					console.warn('version check failed:', e);
@@ -711,8 +680,7 @@ templ DashboardPage() {
 					const data = await r.json().catch(() => ({}));
 					if (r.ok && data.code === 0) {
 						status.textContent = 'Restarting…';
-						btn.style.display = 'none';
-						// Service restarts; reload after a short delay.
+						btn.classList.add('hidden');
 						setTimeout(() => window.location.reload(), 5000);
 					} else {
 						status.textContent = 'Error: ' + (data.msg || r.statusText);
@@ -726,13 +694,12 @@ templ DashboardPage() {
 				}
 			};
 
-			// Load firmware status & inventory
 			async function loadFirmwareInfo() {
 				try {
 					const r = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
 					if (!r.ok) {
 						document.getElementById('info-fw-status').textContent = 'Not available';
-						document.getElementById('fw-download-item').style.display = 'none';
+						document.getElementById('fw-download-item').classList.add('hidden');
 						console.warn('firmware status:', r.status, r.statusText);
 						return;
 					}
@@ -740,10 +707,10 @@ templ DashboardPage() {
 					let statusText = '';
 					if (!st.downloaded) {
 						statusText = 'Not downloaded';
-						document.getElementById('fw-download-item').style.display = '';
+						document.getElementById('fw-download-item').classList.remove('hidden');
 					} else {
 						statusText = 'Ready';
-						document.getElementById('fw-download-item').style.display = 'none';
+						document.getElementById('fw-download-item').classList.add('hidden');
 					}
 					if (st.presented) statusText += ' · USB Active';
 					document.getElementById('info-fw-status').textContent = statusText;
@@ -784,7 +751,6 @@ templ DashboardPage() {
 			}
 			loadFirmwareInfo();
 
-			// BIOS (U-Boot) version check (current vs latest from BMCPi/firmware-images).
 			async function loadBIOSVersion() {
 				const btn = document.getElementById('btn-bios-update');
 				const badge = document.getElementById('info-bios-latest-badge');
@@ -799,14 +765,14 @@ templ DashboardPage() {
 					status.textContent = '';
 					if (latest && cur && latest !== cur) {
 						btn.textContent = 'Update → v' + latest;
-						btn.style.display = '';
-						badge.style.display = 'none';
+						btn.classList.remove('hidden');
+						badge.classList.add('hidden');
 					} else if (latest && cur && latest === cur) {
-						btn.style.display = 'none';
-						badge.style.display = '';
+						btn.classList.add('hidden');
+						badge.classList.remove('hidden');
 					} else {
-						btn.style.display = 'none';
-						badge.style.display = 'none';
+						btn.classList.add('hidden');
+						badge.classList.add('hidden');
 					}
 				} catch(e) {
 					console.warn('bios version check failed:', e);
@@ -826,7 +792,6 @@ templ DashboardPage() {
 					const r = await fetch('/api/firmware/bios/update', { method: 'POST', headers: getAuthHeaders() });
 					if (r.ok) {
 						status.textContent = 'Update started…';
-						// Poll firmware status until download completes.
 						const poll = setInterval(async () => {
 							try {
 								const sr = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
@@ -881,7 +846,7 @@ templ DashboardPage() {
 				}
 			};
 
-						window.downloadFirmware = async function() {
+			window.downloadFirmware = async function() {
 				const btn = document.getElementById('btn-fw-download');
 				btn.disabled = true;
 				btn.textContent = 'Downloading...';
@@ -889,7 +854,6 @@ templ DashboardPage() {
 					const r = await fetch('/api/firmware/download', { method: 'POST', headers: getAuthHeaders() });
 					if (r.ok) {
 						btn.textContent = 'Started...';
-						// Poll for completion.
 						const poll = setInterval(async () => {
 							const sr = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
 							const st = await sr.json();
@@ -909,8 +873,6 @@ templ DashboardPage() {
 				}
 			};
 
-			// ---- Kernel version → U-Boot image selector ----------------------------
-
 			async function loadKernelVersions() {
 				try {
 					const r = await fetch('/api/firmware/bios/kernels', { headers: getAuthHeaders() });
@@ -918,13 +880,12 @@ templ DashboardPage() {
 					const data = await r.json();
 					const select = document.getElementById('bios-kernel-select');
 					if (!select) return;
-					// Preserve placeholder, replace any existing options.
 					while (select.options.length > 1) select.remove(1);
 					for (const k of (data.kernels || [])) {
 						const opt = document.createElement('option');
 						opt.value = k.kernel;
-						let label = `Linux ${k.kernel} \u2192 U-Boot ${k.uboot}`;
-						if (k.active) label += ' \u2605 Active';
+						let label = `Linux ${k.kernel} → U-Boot ${k.uboot}`;
+						if (k.active) label += ' ★ Active';
 						else if (k.downloaded) label += ' (Downloaded)';
 						opt.textContent = label;
 						opt.dataset.downloaded = k.downloaded ? '1' : '';
@@ -947,19 +908,19 @@ templ DashboardPage() {
 				const actBtn = document.getElementById('btn-kernel-activate');
 				const status = document.getElementById('bios-kernel-status');
 				if (!opt || !opt.value) {
-					dlBtn.style.display = 'none';
-					if (rfBtn) rfBtn.style.display = 'none';
-					actBtn.style.display = 'none';
+					dlBtn.classList.add('hidden');
+					if (rfBtn) rfBtn.classList.add('hidden');
+					actBtn.classList.add('hidden');
 					status.textContent = '';
 					return;
 				}
 				const downloaded = !!opt.dataset.downloaded;
 				const active = !!opt.dataset.active;
-				dlBtn.style.display = downloaded ? 'none' : '';
-				if (rfBtn) rfBtn.style.display = downloaded ? '' : 'none';
-				actBtn.style.display = (downloaded && !active) ? '' : 'none';
-				status.textContent = active ? '\u2605 Active' : '';
-				status.style.color = active ? '#22c55e' : '#71717a';
+				dlBtn.classList.toggle('hidden', downloaded);
+				if (rfBtn) rfBtn.classList.toggle('hidden', !downloaded);
+				actBtn.classList.toggle('hidden', !(downloaded && !active));
+				status.textContent = active ? '★ Active' : '';
+				status.style.color = active ? 'var(--color-green-500, #22c55e)' : '';
 			};
 
 			window.downloadKernelBIOS = async function() {
@@ -969,14 +930,14 @@ templ DashboardPage() {
 				const dlBtn = document.getElementById('btn-kernel-download');
 				const status = document.getElementById('bios-kernel-status');
 				dlBtn.disabled = true;
-				dlBtn.textContent = 'Downloading\u2026';
+				dlBtn.textContent = 'Downloading…';
 				status.textContent = '';
 				try {
 					const r = await fetch(`/api/firmware/bios/kernel/${encodeURIComponent(kernel)}/download`, {
 						method: 'POST', headers: getAuthHeaders()
 					});
 					if (r.ok) {
-						status.textContent = 'Download started\u2026';
+						status.textContent = 'Download started…';
 						const poll = setInterval(async () => {
 							try {
 								const sr = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
@@ -1012,14 +973,14 @@ templ DashboardPage() {
 				const rfBtn = document.getElementById('btn-kernel-refresh');
 				const status = document.getElementById('bios-kernel-status');
 				rfBtn.disabled = true;
-				rfBtn.textContent = 'Downloading\u2026';
+				rfBtn.textContent = 'Downloading…';
 				status.textContent = '';
 				try {
 					const r = await fetch(`/api/firmware/bios/kernel/${encodeURIComponent(kernel)}/download?force=true`, {
 						method: 'POST', headers: getAuthHeaders()
 					});
 					if (r.ok) {
-						status.textContent = 'Re-downloading\u2026';
+						status.textContent = 'Re-downloading…';
 						const poll = setInterval(async () => {
 							try {
 								const sr = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
@@ -1030,7 +991,7 @@ templ DashboardPage() {
 									setTimeout(() => { status.textContent = ''; }, 4000);
 									await loadKernelVersions();
 									rfBtn.disabled = false;
-									rfBtn.textContent = '\u21BB Refresh';
+									rfBtn.textContent = '↻ Refresh';
 								}
 							} catch(e) {}
 						}, 5000);
@@ -1038,12 +999,12 @@ templ DashboardPage() {
 						const err = await r.json().catch(() => ({}));
 						status.textContent = 'Error: ' + (err.error || r.statusText);
 						rfBtn.disabled = false;
-						rfBtn.textContent = '\u21BB Refresh';
+						rfBtn.textContent = '↻ Refresh';
 					}
 				} catch(e) {
 					status.textContent = 'Error: ' + e.message;
 					rfBtn.disabled = false;
-					rfBtn.textContent = '\u21BB Refresh';
+					rfBtn.textContent = '↻ Refresh';
 				}
 			};
 
@@ -1055,16 +1016,16 @@ templ DashboardPage() {
 				const actBtn = document.getElementById('btn-kernel-activate');
 				const status = document.getElementById('bios-kernel-status');
 				actBtn.disabled = true;
-				actBtn.textContent = 'Activating\u2026';
+				actBtn.textContent = 'Activating…';
 				status.textContent = '';
 				try {
 					const r = await fetch(`/api/firmware/bios/kernel/${encodeURIComponent(kernel)}/activate`, {
 						method: 'POST', headers: getAuthHeaders()
 					});
 					if (r.ok) {
-						status.textContent = '\u2605 Activated';
+						status.textContent = '★ Activated';
 						status.style.color = '#22c55e';
-						actBtn.style.display = 'none';
+						actBtn.classList.add('hidden');
 						loadFirmwareInfo();
 						loadBIOSVersion();
 						await loadKernelVersions();
@@ -1081,7 +1042,6 @@ templ DashboardPage() {
 				}
 			};
 
-			// Auto-connect serial
 			window.connectSerial();
 		</script>
 	}

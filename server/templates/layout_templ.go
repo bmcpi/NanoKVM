@@ -8,8 +8,17 @@ package templates
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-// layout renders the common HTML document shell for BMC pages.
-// Includes Tailwind CSS via CDN and a dark theme base.
+import (
+	"github.com/templui/templui/components/button"
+	"github.com/templui/templui/components/dropdown"
+	"github.com/templui/templui/components/icon"
+	"github.com/templui/templui/components/input"
+	"github.com/templui/templui/components/popover"
+)
+
+// layout renders the common HTML document shell. The dark class on <html>
+// activates templui's dark theme tokens (defined in input.css). Page-specific
+// content is rendered into the <main> slot; the navbar is shared chrome.
 func layout(title string, showNav bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -38,23 +47,23 @@ func layout(title string, showNav bool) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 12, Col: 17}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `layout.templ`, Line: 21, Col: 17}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"stylesheet\" href=\"/css/output.css\"><style>\n\t\t\t\tbody { background: #0a0a0a; color: #e5e5e5; font-family: system-ui, -apple-system, sans-serif; }\n\t\t\t\t.card { background: #171717; border: 1px solid #262626; border-radius: 0.5rem; padding: 1.5rem; }\n\t\t\t\t.btn { padding: 0.5rem 1rem; border-radius: 0.375rem; font-size: 0.875rem; cursor: pointer; transition: background 0.15s; border: none; }\n\t\t\t\t.btn:disabled { opacity: 0.5; cursor: not-allowed; }\n\t\t\t\t.btn-blue { background: #1d4ed8; color: white; }\n\t\t\t\t.btn-blue:hover:not(:disabled) { background: #2563eb; }\n\t\t\t\t.btn-red { background: #b91c1c; color: white; }\n\t\t\t\t.btn-red:hover:not(:disabled) { background: #dc2626; }\n\t\t\t\t.btn-yellow { background: #a16207; color: white; }\n\t\t\t\t.btn-yellow:hover:not(:disabled) { background: #ca8a04; }\n\t\t\t\t.btn-green { background: #15803d; color: white; }\n\t\t\t\t.btn-green:hover:not(:disabled) { background: #16a34a; }\n\t\t\t\t.btn-neutral { background: #404040; color: white; }\n\t\t\t\t.btn-neutral:hover:not(:disabled) { background: #525252; }\n\t\t\t\t.status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }\n\t\t\t\t.status-on { background: #22c55e; }\n\t\t\t\t.status-off { background: #ef4444; }\n\n\t\t\t\t/* Dropdown menus */\n\t\t\t\t.dropdown { position: relative; }\n\t\t\t\t.dropdown-toggle { display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.75rem; border-radius: 0.375rem; font-size: 0.8125rem; cursor: pointer; background: transparent; color: #a3a3a3; border: 1px solid transparent; transition: all 0.15s; }\n\t\t\t\t.dropdown-toggle:hover { background: #262626; color: #e5e5e5; }\n\t\t\t\t.dropdown-toggle.active { background: #262626; color: #e5e5e5; border-color: #404040; }\n\t\t\t\t.dropdown-menu { display: none; position: absolute; top: calc(100% + 4px); right: 0; min-width: 280px; background: #171717; border: 1px solid #303030; border-radius: 0.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 50; overflow: hidden; }\n\t\t\t\t.dropdown-menu.open { display: block; }\n\t\t\t\t.dropdown-menu.left { left: 0; right: auto; }\n\t\t\t\t.dropdown-section { padding: 0.75rem; }\n\t\t\t\t.dropdown-section + .dropdown-section { border-top: 1px solid #262626; }\n\t\t\t\t.dropdown-section-label { font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #737373; margin-bottom: 0.5rem; }\n\t\t\t\t.dropdown-item { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.5rem 0.75rem; border-radius: 0.25rem; font-size: 0.8125rem; color: #d4d4d4; cursor: pointer; background: none; border: none; text-align: left; transition: background 0.1s; }\n\t\t\t\t.dropdown-item:hover { background: #262626; }\n\t\t\t\t.dropdown-item.danger { color: #fca5a5; }\n\t\t\t\t.dropdown-item.danger:hover { background: #371717; }\n\t\t\t\t.dropdown-row { display: flex; align-items: center; justify-content: space-between; padding: 0.375rem 0.75rem; font-size: 0.8125rem; }\n\t\t\t\t.dropdown-row label { color: #a3a3a3; }\n\t\t\t\t.dropdown-row .value { color: #e5e5e5; }\n\t\t\t\t.mini-input { background: #0a0a0a; border: 1px solid #404040; border-radius: 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; color: #e5e5e5; width: 100%; }\n\t\t\t\t.mini-input:focus { outline: none; border-color: #1d4ed8; }\n\t\t\t\t.mini-select { background: #0a0a0a; border: 1px solid #404040; border-radius: 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.75rem; color: #e5e5e5; }\n\t\t\t\t.mini-btn { padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.6875rem; cursor: pointer; border: none; }\n\t\t\t\t.toggle-btn { padding: 0.125rem 0.5rem; border-radius: 0.25rem; font-size: 0.6875rem; cursor: pointer; border: none; }\n\t\t\t\t.toggle-on { background: #15803d; color: white; }\n\t\t\t\t.toggle-off { background: #404040; color: #a3a3a3; }\n\n\t\t\t\t/* Caret icon */\n\t\t\t\t.caret { display: inline-block; width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 4px solid currentColor; transition: transform 0.15s; }\n\t\t\t\t.dropdown-toggle.active .caret { transform: rotate(180deg); }\n\t\t\t</style><script>\n\t\t\t\t// Auth helpers — defined early so page scripts can use them.\n\t\t\t\tfunction getCookie(name) {\n\t\t\t\t\tconst match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));\n\t\t\t\t\treturn match ? decodeURIComponent(match[2]) : null;\n\t\t\t\t}\n\t\t\t\tfunction getAuthHeaders() {\n\t\t\t\t\tconst token = getCookie('nano-kvm-token') || '';\n\t\t\t\t\treturn { 'Content-Type': 'application/json', 'token': token };\n\t\t\t\t}\n\t\t\t</script></head><body><div class=\"flex h-screen flex-col\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</title><link rel=\"stylesheet\" href=\"/css/output.css\"><script>\n\t\t\t\t// Auth helpers — defined early so page scripts can use them.\n\t\t\t\tfunction getCookie(name) {\n\t\t\t\t\tconst match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));\n\t\t\t\t\treturn match ? decodeURIComponent(match[2]) : null;\n\t\t\t\t}\n\t\t\t\tfunction getAuthHeaders() {\n\t\t\t\t\tconst token = getCookie('nano-kvm-token') || '';\n\t\t\t\t\treturn { 'Content-Type': 'application/json', 'token': token };\n\t\t\t\t}\n\t\t\t</script></head><body class=\"min-h-screen\"><div class=\"flex h-screen flex-col\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if showNav {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<header class=\"flex items-center justify-between border-b border-neutral-800 px-4 py-2\"><div class=\"flex items-center space-x-3\"><span class=\"text-sm font-bold tracking-wide\">NanoKVM BMC</span><!-- Power Dropdown --><div class=\"dropdown\" id=\"power-dropdown\"><button class=\"dropdown-toggle\" onclick=\"toggleDropdown('power-dropdown')\"><span class=\"status-dot status-off\" id=\"power-dot\"></span> <span id=\"power-text\">Checking...</span> <span class=\"caret\"></span></button><div class=\"dropdown-menu left\"><div class=\"dropdown-section\"><div class=\"dropdown-section-label\">Power Actions</div><button class=\"dropdown-item\" onclick=\"powerAction('on'); closeDropdowns()\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle><line x1=\"12\" y1=\"3\" x2=\"12\" y2=\"12\"></line></svg> Power On</button> <button class=\"dropdown-item\" onclick=\"powerAction('off'); closeDropdowns()\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle><line x1=\"12\" y1=\"3\" x2=\"12\" y2=\"12\"></line></svg> Power Off</button> <button class=\"dropdown-item\" onclick=\"powerAction('reset'); closeDropdowns()\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><polyline points=\"23 4 23 10 17 10\"></polyline><path d=\"M20.49 15a9 9 0 1 1-2.12-9.36L23 10\"></path></svg> Reset</button> <button class=\"dropdown-item danger\" onclick=\"if(confirm('Force power off?')){powerAction('forceoff'); closeDropdowns()}\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle><line x1=\"9\" y1=\"9\" x2=\"15\" y2=\"15\"></line><line x1=\"15\" y1=\"9\" x2=\"9\" y2=\"15\"></line></svg> Force Off</button></div><div class=\"dropdown-section\"><div class=\"dropdown-section-label\">Boot Device Override</div><div style=\"display:flex;flex-direction:column;gap:0.375rem;padding:0 0.25rem\"><select id=\"boot-device\" class=\"mini-select\"><option value=\"None\">Default</option> <option value=\"Pxe\">PXE / Network</option> <option value=\"Hdd\">HDD / SD / NVMe</option> <option value=\"Cd\">USB / CD-ROM</option> <option value=\"BiosSetup\">BIOS Setup</option></select> <select id=\"boot-persist\" class=\"mini-select\"><option value=\"Once\">Once (default)</option> <option value=\"Continuous\">Continuous</option></select><div style=\"display:flex;gap:0.375rem\"><button class=\"mini-btn btn-blue\" style=\"flex:1\" onclick=\"applyBootOverride()\">Apply</button> <button class=\"mini-btn btn-red\" onclick=\"clearBootOverride()\">Clear</button></div></div><p id=\"boot-status\" class=\"text-xs text-neutral-600 mt-1 px-1\"></p></div></div></div><!-- Virtual Media Dropdown --><div class=\"dropdown\" id=\"vm-dropdown\"><button class=\"dropdown-toggle\" onclick=\"toggleDropdown('vm-dropdown'); navVmRefresh()\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"2\" y=\"6\" width=\"20\" height=\"12\" rx=\"2\"></rect><circle cx=\"7\" cy=\"12\" r=\"1\" fill=\"currentColor\"></circle><line x1=\"11\" y1=\"12\" x2=\"18\" y2=\"12\"></line></svg> Virtual Media <span class=\"caret\"></span></button><div class=\"dropdown-menu left\" style=\"min-width: 360px\"><!-- Mounted state view --><div id=\"nav-vm-view\" class=\"dropdown-section\"><div class=\"flex flex-col gap-1\"><div class=\"text-sm font-semibold text-neutral-100\">Virtual Media</div><div class=\"text-xs text-neutral-500\">Mount an image to boot from or install an OS.</div></div><div id=\"nav-vm-card\" class=\"mt-3 rounded-md border border-dashed border-neutral-700 px-3 py-5 flex flex-col items-center justify-center text-center gap-2\"><div id=\"nav-vm-icon\" class=\"w-9 h-9 rounded-full border border-neutral-700 flex items-center justify-center text-neutral-300\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"></line><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"></line></svg></div><div id=\"nav-vm-title\" class=\"text-sm font-semibold text-neutral-100\">No mounted media</div><div id=\"nav-vm-sub\" class=\"text-xs text-neutral-500\">Add a file to get started</div></div><div class=\"mt-3 flex items-center justify-end gap-2\"><button class=\"mini-btn btn-red\" id=\"nav-vm-eject\" style=\"display:none\" onclick=\"navVmEject()\">Eject</button> <button class=\"mini-btn btn-neutral\" onclick=\"closeDropdowns()\">Close</button> <button class=\"mini-btn btn-blue\" onclick=\"navVmShowAdd()\">+ Add New Media</button></div><p id=\"nav-vm-status\" class=\"text-xs text-neutral-600 mt-2\"></p></div><!-- Add new media view --><div id=\"nav-vm-add\" class=\"dropdown-section\" style=\"display:none\"><div class=\"flex items-center justify-between mb-2\"><div class=\"text-sm font-semibold text-neutral-100\">Add New Media</div><button class=\"mini-btn btn-neutral\" onclick=\"navVmShowView()\">Back</button></div><div class=\"flex flex-col gap-2\"><div class=\"dropdown-section-label\">Existing ISOs</div><div class=\"flex items-center gap-2\"><select id=\"nav-vm-select\" class=\"mini-select flex-1\"><option value=\"\">— select ISO —</option></select> <button class=\"mini-btn btn-blue\" onclick=\"navVmInsert()\">Mount</button></div><div class=\"dropdown-section-label mt-3\">Upload File</div><div class=\"flex items-center gap-2\"><input type=\"file\" id=\"nav-vm-file\" accept=\".iso,.img\" class=\"mini-input flex-1\" style=\"padding:0.125rem 0.25rem\"> <button class=\"mini-btn btn-blue\" onclick=\"navVmUpload()\">Upload</button></div><div class=\"dropdown-section-label mt-3\">Fetch from URL</div><input type=\"url\" id=\"nav-vm-url\" class=\"mini-input\" placeholder=\"https://example.com/image.iso\"><div class=\"flex items-center gap-2\"><input type=\"text\" id=\"nav-vm-url-name\" class=\"mini-input flex-1\" placeholder=\"filename.iso (optional)\"> <button class=\"mini-btn btn-blue\" onclick=\"navVmFetch()\">Fetch</button></div><p id=\"nav-vm-add-status\" class=\"text-xs text-neutral-600 mt-1\"></p></div></div></div></div></div><div class=\"flex items-center space-x-2\"><!-- Server Overview toggle --><button class=\"dropdown-toggle\" onclick=\"toggleServerOverview()\" title=\"Server Overview\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"12\" rx=\"2\"></rect><line x1=\"7\" y1=\"20\" x2=\"17\" y2=\"20\"></line><line x1=\"12\" y1=\"16\" x2=\"12\" y2=\"20\"></line></svg> Server Overview</button><!-- Settings Dropdown --><div class=\"dropdown\" id=\"settings-dropdown\"><button class=\"dropdown-toggle\" onclick=\"toggleDropdown('settings-dropdown')\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"3\"></circle><path d=\"M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z\"></path></svg> Settings <span class=\"caret\"></span></button><div class=\"dropdown-menu\" style=\"min-width: 320px\"><div class=\"dropdown-section\"><div class=\"dropdown-section-label\">Network</div><div class=\"dropdown-row\"><label>SSH</label> <button id=\"ssh-toggle\" class=\"toggle-btn toggle-off\" onclick=\"toggleSSH()\">Off</button></div></div><div class=\"dropdown-section\"><div class=\"dropdown-section-label\">Security</div><div class=\"dropdown-row\"><label>TLS / HTTPS</label> <button id=\"tls-toggle\" class=\"toggle-btn toggle-off\" onclick=\"toggleTLS()\">Off</button></div><button class=\"dropdown-item\" onclick=\"window.location.href='/auth/password'\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"11\" width=\"18\" height=\"11\" rx=\"2\" ry=\"2\"></rect><path d=\"M7 11V7a5 5 0 0 1 10 0v4\"></path></svg> Change Password</button></div><div class=\"dropdown-section\"><div class=\"dropdown-section-label\">System</div><button class=\"dropdown-item danger\" onclick=\"if(confirm('Reboot the BMC?')){rebootSystem(); closeDropdowns()}\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><polyline points=\"23 4 23 10 17 10\"></polyline><path d=\"M20.49 15a9 9 0 1 1-2.12-9.36L23 10\"></path></svg> Reboot BMC</button></div></div></div><!-- Logout --><button class=\"dropdown-toggle\" onclick=\"doLogout()\" title=\"Logout\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4\"></path><polyline points=\"16 17 21 12 16 7\"></polyline><line x1=\"21\" y1=\"12\" x2=\"9\" y2=\"12\"></line></svg></button></div></header>")
+			templ_7745c5c3_Err = navbar().Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"flex min-h-0 flex-1 overflow-hidden\"><main class=\"min-h-0 flex-1 overflow-hidden\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<div class=\"flex min-h-0 flex-1 overflow-hidden\"><main class=\"min-h-0 flex-1 overflow-hidden\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -62,7 +71,7 @@ func layout(title string, showNav bool) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</main>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</main>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -72,17 +81,1216 @@ func layout(title string, showNav bool) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</div></div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = popover.Script().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = dropdown.Script().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = input.Script().Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if showNav {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<script>\n\t\t\t\t// --- Dropdown logic ---\n\t\t\t\tfunction toggleDropdown(id) {\n\t\t\t\t\tconst dd = document.getElementById(id);\n\t\t\t\t\tconst menu = dd.querySelector('.dropdown-menu');\n\t\t\t\t\tconst toggle = dd.querySelector('.dropdown-toggle');\n\t\t\t\t\tconst isOpen = menu.classList.contains('open');\n\t\t\t\t\tcloseDropdowns();\n\t\t\t\t\tif (!isOpen) {\n\t\t\t\t\t\tmenu.classList.add('open');\n\t\t\t\t\t\ttoggle.classList.add('active');\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t\tfunction closeDropdowns() {\n\t\t\t\t\tdocument.querySelectorAll('.dropdown-menu.open').forEach(m => m.classList.remove('open'));\n\t\t\t\t\tdocument.querySelectorAll('.dropdown-toggle.active').forEach(t => t.classList.remove('active'));\n\t\t\t\t}\n\t\t\t\t// Close dropdowns when clicking outside\n\t\t\t\tdocument.addEventListener('click', (e) => {\n\t\t\t\t\tif (!e.target.closest('.dropdown')) closeDropdowns();\n\t\t\t\t});\n\n\t\t\t\t// --- Power ---\n\t\t\t\tasync function pollPower() {\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst r = await fetch('/api/vm/gpio', { headers: getAuthHeaders() });\n\t\t\t\t\t\tconst data = await r.json();\n\t\t\t\t\t\tif (data.code === 0) {\n\t\t\t\t\t\t\tconst on = data.data.pwr;\n\t\t\t\t\t\t\tdocument.getElementById('power-dot').className = 'status-dot ' + (on ? 'status-on' : 'status-off');\n\t\t\t\t\t\t\tdocument.getElementById('power-text').textContent = on ? 'Power On' : 'Power Off';\n\t\t\t\t\t\t}\n\t\t\t\t\t} catch(e) {}\n\t\t\t\t}\n\t\t\t\tpollPower();\n\t\t\t\tsetInterval(pollPower, 5000);\n\n\t\t\t\tasync function powerAction(action) {\n\t\t\t\t\ttry {\n\t\t\t\t\t\tawait fetch('/api/vm/gpio', { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({action}) });\n\t\t\t\t\t} catch(e) { console.error(e); }\n\t\t\t\t\tsetTimeout(pollPower, 2000);\n\t\t\t\t}\n\n\t\t\t\tasync function applyBootOverride() {\n\t\t\t\t\tconst device = document.getElementById('boot-device').value;\n\t\t\t\t\tconst persist = document.getElementById('boot-persist').value;\n\t\t\t\t\tconst statusEl = document.getElementById('boot-status');\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst r = await fetch('/redfish/v1/Systems/1', {\n\t\t\t\t\t\t\tmethod: 'PATCH', headers: getAuthHeaders(),\n\t\t\t\t\t\t\tbody: JSON.stringify({ Boot: { BootSourceOverrideTarget: device, BootSourceOverrideEnabled: persist } })\n\t\t\t\t\t\t});\n\t\t\t\t\t\tconst data = await r.json();\n\t\t\t\t\t\tconst b = data.Boot;\n\t\t\t\t\t\tstatusEl.textContent = b ? `Set: ${b.BootSourceOverrideTarget} (${b.BootSourceOverrideEnabled})` : 'Applied';\n\t\t\t\t\t} catch(e) {\n\t\t\t\t\t\tstatusEl.textContent = 'Failed';\n\t\t\t\t\t}\n\t\t\t\t\tif (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();\n\t\t\t\t}\n\n\t\t\t\tasync function clearBootOverride() {\n\t\t\t\t\tconst statusEl = document.getElementById('boot-status');\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst r = await fetch('/redfish/v1/Systems/1', {\n\t\t\t\t\t\t\tmethod: 'PATCH', headers: getAuthHeaders(),\n\t\t\t\t\t\t\tbody: JSON.stringify({ Boot: { BootSourceOverrideTarget: 'None', BootSourceOverrideEnabled: 'Disabled' } })\n\t\t\t\t\t\t});\n\t\t\t\t\t\tstatusEl.textContent = r.ok ? 'Cleared' : 'Failed';\n\t\t\t\t\t} catch(e) {\n\t\t\t\t\t\tstatusEl.textContent = 'Failed';\n\t\t\t\t\t}\n\t\t\t\t\tif (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();\n\t\t\t\t}\n\n\t\t\t\t// --- Settings ---\n\t\t\t\tasync function apiGet(url) {\n\t\t\t\t\treturn (await fetch(url, { headers: getAuthHeaders() })).json();\n\t\t\t\t}\n\t\t\t\tasync function apiPost(url, body) {\n\t\t\t\t\treturn (await fetch(url, { method: 'POST', headers: getAuthHeaders(), body: body ? JSON.stringify(body) : undefined })).json();\n\t\t\t\t}\n\t\t\t\tfunction updateToggle(id, on) {\n\t\t\t\t\tconst btn = document.getElementById(id);\n\t\t\t\t\tif (!btn) return;\n\t\t\t\t\tbtn.textContent = on ? 'On' : 'Off';\n\t\t\t\t\tbtn.className = 'toggle-btn ' + (on ? 'toggle-on' : 'toggle-off');\n\t\t\t\t}\n\n\t\t\t\tlet sshEnabled = false;\n\t\t\t\tlet tlsEnabled = false;\n\n\t\t\t\tasync function toggleSSH() {\n\t\t\t\t\tconst enable = !sshEnabled;\n\t\t\t\t\tawait apiPost(enable ? '/api/vm/ssh/enable' : '/api/vm/ssh/disable');\n\t\t\t\t\tsshEnabled = enable;\n\t\t\t\t\tupdateToggle('ssh-toggle', sshEnabled);\n\t\t\t\t}\n\t\t\t\tasync function toggleTLS() {\n\t\t\t\t\tconst enable = !tlsEnabled;\n\t\t\t\t\tawait apiPost('/api/vm/tls', { enabled: enable });\n\t\t\t\t\ttlsEnabled = enable;\n\t\t\t\t\tupdateToggle('tls-toggle', tlsEnabled);\n\t\t\t\t\talert('TLS ' + (enable ? 'enabled' : 'disabled') + '. Page may reload.');\n\t\t\t\t}\n\t\t\t\tasync function rebootSystem() {\n\t\t\t\t\tawait apiPost('/api/vm/system/reboot');\n\t\t\t\t}\n\n\t\t\t\t// --- Virtual Media (navbar dropdown) ---\n\t\t\t\tasync function navVmRefresh() {\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst r = await fetch('/api/firmware/media', { headers: getAuthHeaders() });\n\t\t\t\t\t\tif (!r.ok) return;\n\t\t\t\t\t\tconst data = await r.json();\n\n\t\t\t\t\t\t// Populate select\n\t\t\t\t\t\tconst sel = document.getElementById('nav-vm-select');\n\t\t\t\t\t\tconst prev = sel.value;\n\t\t\t\t\t\tsel.innerHTML = '<option value=\"\">— select ISO —</option>';\n\t\t\t\t\t\t(data.files || []).forEach(f => {\n\t\t\t\t\t\t\tconst o = document.createElement('option');\n\t\t\t\t\t\t\to.value = f; o.textContent = f;\n\t\t\t\t\t\t\tsel.appendChild(o);\n\t\t\t\t\t\t});\n\t\t\t\t\t\tif (prev && (data.files || []).includes(prev)) sel.value = prev;\n\n\t\t\t\t\t\t// Update mounted-state card\n\t\t\t\t\t\tconst title = document.getElementById('nav-vm-title');\n\t\t\t\t\t\tconst sub = document.getElementById('nav-vm-sub');\n\t\t\t\t\t\tconst icon = document.getElementById('nav-vm-icon');\n\t\t\t\t\t\tconst eject = document.getElementById('nav-vm-eject');\n\t\t\t\t\t\tif (data.inserted) {\n\t\t\t\t\t\t\ttitle.textContent = data.inserted;\n\t\t\t\t\t\t\ttitle.style.color = '#86efac';\n\t\t\t\t\t\t\tsub.textContent = 'Mounted as virtual media';\n\t\t\t\t\t\t\ticon.innerHTML = '<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><polyline points=\"20 6 9 17 4 12\"/></svg>';\n\t\t\t\t\t\t\ticon.style.color = '#22c55e';\n\t\t\t\t\t\t\teject.style.display = '';\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\ttitle.textContent = 'No mounted media';\n\t\t\t\t\t\t\ttitle.style.color = '';\n\t\t\t\t\t\t\tsub.textContent = 'Add a file to get started';\n\t\t\t\t\t\t\ticon.innerHTML = '<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><line x1=\"12\" y1=\"5\" x2=\"12\" y2=\"19\"/><line x1=\"5\" y1=\"12\" x2=\"19\" y2=\"12\"/></svg>';\n\t\t\t\t\t\t\ticon.style.color = '';\n\t\t\t\t\t\t\teject.style.display = 'none';\n\t\t\t\t\t\t}\n\t\t\t\t\t} catch(e) {}\n\t\t\t\t}\n\t\t\t\tnavVmRefresh();\n\n\t\t\t\tfunction navVmShowAdd() {\n\t\t\t\t\tdocument.getElementById('nav-vm-view').style.display = 'none';\n\t\t\t\t\tdocument.getElementById('nav-vm-add').style.display = '';\n\t\t\t\t}\n\t\t\t\tfunction navVmShowView() {\n\t\t\t\t\tdocument.getElementById('nav-vm-add').style.display = 'none';\n\t\t\t\t\tdocument.getElementById('nav-vm-view').style.display = '';\n\t\t\t\t}\n\n\t\t\t\tasync function navVmInsert() {\n\t\t\t\t\tconst name = document.getElementById('nav-vm-select').value;\n\t\t\t\t\tconst status = document.getElementById('nav-vm-add-status');\n\t\t\t\t\tif (!name) { status.textContent = 'Select an ISO first'; return; }\n\t\t\t\t\tstatus.textContent = 'Mounting…';\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst r = await fetch('/api/firmware/media/insert', {\n\t\t\t\t\t\t\tmethod: 'POST', headers: getAuthHeaders(),\n\t\t\t\t\t\t\tbody: JSON.stringify({ name }),\n\t\t\t\t\t\t});\n\t\t\t\t\t\tif (r.ok) {\n\t\t\t\t\t\t\tstatus.textContent = '';\n\t\t\t\t\t\t\tnavVmRefresh();\n\t\t\t\t\t\t\tnavVmShowView();\n\t\t\t\t\t\t\tif (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\tconst err = await r.json().catch(() => ({}));\n\t\t\t\t\t\t\tstatus.textContent = 'Error: ' + (err.error || r.statusText);\n\t\t\t\t\t\t}\n\t\t\t\t\t} catch(e) { status.textContent = 'Error: ' + e.message; }\n\t\t\t\t}\n\n\t\t\t\tasync function navVmEject() {\n\t\t\t\t\tconst status = document.getElementById('nav-vm-status');\n\t\t\t\t\tstatus.textContent = 'Ejecting…';\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst r = await fetch('/api/firmware/media/eject', {\n\t\t\t\t\t\t\tmethod: 'POST', headers: getAuthHeaders(),\n\t\t\t\t\t\t});\n\t\t\t\t\t\tif (r.ok) {\n\t\t\t\t\t\t\tstatus.textContent = '';\n\t\t\t\t\t\t\tnavVmRefresh();\n\t\t\t\t\t\t\tif (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\tconst err = await r.json().catch(() => ({}));\n\t\t\t\t\t\t\tstatus.textContent = 'Error: ' + (err.error || r.statusText);\n\t\t\t\t\t\t}\n\t\t\t\t\t} catch(e) { status.textContent = 'Error: ' + e.message; }\n\t\t\t\t}\n\n\t\t\t\tasync function navVmUpload() {\n\t\t\t\t\tconst fileInput = document.getElementById('nav-vm-file');\n\t\t\t\t\tconst status = document.getElementById('nav-vm-add-status');\n\t\t\t\t\tif (!fileInput.files || !fileInput.files.length) {\n\t\t\t\t\t\tstatus.textContent = 'Select a file first';\n\t\t\t\t\t\treturn;\n\t\t\t\t\t}\n\t\t\t\t\tconst token = getCookie('nano-kvm-token') || '';\n\t\t\t\t\tconst form = new FormData();\n\t\t\t\t\tform.append('file', fileInput.files[0]);\n\t\t\t\t\tstatus.textContent = 'Uploading…';\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst r = await fetch('/api/firmware/media/upload', {\n\t\t\t\t\t\t\tmethod: 'POST', headers: { 'token': token }, body: form,\n\t\t\t\t\t\t});\n\t\t\t\t\t\tif (r.ok) {\n\t\t\t\t\t\t\tconst d = await r.json();\n\t\t\t\t\t\t\tstatus.textContent = 'Saved: ' + d.file;\n\t\t\t\t\t\t\tfileInput.value = '';\n\t\t\t\t\t\t\tnavVmRefresh();\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\tconst err = await r.json().catch(() => ({}));\n\t\t\t\t\t\t\tstatus.textContent = 'Error: ' + (err.error || r.statusText);\n\t\t\t\t\t\t}\n\t\t\t\t\t} catch(e) { status.textContent = 'Error: ' + e.message; }\n\t\t\t\t}\n\n\t\t\t\tasync function navVmFetch() {\n\t\t\t\t\tconst urlInput = document.getElementById('nav-vm-url');\n\t\t\t\t\tconst nameInput = document.getElementById('nav-vm-url-name');\n\t\t\t\t\tconst status = document.getElementById('nav-vm-add-status');\n\t\t\t\t\tconst isoUrl = urlInput.value.trim();\n\t\t\t\t\tif (!isoUrl) { status.textContent = 'Enter a URL first'; return; }\n\t\t\t\t\tstatus.textContent = 'Fetching…';\n\t\t\t\t\ttry {\n\t\t\t\t\t\tconst r = await fetch('/api/firmware/media/fetch', {\n\t\t\t\t\t\t\tmethod: 'POST', headers: getAuthHeaders(),\n\t\t\t\t\t\t\tbody: JSON.stringify({ url: isoUrl, name: nameInput.value.trim() || undefined }),\n\t\t\t\t\t\t});\n\t\t\t\t\t\tif (r.ok) {\n\t\t\t\t\t\t\tconst d = await r.json();\n\t\t\t\t\t\t\tstatus.textContent = 'Saved: ' + d.file;\n\t\t\t\t\t\t\turlInput.value = '';\n\t\t\t\t\t\t\tnameInput.value = '';\n\t\t\t\t\t\t\tnavVmRefresh();\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\tconst err = await r.json().catch(() => ({}));\n\t\t\t\t\t\t\tstatus.textContent = 'Error: ' + (err.error || r.statusText);\n\t\t\t\t\t\t}\n\t\t\t\t\t} catch(e) { status.textContent = 'Error: ' + e.message; }\n\t\t\t\t}\n\n\t\t\t\t// Load initial settings state\n\t\t\t\t(async function() {\n\t\t\t\t\ttry { const s = await apiGet('/api/vm/ssh'); sshEnabled = !!(s.data?.enabled); updateToggle('ssh-toggle', sshEnabled); } catch(e) {}\n\t\t\t\t})();\n\n\t\t\t\t// --- Logout ---\n\t\t\t\tasync function doLogout() {\n\t\t\t\t\ttry { await apiPost('/api/auth/logout'); } catch(e) {}\n\t\t\t\t\tdocument.cookie = 'nano-kvm-token=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';\n\t\t\t\t\twindow.location.replace('/auth/login');\n\t\t\t\t}\n\t\t\t</script>")
+			templ_7745c5c3_Err = navbarScript().Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</body></html>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// navbar is the top BMC nav: status, power actions, virtual media, server
+// overview toggle, settings, and logout.
+func navbar() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var3 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var3 == nil {
+			templ_7745c5c3_Var3 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<header class=\"flex items-center justify-between border-b border-border bg-card px-4 py-2\"><div class=\"flex items-center gap-3\"><span class=\"text-sm font-bold tracking-wide\">NanoKVM BMC</span>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = powerDropdown().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = virtualMediaDropdown().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div><div class=\"flex items-center gap-2\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var4 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = icon.MonitorSpeaker(icon.Props{Class: "size-3.5"}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, " <span>Server Overview</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = button.Button(button.Props{
+			Variant:    button.VariantGhost,
+			Size:       button.SizeSm,
+			Attributes: templ.Attributes{"onclick": "toggleServerOverview()", "title": "Server Overview"},
+		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var4), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = settingsDropdown().Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Var5 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Err = icon.LogOut(icon.Props{Class: "size-4"}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = button.Button(button.Props{
+			Variant:    button.VariantGhost,
+			Size:       button.SizeIcon,
+			Attributes: templ.Attributes{"onclick": "doLogout()", "title": "Logout"},
+		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div></header>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// powerDropdown surfaces current power state as the trigger pill, and the
+// dropdown content exposes power actions + boot device override.
+func powerDropdown() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var6 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var6 == nil {
+			templ_7745c5c3_Var6 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Var7 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Var8 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+				if !templ_7745c5c3_IsBuffer {
+					defer func() {
+						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err == nil {
+							templ_7745c5c3_Err = templ_7745c5c3_BufErr
+						}
+					}()
+				}
+				ctx = templ.InitializeContext(ctx)
+				templ_7745c5c3_Var9 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<span id=\"power-dot\" class=\"inline-block size-2.5 rounded-full bg-destructive\"></span> <span id=\"power-text\">Checking…</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = icon.ChevronDown(icon.Props{Class: "size-3"}).Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Size:    button.SizeSm,
+					Class:   "gap-2",
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var9), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				return nil
+			})
+			templ_7745c5c3_Err = dropdown.Trigger().Render(templ.WithChildren(ctx, templ_7745c5c3_Var8), templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Var10 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+				if !templ_7745c5c3_IsBuffer {
+					defer func() {
+						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err == nil {
+							templ_7745c5c3_Err = templ_7745c5c3_BufErr
+						}
+					}()
+				}
+				ctx = templ.InitializeContext(ctx)
+				templ_7745c5c3_Var11 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "Power Actions")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = dropdown.Label().Render(templ.WithChildren(ctx, templ_7745c5c3_Var11), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var12 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = icon.Power(icon.Props{Class: "size-4"}).Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, " <span>Power On</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = dropdown.Item(dropdown.ItemProps{Attributes: templ.Attributes{"onclick": "powerAction('on')"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var12), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var13 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = icon.PowerOff(icon.Props{Class: "size-4"}).Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, " <span>Power Off</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = dropdown.Item(dropdown.ItemProps{Attributes: templ.Attributes{"onclick": "powerAction('off')"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var13), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var14 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = icon.RefreshCw(icon.Props{Class: "size-4"}).Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, " <span>Reset</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = dropdown.Item(dropdown.ItemProps{Attributes: templ.Attributes{"onclick": "powerAction('reset')"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var14), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var15 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = icon.CircleX(icon.Props{Class: "size-4"}).Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, " <span>Force Off</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = dropdown.Item(dropdown.ItemProps{
+					Class:      "text-destructive",
+					Attributes: templ.Attributes{"onclick": "if(confirm('Force power off?')) powerAction('forceoff')"},
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var15), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = dropdown.Separator().Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var16 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "Boot Device Override")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = dropdown.Label().Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, " <div class=\"px-2 pb-2 flex flex-col gap-2\"><select id=\"boot-device\" class=\"h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm dark:bg-input/30\"><option value=\"None\">Default</option> <option value=\"Pxe\">PXE / Network</option> <option value=\"Hdd\">HDD / SD / NVMe</option> <option value=\"Cd\">USB / CD-ROM</option> <option value=\"BiosSetup\">BIOS Setup</option></select> <select id=\"boot-persist\" class=\"h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm dark:bg-input/30\"><option value=\"Once\">Once (default)</option> <option value=\"Continuous\">Continuous</option></select><div class=\"flex gap-2\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var17 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "Apply")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = button.Button(button.Props{
+					Size:       button.SizeSm,
+					Class:      "flex-1",
+					Attributes: templ.Attributes{"onclick": "applyBootOverride()"},
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var17), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var18 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "Clear")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = button.Button(button.Props{
+					Variant:    button.VariantDestructive,
+					Size:       button.SizeSm,
+					Attributes: templ.Attributes{"onclick": "clearBootOverride()"},
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var18), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</div><p id=\"boot-status\" class=\"text-xs text-muted-foreground\"></p></div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				return nil
+			})
+			templ_7745c5c3_Err = dropdown.Content(dropdown.ContentProps{Class: "w-72", Placement: dropdown.PlacementBottomStart}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var10), templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = dropdown.Dropdown().Render(templ.WithChildren(ctx, templ_7745c5c3_Var7), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// virtualMediaDropdown is the navbar's virtual-media picker. It has two views
+// (mounted-state + add-media) that the existing JS toggles via display.
+func virtualMediaDropdown() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var19 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var19 == nil {
+			templ_7745c5c3_Var19 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Var20 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Var21 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+				if !templ_7745c5c3_IsBuffer {
+					defer func() {
+						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err == nil {
+							templ_7745c5c3_Err = templ_7745c5c3_BufErr
+						}
+					}()
+				}
+				ctx = templ.InitializeContext(ctx)
+				templ_7745c5c3_Var22 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = icon.HardDrive(icon.Props{Class: "size-3.5"}).Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, " <span>Virtual Media</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = icon.ChevronDown(icon.Props{Class: "size-3"}).Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Size:    button.SizeSm,
+					Class:   "gap-2",
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var22), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				return nil
+			})
+			templ_7745c5c3_Err = dropdown.Trigger(dropdown.TriggerProps{Attributes: templ.Attributes{"onclick": "navVmRefresh()"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var21), templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Var23 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+				if !templ_7745c5c3_IsBuffer {
+					defer func() {
+						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err == nil {
+							templ_7745c5c3_Err = templ_7745c5c3_BufErr
+						}
+					}()
+				}
+				ctx = templ.InitializeContext(ctx)
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, " <div id=\"nav-vm-view\" class=\"p-2 flex flex-col gap-2\"><div><div class=\"text-sm font-semibold\">Virtual Media</div><div class=\"text-xs text-muted-foreground\">Mount an image to boot from or install an OS.</div></div><div id=\"nav-vm-card\" class=\"rounded-md border border-dashed border-border px-3 py-5 flex flex-col items-center justify-center text-center gap-2\"><div id=\"nav-vm-icon\" class=\"size-9 rounded-full border border-border flex items-center justify-center text-muted-foreground\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = icon.Plus(icon.Props{Class: "size-4"}).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "</div><div id=\"nav-vm-title\" class=\"text-sm font-semibold\">No mounted media</div><div id=\"nav-vm-sub\" class=\"text-xs text-muted-foreground\">Add a file to get started</div></div><div class=\"flex items-center justify-end gap-2\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var24 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "Eject")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = button.Button(button.Props{
+					ID:         "nav-vm-eject",
+					Variant:    button.VariantDestructive,
+					Size:       button.SizeSm,
+					Class:      "hidden",
+					Attributes: templ.Attributes{"onclick": "navVmEject()"},
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var24), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var25 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "Close")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = button.Button(button.Props{
+					Variant: button.VariantOutline,
+					Size:    button.SizeSm,
+					Attributes: templ.Attributes{
+						"onclick": "window.tui?.popover?.closeNearest(this)",
+					},
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var25), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var26 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "+ Add New Media")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = button.Button(button.Props{
+					Size:       button.SizeSm,
+					Attributes: templ.Attributes{"onclick": "navVmShowAdd()"},
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var26), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "</div><p id=\"nav-vm-status\" class=\"text-xs text-muted-foreground\"></p></div> <div id=\"nav-vm-add\" class=\"p-2 flex flex-col gap-2 hidden\"><div class=\"flex items-center justify-between\"><div class=\"text-sm font-semibold\">Add New Media</div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var27 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "Back")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = button.Button(button.Props{
+					Variant:    button.VariantOutline,
+					Size:       button.SizeSm,
+					Attributes: templ.Attributes{"onclick": "navVmShowView()"},
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var27), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</div><div class=\"text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-1\">Existing ISOs</div><div class=\"flex items-center gap-2\"><select id=\"nav-vm-select\" class=\"flex-1 h-9 rounded-md border border-input bg-transparent px-3 text-sm dark:bg-input/30\"></select>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var28 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "Mount")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = button.Button(button.Props{
+					Size:       button.SizeSm,
+					Attributes: templ.Attributes{"onclick": "navVmInsert()"},
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var28), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "</div><div class=\"text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-1\">Upload File</div><div class=\"flex items-center gap-2\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = input.Input(input.Props{
+					ID:         "nav-vm-file",
+					Type:       input.TypeFile,
+					FileAccept: ".iso,.img",
+					Class:      "flex-1",
+				}).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var29 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "Upload")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = button.Button(button.Props{
+					Size:       button.SizeSm,
+					Attributes: templ.Attributes{"onclick": "navVmUpload()"},
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var29), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "</div><div class=\"text-xs font-semibold uppercase tracking-wide text-muted-foreground mt-1\">Fetch from URL</div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = input.Input(input.Props{
+					ID:          "nav-vm-url",
+					Type:        input.TypeURL,
+					Placeholder: "https://example.com/image.iso",
+				}).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "<div class=\"flex items-center gap-2\">")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = input.Input(input.Props{
+					ID:          "nav-vm-url-name",
+					Placeholder: "filename.iso (optional)",
+					Class:       "flex-1",
+				}).Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var30 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "Fetch")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = button.Button(button.Props{
+					Size:       button.SizeSm,
+					Attributes: templ.Attributes{"onclick": "navVmFetch()"},
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var30), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "</div><p id=\"nav-vm-add-status\" class=\"text-xs text-muted-foreground\"></p></div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				return nil
+			})
+			templ_7745c5c3_Err = dropdown.Content(dropdown.ContentProps{Class: "w-96", Placement: dropdown.PlacementBottomStart}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var23), templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = dropdown.Dropdown(dropdown.Props{ID: "vm-dropdown"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var20), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// settingsDropdown exposes SSH/TLS toggles, change-password, and reboot.
+func settingsDropdown() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var31 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var31 == nil {
+			templ_7745c5c3_Var31 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Var32 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+			if !templ_7745c5c3_IsBuffer {
+				defer func() {
+					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err == nil {
+						templ_7745c5c3_Err = templ_7745c5c3_BufErr
+					}
+				}()
+			}
+			ctx = templ.InitializeContext(ctx)
+			templ_7745c5c3_Var33 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+				if !templ_7745c5c3_IsBuffer {
+					defer func() {
+						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err == nil {
+							templ_7745c5c3_Err = templ_7745c5c3_BufErr
+						}
+					}()
+				}
+				ctx = templ.InitializeContext(ctx)
+				templ_7745c5c3_Var34 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = icon.Settings(icon.Props{Class: "size-3.5"}).Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, " <span>Settings</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = icon.ChevronDown(icon.Props{Class: "size-3"}).Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Size:    button.SizeSm,
+					Class:   "gap-2",
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var34), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				return nil
+			})
+			templ_7745c5c3_Err = dropdown.Trigger().Render(templ.WithChildren(ctx, templ_7745c5c3_Var33), templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Var35 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+				if !templ_7745c5c3_IsBuffer {
+					defer func() {
+						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+						if templ_7745c5c3_Err == nil {
+							templ_7745c5c3_Err = templ_7745c5c3_BufErr
+						}
+					}()
+				}
+				ctx = templ.InitializeContext(ctx)
+				templ_7745c5c3_Var36 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "Network")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = dropdown.Label().Render(templ.WithChildren(ctx, templ_7745c5c3_Var36), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, " <div class=\"flex items-center justify-between px-2 py-1.5 text-sm\"><span>SSH</span>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var37 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "Off")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = button.Button(button.Props{
+					ID:         "ssh-toggle",
+					Variant:    button.VariantOutline,
+					Size:       button.SizeSm,
+					Attributes: templ.Attributes{"onclick": "toggleSSH()"},
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var37), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "</div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = dropdown.Separator().Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var38 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "Security")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = dropdown.Label().Render(templ.WithChildren(ctx, templ_7745c5c3_Var38), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, " <div class=\"flex items-center justify-between px-2 py-1.5 text-sm\"><span>TLS / HTTPS</span>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var39 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "Off")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = button.Button(button.Props{
+					ID:         "tls-toggle",
+					Variant:    button.VariantOutline,
+					Size:       button.SizeSm,
+					Attributes: templ.Attributes{"onclick": "toggleTLS()"},
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var39), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "</div>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var40 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = icon.KeyRound(icon.Props{Class: "size-4"}).Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, " <span>Change Password</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = dropdown.Item(dropdown.ItemProps{Href: "/auth/password"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var40), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = dropdown.Separator().Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var41 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "System")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = dropdown.Label().Render(templ.WithChildren(ctx, templ_7745c5c3_Var41), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, " ")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Var42 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+					if !templ_7745c5c3_IsBuffer {
+						defer func() {
+							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+							if templ_7745c5c3_Err == nil {
+								templ_7745c5c3_Err = templ_7745c5c3_BufErr
+							}
+						}()
+					}
+					ctx = templ.InitializeContext(ctx)
+					templ_7745c5c3_Err = icon.RefreshCw(icon.Props{Class: "size-4"}).Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, " <span>Reboot BMC</span>")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					return nil
+				})
+				templ_7745c5c3_Err = dropdown.Item(dropdown.ItemProps{
+					Class:      "text-destructive",
+					Attributes: templ.Attributes{"onclick": "if(confirm('Reboot the BMC?')) rebootSystem()"},
+				}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var42), templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				return nil
+			})
+			templ_7745c5c3_Err = dropdown.Content(dropdown.ContentProps{Class: "w-72", Placement: dropdown.PlacementBottomEnd}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var35), templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			return nil
+		})
+		templ_7745c5c3_Err = dropdown.Dropdown().Render(templ.WithChildren(ctx, templ_7745c5c3_Var32), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// navbarScript carries the per-page client logic for the navbar's dropdowns.
+// Functions are global so dropdown-item onclick handlers can reach them.
+func navbarScript() templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var43 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var43 == nil {
+			templ_7745c5c3_Var43 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "<script>\n\t\t// --- Power ---\n\t\tasync function pollPower() {\n\t\t\ttry {\n\t\t\t\tconst r = await fetch('/api/vm/gpio', { headers: getAuthHeaders() });\n\t\t\t\tconst data = await r.json();\n\t\t\t\tif (data.code === 0) {\n\t\t\t\t\tconst on = data.data.pwr;\n\t\t\t\t\tconst dot = document.getElementById('power-dot');\n\t\t\t\t\tdot.className = 'inline-block size-2.5 rounded-full ' + (on ? 'bg-green-500' : 'bg-destructive');\n\t\t\t\t\tdocument.getElementById('power-text').textContent = on ? 'Power On' : 'Power Off';\n\t\t\t\t}\n\t\t\t} catch(e) {}\n\t\t}\n\t\tpollPower();\n\t\tsetInterval(pollPower, 5000);\n\n\t\tasync function powerAction(action) {\n\t\t\ttry {\n\t\t\t\tawait fetch('/api/vm/gpio', { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({action}) });\n\t\t\t} catch(e) { console.error(e); }\n\t\t\tsetTimeout(pollPower, 2000);\n\t\t}\n\n\t\tasync function applyBootOverride() {\n\t\t\tconst device = document.getElementById('boot-device').value || 'None';\n\t\t\tconst persist = document.getElementById('boot-persist').value || 'Once';\n\t\t\tconst statusEl = document.getElementById('boot-status');\n\t\t\ttry {\n\t\t\t\tconst r = await fetch('/redfish/v1/Systems/1', {\n\t\t\t\t\tmethod: 'PATCH', headers: getAuthHeaders(),\n\t\t\t\t\tbody: JSON.stringify({ Boot: { BootSourceOverrideTarget: device, BootSourceOverrideEnabled: persist } })\n\t\t\t\t});\n\t\t\t\tconst data = await r.json();\n\t\t\t\tconst b = data.Boot;\n\t\t\t\tstatusEl.textContent = b ? `Set: ${b.BootSourceOverrideTarget} (${b.BootSourceOverrideEnabled})` : 'Applied';\n\t\t\t} catch(e) {\n\t\t\t\tstatusEl.textContent = 'Failed';\n\t\t\t}\n\t\t\tif (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();\n\t\t}\n\n\t\tasync function clearBootOverride() {\n\t\t\tconst statusEl = document.getElementById('boot-status');\n\t\t\ttry {\n\t\t\t\tconst r = await fetch('/redfish/v1/Systems/1', {\n\t\t\t\t\tmethod: 'PATCH', headers: getAuthHeaders(),\n\t\t\t\t\tbody: JSON.stringify({ Boot: { BootSourceOverrideTarget: 'None', BootSourceOverrideEnabled: 'Disabled' } })\n\t\t\t\t});\n\t\t\t\tstatusEl.textContent = r.ok ? 'Cleared' : 'Failed';\n\t\t\t} catch(e) {\n\t\t\t\tstatusEl.textContent = 'Failed';\n\t\t\t}\n\t\t\tif (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();\n\t\t}\n\n\t\t// --- Settings ---\n\t\tasync function apiGet(url) {\n\t\t\treturn (await fetch(url, { headers: getAuthHeaders() })).json();\n\t\t}\n\t\tasync function apiPost(url, body) {\n\t\t\treturn (await fetch(url, { method: 'POST', headers: getAuthHeaders(), body: body ? JSON.stringify(body) : undefined })).json();\n\t\t}\n\t\tfunction updateToggle(id, on) {\n\t\t\tconst btn = document.getElementById(id);\n\t\t\tif (!btn) return;\n\t\t\tbtn.textContent = on ? 'On' : 'Off';\n\t\t\t// Recolour by swapping templui variant classes.\n\t\t\tif (on) {\n\t\t\t\tbtn.classList.remove('border', 'bg-background');\n\t\t\t\tbtn.classList.add('bg-primary', 'text-primary-foreground');\n\t\t\t} else {\n\t\t\t\tbtn.classList.add('border', 'bg-background');\n\t\t\t\tbtn.classList.remove('bg-primary', 'text-primary-foreground');\n\t\t\t}\n\t\t}\n\n\t\tlet sshEnabled = false;\n\t\tlet tlsEnabled = false;\n\n\t\tasync function toggleSSH() {\n\t\t\tconst enable = !sshEnabled;\n\t\t\tawait apiPost(enable ? '/api/vm/ssh/enable' : '/api/vm/ssh/disable');\n\t\t\tsshEnabled = enable;\n\t\t\tupdateToggle('ssh-toggle', sshEnabled);\n\t\t}\n\t\tasync function toggleTLS() {\n\t\t\tconst enable = !tlsEnabled;\n\t\t\tawait apiPost('/api/vm/tls', { enabled: enable });\n\t\t\ttlsEnabled = enable;\n\t\t\tupdateToggle('tls-toggle', tlsEnabled);\n\t\t\talert('TLS ' + (enable ? 'enabled' : 'disabled') + '. Page may reload.');\n\t\t}\n\t\tasync function rebootSystem() {\n\t\t\tawait apiPost('/api/vm/system/reboot');\n\t\t}\n\n\t\t// --- Virtual Media (navbar dropdown) ---\n\t\tasync function navVmRefresh() {\n\t\t\ttry {\n\t\t\t\tconst r = await fetch('/api/firmware/media', { headers: getAuthHeaders() });\n\t\t\t\tif (!r.ok) return;\n\t\t\t\tconst data = await r.json();\n\n\t\t\t\tconst sel = document.getElementById('nav-vm-select');\n\t\t\t\tconst prev = sel.value;\n\t\t\t\tsel.innerHTML = '<option value=\"\">— select ISO —</option>';\n\t\t\t\t(data.files || []).forEach(f => {\n\t\t\t\t\tconst o = document.createElement('option');\n\t\t\t\t\to.value = f; o.textContent = f;\n\t\t\t\t\tsel.appendChild(o);\n\t\t\t\t});\n\t\t\t\tif (prev && (data.files || []).includes(prev)) sel.value = prev;\n\n\t\t\t\tconst title = document.getElementById('nav-vm-title');\n\t\t\t\tconst sub = document.getElementById('nav-vm-sub');\n\t\t\t\tconst eject = document.getElementById('nav-vm-eject');\n\t\t\t\tif (data.inserted) {\n\t\t\t\t\ttitle.textContent = data.inserted;\n\t\t\t\t\ttitle.classList.add('text-green-400');\n\t\t\t\t\tsub.textContent = 'Mounted as virtual media';\n\t\t\t\t\teject.classList.remove('hidden');\n\t\t\t\t} else {\n\t\t\t\t\ttitle.textContent = 'No mounted media';\n\t\t\t\t\ttitle.classList.remove('text-green-400');\n\t\t\t\t\tsub.textContent = 'Add a file to get started';\n\t\t\t\t\teject.classList.add('hidden');\n\t\t\t\t}\n\t\t\t} catch(e) {}\n\t\t}\n\t\tnavVmRefresh();\n\n\t\tfunction navVmShowAdd() {\n\t\t\tdocument.getElementById('nav-vm-view').classList.add('hidden');\n\t\t\tdocument.getElementById('nav-vm-add').classList.remove('hidden');\n\t\t}\n\t\tfunction navVmShowView() {\n\t\t\tdocument.getElementById('nav-vm-add').classList.add('hidden');\n\t\t\tdocument.getElementById('nav-vm-view').classList.remove('hidden');\n\t\t}\n\n\t\tasync function navVmInsert() {\n\t\t\tconst name = document.getElementById('nav-vm-select').value;\n\t\t\tconst status = document.getElementById('nav-vm-add-status');\n\t\t\tif (!name) { status.textContent = 'Select an ISO first'; return; }\n\t\t\tstatus.textContent = 'Mounting…';\n\t\t\ttry {\n\t\t\t\tconst r = await fetch('/api/firmware/media/insert', {\n\t\t\t\t\tmethod: 'POST', headers: getAuthHeaders(),\n\t\t\t\t\tbody: JSON.stringify({ name }),\n\t\t\t\t});\n\t\t\t\tif (r.ok) {\n\t\t\t\t\tstatus.textContent = '';\n\t\t\t\t\tnavVmRefresh();\n\t\t\t\t\tnavVmShowView();\n\t\t\t\t\tif (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();\n\t\t\t\t} else {\n\t\t\t\t\tconst err = await r.json().catch(() => ({}));\n\t\t\t\t\tstatus.textContent = 'Error: ' + (err.error || r.statusText);\n\t\t\t\t}\n\t\t\t} catch(e) { status.textContent = 'Error: ' + e.message; }\n\t\t}\n\n\t\tasync function navVmEject() {\n\t\t\tconst status = document.getElementById('nav-vm-status');\n\t\t\tstatus.textContent = 'Ejecting…';\n\t\t\ttry {\n\t\t\t\tconst r = await fetch('/api/firmware/media/eject', {\n\t\t\t\t\tmethod: 'POST', headers: getAuthHeaders(),\n\t\t\t\t});\n\t\t\t\tif (r.ok) {\n\t\t\t\t\tstatus.textContent = '';\n\t\t\t\t\tnavVmRefresh();\n\t\t\t\t\tif (typeof loadFirmwareInfo === 'function') loadFirmwareInfo();\n\t\t\t\t} else {\n\t\t\t\t\tconst err = await r.json().catch(() => ({}));\n\t\t\t\t\tstatus.textContent = 'Error: ' + (err.error || r.statusText);\n\t\t\t\t}\n\t\t\t} catch(e) { status.textContent = 'Error: ' + e.message; }\n\t\t}\n\n\t\tasync function navVmUpload() {\n\t\t\tconst fileInput = document.getElementById('nav-vm-file');\n\t\t\tconst status = document.getElementById('nav-vm-add-status');\n\t\t\tif (!fileInput.files || !fileInput.files.length) {\n\t\t\t\tstatus.textContent = 'Select a file first';\n\t\t\t\treturn;\n\t\t\t}\n\t\t\tconst token = getCookie('nano-kvm-token') || '';\n\t\t\tconst form = new FormData();\n\t\t\tform.append('file', fileInput.files[0]);\n\t\t\tstatus.textContent = 'Uploading…';\n\t\t\ttry {\n\t\t\t\tconst r = await fetch('/api/firmware/media/upload', {\n\t\t\t\t\tmethod: 'POST', headers: { 'token': token }, body: form,\n\t\t\t\t});\n\t\t\t\tif (r.ok) {\n\t\t\t\t\tconst d = await r.json();\n\t\t\t\t\tstatus.textContent = 'Saved: ' + d.file;\n\t\t\t\t\tfileInput.value = '';\n\t\t\t\t\tnavVmRefresh();\n\t\t\t\t} else {\n\t\t\t\t\tconst err = await r.json().catch(() => ({}));\n\t\t\t\t\tstatus.textContent = 'Error: ' + (err.error || r.statusText);\n\t\t\t\t}\n\t\t\t} catch(e) { status.textContent = 'Error: ' + e.message; }\n\t\t}\n\n\t\tasync function navVmFetch() {\n\t\t\tconst urlInput = document.getElementById('nav-vm-url');\n\t\t\tconst nameInput = document.getElementById('nav-vm-url-name');\n\t\t\tconst status = document.getElementById('nav-vm-add-status');\n\t\t\tconst isoUrl = urlInput.value.trim();\n\t\t\tif (!isoUrl) { status.textContent = 'Enter a URL first'; return; }\n\t\t\tstatus.textContent = 'Fetching…';\n\t\t\ttry {\n\t\t\t\tconst r = await fetch('/api/firmware/media/fetch', {\n\t\t\t\t\tmethod: 'POST', headers: getAuthHeaders(),\n\t\t\t\t\tbody: JSON.stringify({ url: isoUrl, name: nameInput.value.trim() || undefined }),\n\t\t\t\t});\n\t\t\t\tif (r.ok) {\n\t\t\t\t\tconst d = await r.json();\n\t\t\t\t\tstatus.textContent = 'Saved: ' + d.file;\n\t\t\t\t\turlInput.value = '';\n\t\t\t\t\tnameInput.value = '';\n\t\t\t\t\tnavVmRefresh();\n\t\t\t\t} else {\n\t\t\t\t\tconst err = await r.json().catch(() => ({}));\n\t\t\t\t\tstatus.textContent = 'Error: ' + (err.error || r.statusText);\n\t\t\t\t}\n\t\t\t} catch(e) { status.textContent = 'Error: ' + e.message; }\n\t\t}\n\n\t\t// Load initial settings state\n\t\t(async function() {\n\t\t\ttry { const s = await apiGet('/api/vm/ssh'); sshEnabled = !!(s.data?.enabled); updateToggle('ssh-toggle', sshEnabled); } catch(e) {}\n\t\t})();\n\n\t\t// --- Logout ---\n\t\tasync function doLogout() {\n\t\t\ttry { await apiPost('/api/auth/logout'); } catch(e) {}\n\t\t\tdocument.cookie = 'nano-kvm-token=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';\n\t\t\twindow.location.replace('/auth/login');\n\t\t}\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
