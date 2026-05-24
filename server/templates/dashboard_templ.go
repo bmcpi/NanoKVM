@@ -8,10 +8,10 @@ package templates
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-// DashboardPage is the main BMC page: an embedded serial console fills the
-// viewport, with the navbar above and the overview Sheet on the right.
-// All firmware/version polling happens here because the data is rendered into
-// IDs the OverviewSheet exposes.
+// DashboardPage is the main BMC page. Standard layout (navbar at top), then
+// a horizontal flex row containing the console pane + the Server Overview
+// sidebar. The sidebar's width animates between 0 and 24rem, so opening it
+// shrinks the console pane rather than overlaying it or the navbar.
 func DashboardPage() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -45,7 +45,7 @@ func DashboardPage() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<link rel=\"stylesheet\" href=\"/css/xterm.min.css\"><style>\n\t\t\t#console-pane { display: flex; flex-direction: column; height: 100%; padding: 1rem; gap: 0; }\n\t\t\t#console-pane.expanded { position: fixed; inset: 0; z-index: 40; background: var(--background); padding: 0; }\n\t\t\t#terminal-wrap { flex: 1; min-height: 0; position: relative; overflow: hidden; }\n\t\t\t#terminal { height: 100%; }\n\t\t</style> <div id=\"console-pane\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<link rel=\"stylesheet\" href=\"/css/xterm.min.css\"><style>\n\t\t\t#console-pane { display: flex; flex-direction: column; height: 100%; padding: 1rem; gap: 0; }\n\t\t\t#console-pane.expanded { position: fixed; inset: 0; z-index: 40; background: var(--background); padding: 0; }\n\t\t\t#terminal-wrap { flex: 1; min-height: 0; position: relative; overflow: hidden; }\n\t\t\t#terminal { height: 100%; }\n\t\t</style> <div class=\"flex h-full min-h-0 w-full\"><div class=\"flex-1 min-w-0\"><div id=\"console-pane\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -57,7 +57,15 @@ func DashboardPage() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div id=\"terminal-wrap\" class=\"border border-t-0 border-border bg-background rounded-b-md\"><div id=\"terminal\"></div></div></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div id=\"terminal-wrap\" class=\"border border-t-0 border-border bg-background rounded-b-md\"><div id=\"terminal\"></div></div></div></div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = OverviewSidebar().Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -65,7 +73,7 @@ func DashboardPage() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -73,7 +81,7 @@ func DashboardPage() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -114,7 +122,7 @@ func xtermScripts() templ.Component {
 			templ_7745c5c3_Var3 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<script src=\"/js/xterm.min.js\"></script><script src=\"/js/xterm-addon-fit.min.js\"></script><script src=\"/js/xterm-addon-attach.min.js\"></script><script src=\"/js/xterm-addon-search.min.js\"></script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<script src=\"/js/xterm.min.js\"></script><script src=\"/js/xterm-addon-fit.min.js\"></script><script src=\"/js/xterm-addon-attach.min.js\"></script><script src=\"/js/xterm-addon-search.min.js\"></script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

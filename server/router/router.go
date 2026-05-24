@@ -193,4 +193,5 @@ func server(r *gin.Engine) {
 	networkRouter(r)
 	redfishRouter(r)
 	firmwareRouter(r)
+	autoUpdateRouter(r)
 }

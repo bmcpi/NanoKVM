@@ -91,6 +91,16 @@ func layout(title string, showNav bool) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
+		if showNav {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "    ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = SettingsDialog().Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
 		templ_7745c5c3_Err = popover.Script().Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
@@ -107,7 +117,7 @@ func layout(title string, showNav bool) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -139,7 +149,7 @@ func templuiFallback() templ.Component {
 			templ_7745c5c3_Var3 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<style>\n\t\t/* Flex + positioning utilities used by templui Button / Card / Sheet. */\n\t\t.inline-flex { display: inline-flex; }\n\t\t.shrink-0   { flex-shrink: 0; }\n\t\t.whitespace-nowrap { white-space: nowrap; }\n\t\t.inset-0    { inset: 0; }\n\t\t.inset-y-0  { top: 0; bottom: 0; }\n\t\t.top-0      { top: 0; }\n\t\t.right-0    { right: 0; }\n\t\t.bottom-0   { bottom: 0; }\n\t\t.left-0     { left: 0; }\n\t\t.z-40       { z-index: 40; }\n\t\t.z-50       { z-index: 50; }\n\t\t.z-\\[60\\]   { z-index: 60; }\n\t\t.shadow-xs  { box-shadow: 0 1px 2px 0 rgba(0,0,0,.05); }\n\t\t.shadow-md  { box-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1); }\n\t\t.shadow-lg  { box-shadow: 0 10px 15px -3px rgba(0,0,0,.4), 0 4px 6px -4px rgba(0,0,0,.4); }\n\t\t.shadow-xl  { box-shadow: 0 20px 25px -5px rgba(0,0,0,.5), 0 8px 10px -6px rgba(0,0,0,.4); }\n\n\t\t/* Auto-size SVG children inside Buttons (templui's default rule). */\n\t\tbutton [class*=\"size-\"]               { /* honour explicit sizes */ }\n\t\tbutton > svg:not([class*=\"size-\"])    { width: 1rem; height: 1rem; }\n\t\ta > svg:not([class*=\"size-\"])         { width: 1rem; height: 1rem; }\n\t\t[role=\"menuitem\"] svg:not([class*=\"size-\"]) { width: 1rem; height: 1rem; }\n\n\t\t/* Backgrounds + text colours used by templui Button / Badge / Popover. */\n\t\t.bg-primary           { background-color: var(--primary); }\n\t\t.text-primary-foreground { color: var(--primary-foreground); }\n\t\t.bg-secondary         { background-color: var(--secondary); }\n\t\t.text-secondary-foreground { color: var(--secondary-foreground); }\n\t\t.text-accent-foreground { color: var(--accent-foreground); }\n\t\t.bg-popover           { background-color: var(--popover); }\n\t\t.text-popover-foreground { color: var(--popover-foreground); }\n\t\t.text-card-foreground { color: var(--card-foreground); }\n\n\t\t/* Hover/disabled helpers. */\n\t\t.disabled\\:opacity-50:disabled { opacity: .5; }\n\t\t.disabled\\:pointer-events-none:disabled { pointer-events: none; }\n\t\t.hover\\:bg-primary\\/90:hover { background-color: color-mix(in oklab, var(--primary) 90%, transparent); }\n\t\t.hover\\:bg-accent:hover { background-color: var(--accent); }\n\t\t.hover\\:bg-destructive\\/90:hover { background-color: color-mix(in oklab, var(--destructive) 90%, transparent); }\n\t</style>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<style>\n\t\t/* Flex + positioning utilities used by templui Button / Card / Sheet. */\n\t\t.inline-flex { display: inline-flex; }\n\t\t.shrink-0   { flex-shrink: 0; }\n\t\t.whitespace-nowrap { white-space: nowrap; }\n\t\t.inset-0    { inset: 0; }\n\t\t.inset-y-0  { top: 0; bottom: 0; }\n\t\t.top-0      { top: 0; }\n\t\t.right-0    { right: 0; }\n\t\t.bottom-0   { bottom: 0; }\n\t\t.left-0     { left: 0; }\n\t\t.z-40       { z-index: 40; }\n\t\t.z-50       { z-index: 50; }\n\t\t.z-\\[60\\]   { z-index: 60; }\n\t\t.shadow-xs  { box-shadow: 0 1px 2px 0 rgba(0,0,0,.05); }\n\t\t.shadow-md  { box-shadow: 0 4px 6px -1px rgba(0,0,0,.1), 0 2px 4px -2px rgba(0,0,0,.1); }\n\t\t.shadow-lg  { box-shadow: 0 10px 15px -3px rgba(0,0,0,.4), 0 4px 6px -4px rgba(0,0,0,.4); }\n\t\t.shadow-xl  { box-shadow: 0 20px 25px -5px rgba(0,0,0,.5), 0 8px 10px -6px rgba(0,0,0,.4); }\n\n\t\t/* Auto-size SVG children inside Buttons (templui's default rule). */\n\t\tbutton [class*=\"size-\"]               { /* honour explicit sizes */ }\n\t\tbutton > svg:not([class*=\"size-\"])    { width: 1rem; height: 1rem; }\n\t\ta > svg:not([class*=\"size-\"])         { width: 1rem; height: 1rem; }\n\t\t[role=\"menuitem\"] svg:not([class*=\"size-\"]) { width: 1rem; height: 1rem; }\n\n\t\t/* Backgrounds + text colours used by templui Button / Badge / Popover. */\n\t\t.bg-primary           { background-color: var(--primary); }\n\t\t.text-primary-foreground { color: var(--primary-foreground); }\n\t\t.bg-secondary         { background-color: var(--secondary); }\n\t\t.text-secondary-foreground { color: var(--secondary-foreground); }\n\t\t.text-accent-foreground { color: var(--accent-foreground); }\n\t\t.bg-popover           { background-color: var(--popover); }\n\t\t.text-popover-foreground { color: var(--popover-foreground); }\n\t\t.text-card-foreground { color: var(--card-foreground); }\n\n\t\t/* Hover/disabled helpers. */\n\t\t.disabled\\:opacity-50:disabled { opacity: .5; }\n\t\t.disabled\\:pointer-events-none:disabled { pointer-events: none; }\n\t\t.hover\\:bg-primary\\/90:hover { background-color: color-mix(in oklab, var(--primary) 90%, transparent); }\n\t\t.hover\\:bg-accent:hover { background-color: var(--accent); }\n\t\t.hover\\:bg-destructive\\/90:hover { background-color: color-mix(in oklab, var(--destructive) 90%, transparent); }\n\t</style>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -170,7 +180,7 @@ func authHelperScript() templ.Component {
 			templ_7745c5c3_Var4 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<script>\n\t\tfunction getCookie(name) {\n\t\t\tconst match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));\n\t\t\treturn match ? decodeURIComponent(match[2]) : null;\n\t\t}\n\t\tfunction getAuthHeaders() {\n\t\t\tconst token = getCookie('nano-kvm-token') || '';\n\t\t\treturn { 'Content-Type': 'application/json', 'token': token };\n\t\t}\n\t\tasync function apiGet(url) {\n\t\t\treturn (await fetch(url, { headers: getAuthHeaders() })).json();\n\t\t}\n\t\tasync function apiPost(url, body) {\n\t\t\treturn (await fetch(url, {\n\t\t\t\tmethod: 'POST',\n\t\t\t\theaders: getAuthHeaders(),\n\t\t\t\tbody: body ? JSON.stringify(body) : undefined,\n\t\t\t})).json();\n\t\t}\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<script>\n\t\tfunction getCookie(name) {\n\t\t\tconst match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));\n\t\t\treturn match ? decodeURIComponent(match[2]) : null;\n\t\t}\n\t\tfunction getAuthHeaders() {\n\t\t\tconst token = getCookie('nano-kvm-token') || '';\n\t\t\treturn { 'Content-Type': 'application/json', 'token': token };\n\t\t}\n\t\tasync function apiGet(url) {\n\t\t\treturn (await fetch(url, { headers: getAuthHeaders() })).json();\n\t\t}\n\t\tasync function apiPost(url, body) {\n\t\t\treturn (await fetch(url, {\n\t\t\t\tmethod: 'POST',\n\t\t\t\theaders: getAuthHeaders(),\n\t\t\t\tbody: body ? JSON.stringify(body) : undefined,\n\t\t\t})).json();\n\t\t}\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

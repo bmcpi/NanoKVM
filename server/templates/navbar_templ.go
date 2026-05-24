@@ -14,10 +14,15 @@ import (
 )
 
 // Navbar is the top BMC nav: brand, power dropdown, virtual-media dropdown,
-// server-overview sheet trigger, settings dropdown, logout.
+// server-overview sidebar trigger, settings dialog trigger, logout.
 //
-// Each dropdown is a focused component in its own file (power_menu,
-// virtual_media, settings_menu, overview_sheet).
+// Each menu is a focused component in its own file (power_menu,
+// virtual_media, settings_menu / SettingsDialog, overview / OverviewSidebar).
+//
+// The Server Overview trigger uses sidebar.Trigger(Target: overviewSidebarID)
+// — Navbar must therefore render inside the sidebar.Layout established by
+// DashboardPage. Pages that don't have an overview sidebar (login, password)
+// skip Navbar entirely.
 func Navbar() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -78,14 +83,17 @@ func Navbar() templ.Component {
 			return nil
 		})
 		templ_7745c5c3_Err = button.Button(button.Props{
-			Variant:    button.VariantGhost,
-			Size:       button.SizeSm,
-			Attributes: templ.Attributes{"onclick": "openOverview()", "title": "Server Overview"},
+			Variant: button.VariantGhost,
+			Size:    button.SizeSm,
+			Attributes: templ.Attributes{
+				"onclick": "toggleOverview()",
+				"title":   "Server Overview",
+			},
 		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = SettingsMenu().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = SettingsDialogTrigger().Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -116,10 +124,6 @@ func Navbar() templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div></header>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = OverviewSheet().Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

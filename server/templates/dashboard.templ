@@ -1,9 +1,9 @@
 package templates
 
-// DashboardPage is the main BMC page: an embedded serial console fills the
-// viewport, with the navbar above and the overview Sheet on the right.
-// All firmware/version polling happens here because the data is rendered into
-// IDs the OverviewSheet exposes.
+// DashboardPage is the main BMC page. Standard layout (navbar at top), then
+// a horizontal flex row containing the console pane + the Server Overview
+// sidebar. The sidebar's width animates between 0 and 24rem, so opening it
+// shrinks the console pane rather than overlaying it or the navbar.
 templ DashboardPage() {
 	@layout("NanoKVM BMC", true) {
 		<link rel="stylesheet" href="/css/xterm.min.css"/>
@@ -13,12 +13,17 @@ templ DashboardPage() {
 			#terminal-wrap { flex: 1; min-height: 0; position: relative; overflow: hidden; }
 			#terminal { height: 100%; }
 		</style>
-		<div id="console-pane">
-			@ConsoleToolbar()
-			@ConsoleSearchBar()
-			<div id="terminal-wrap" class="border border-t-0 border-border bg-background rounded-b-md">
-				<div id="terminal"></div>
+		<div class="flex h-full min-h-0 w-full">
+			<div class="flex-1 min-w-0">
+				<div id="console-pane">
+					@ConsoleToolbar()
+					@ConsoleSearchBar()
+					<div id="terminal-wrap" class="border border-t-0 border-border bg-background rounded-b-md">
+						<div id="terminal"></div>
+					</div>
+				</div>
 			</div>
+			@OverviewSidebar()
 		</div>
 		@xtermScripts()
 		@consoleScript()

@@ -11,21 +11,21 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"github.com/templui/templui/components/badge"
 	"github.com/templui/templui/components/button"
-	"github.com/templui/templui/components/icon"
 	"github.com/templui/templui/components/separator"
 )
 
-// OverviewSheet is a self-contained right-side drawer: a backdrop + an
-// <aside> that slides in via a CSS class toggle. No templui Sheet — that
-// component depends on Tailwind utilities (translate-x-full, fixed inset-0,
-// z-50, etc.) that aren't in the project's current compiled output.css.
+// overviewSidebarID is the ID of the slide-in panel. Used by the navbar
+// trigger (onclick="toggleOverview()") indirectly via the script below.
+const overviewSidebarID = "overview-sidebar"
+
+// OverviewSidebar is a push-style sidebar contained within the dashboard's
+// flex row (next to the console pane, below the navbar). Width animates
+// from 0 (closed) to 24rem (open) via data-state, so opening it shrinks
+// the console pane rather than overlaying it.
 //
-// All positioning is in a scoped <style> block so the drawer renders
-// correctly regardless of which Tailwind utilities the build emitted.
-//
-// Trigger from anywhere with onclick="openOverview()". The navbar wires it
-// via the Server Overview button.
-func OverviewSheet() templ.Component {
+// We do NOT use templui's Sidebar component here: that one positions its
+// <aside> as `fixed inset-y-0 h-svh`, so it always covers the navbar.
+func OverviewSidebar() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -46,57 +46,40 @@ func OverviewSheet() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = overviewStyles().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = overviewSidebarStyles().Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"overview-backdrop\" class=\"ov-backdrop\" onclick=\"closeOverview()\" aria-hidden=\"true\"></div><aside id=\"overview-panel\" class=\"ov-panel\" aria-hidden=\"true\" aria-labelledby=\"overview-title\"><div class=\"ov-header\"><div><h2 id=\"overview-title\" class=\"text-sm font-semibold\">Server Overview</h2><p class=\"text-xs text-muted-foreground\">Identity, network, and firmware state of the managed server.</p></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<aside id=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Var2 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
-			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
-			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
-			if !templ_7745c5c3_IsBuffer {
-				defer func() {
-					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err == nil {
-						templ_7745c5c3_Err = templ_7745c5c3_BufErr
-					}
-				}()
-			}
-			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = icon.X().Render(ctx, templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			return nil
-		})
-		templ_7745c5c3_Err = button.Button(button.Props{
-			Variant:    button.VariantGhost,
-			Size:       button.SizeIcon,
-			Attributes: templ.Attributes{"onclick": "closeOverview()", "aria-label": "Close"},
-		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		var templ_7745c5c3_Var2 string
+		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(overviewSidebarID)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview.templ`, Line: 23, Col: 24}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</div><div class=\"ov-body\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" class=\"ov-sidebar\" data-state=\"closed\" aria-label=\"Server Overview\"><div class=\"ov-sidebar-inner\"><div class=\"flex items-center justify-between border-b border-border px-4 py-3\"><div><h2 class=\"text-sm font-semibold\">Server Overview</h2><p class=\"text-xs text-muted-foreground\">Identity, network, and firmware state.</p></div></div><div class=\"flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-4\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = serverInfoSection().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = overviewServerSection().Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = bmcInfoSection().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = overviewBmcSection().Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = biosInfoSection().Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = overviewBiosSection().Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div></aside>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</div></div></aside>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -108,9 +91,7 @@ func OverviewSheet() templ.Component {
 	})
 }
 
-// overviewStyles owns the drawer positioning + transition. Keeping it inline
-// here means the component works without any Tailwind classes being present.
-func overviewStyles() templ.Component {
+func overviewSidebarStyles() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -131,7 +112,7 @@ func overviewStyles() templ.Component {
 			templ_7745c5c3_Var3 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<style>\n\t\t.ov-backdrop {\n\t\t\tposition: fixed;\n\t\t\tinset: 0;\n\t\t\tbackground: rgba(0, 0, 0, 0.5);\n\t\t\topacity: 0;\n\t\t\tpointer-events: none;\n\t\t\ttransition: opacity 0.2s ease;\n\t\t\tz-index: 40;\n\t\t}\n\t\t.ov-backdrop.open { opacity: 1; pointer-events: auto; }\n\n\t\t.ov-panel {\n\t\t\tposition: fixed;\n\t\t\ttop: 0;\n\t\t\tright: 0;\n\t\t\tbottom: 0;\n\t\t\twidth: min(28rem, 100vw);\n\t\t\tbackground: var(--card);\n\t\t\tborder-left: 1px solid var(--border);\n\t\t\tbox-shadow: -10px 0 25px rgba(0, 0, 0, 0.4);\n\t\t\ttransform: translateX(100%);\n\t\t\ttransition: transform 0.2s ease;\n\t\t\tz-index: 50;\n\t\t\tdisplay: flex;\n\t\t\tflex-direction: column;\n\t\t}\n\t\t.ov-panel.open { transform: translateX(0); }\n\n\t\t.ov-header {\n\t\t\tdisplay: flex;\n\t\t\talign-items: flex-start;\n\t\t\tjustify-content: space-between;\n\t\t\tgap: 1rem;\n\t\t\tpadding: 1rem;\n\t\t\tborder-bottom: 1px solid var(--border);\n\t\t}\n\t\t.ov-body {\n\t\t\tflex: 1;\n\t\t\tmin-height: 0;\n\t\t\toverflow-y: auto;\n\t\t\tpadding: 1rem;\n\t\t\tdisplay: flex;\n\t\t\tflex-direction: column;\n\t\t\tgap: 1rem;\n\t\t}\n\n\t\t.ov-section {\n\t\t\tborder: 1px solid var(--border);\n\t\t\tborder-radius: 0.5rem;\n\t\t\tbackground: var(--card);\n\t\t}\n\t\t.ov-section-header {\n\t\t\tpadding: 0.75rem 1rem;\n\t\t\tborder-bottom: 1px solid var(--border);\n\t\t\tfont-size: 0.875rem;\n\t\t\tfont-weight: 600;\n\t\t}\n\t\t.ov-section-body { padding: 0.5rem 1rem 1rem; }\n\n\t\t.ov-row {\n\t\t\tdisplay: flex;\n\t\t\talign-items: center;\n\t\t\tjustify-content: space-between;\n\t\t\tgap: 0.5rem;\n\t\t\tpadding: 0.375rem 0;\n\t\t\tborder-bottom: 1px solid var(--border);\n\t\t}\n\t\t.ov-row:last-child { border-bottom: none; }\n\t\t.ov-label { font-size: 0.75rem; color: var(--muted-foreground); flex-shrink: 0; }\n\t\t.ov-value {\n\t\t\tfont-size: 0.75rem;\n\t\t\tfont-family: var(--font-mono);\n\t\t\ttext-align: right;\n\t\t\tword-break: break-all;\n\t\t\tmin-width: 0;\n\t\t}\n\t</style>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<style>\n\t\t.ov-sidebar {\n\t\t\twidth: 0;\n\t\t\tflex-shrink: 0;\n\t\t\toverflow: hidden;\n\t\t\tborder-left: 1px solid var(--border);\n\t\t\tbackground: var(--card);\n\t\t\tdisplay: flex;\n\t\t\tflex-direction: column;\n\t\t\ttransition: width 0.2s ease;\n\t\t}\n\t\t.ov-sidebar[data-state=\"open\"] { width: 24rem; }\n\t\t@media (max-width: 640px) {\n\t\t\t.ov-sidebar[data-state=\"open\"] { width: 100%; }\n\t\t}\n\t\t/* Inner wrapper keeps content at a stable width during the width\n\t\t   animation so nothing reflows mid-transition. */\n\t\t.ov-sidebar-inner {\n\t\t\twidth: 24rem;\n\t\t\tmax-width: 100vw;\n\t\t\theight: 100%;\n\t\t\tdisplay: flex;\n\t\t\tflex-direction: column;\n\t\t}\n\t\t.ov-section-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted-foreground); margin-bottom: 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--border); }\n\t\t.ov-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .375rem 0; border-bottom: 1px solid var(--border); }\n\t\t.ov-row:last-child { border-bottom: none; }\n\t\t.ov-label { font-size: .75rem; color: var(--muted-foreground); flex-shrink: 0; }\n\t\t.ov-value { font-size: .75rem; font-family: var(--font-mono); text-align: right; word-break: break-all; min-width: 0; }\n\t</style>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -139,8 +120,7 @@ func overviewStyles() templ.Component {
 	})
 }
 
-// serverInfoSection renders the managed-server identity rows.
-func serverInfoSection() templ.Component {
+func overviewServerSection() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -161,7 +141,7 @@ func serverInfoSection() templ.Component {
 			templ_7745c5c3_Var4 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<section class=\"ov-section\"><div class=\"ov-section-header\">Server Information</div><div class=\"ov-section-body\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<section><div class=\"ov-section-title\">Server Information</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -189,7 +169,7 @@ func serverInfoSection() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -197,8 +177,7 @@ func serverInfoSection() templ.Component {
 	})
 }
 
-// bmcInfoSection renders the BMC build + network identity + app update.
-func bmcInfoSection() templ.Component {
+func overviewBmcSection() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -219,7 +198,7 @@ func bmcInfoSection() templ.Component {
 			templ_7745c5c3_Var5 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<section class=\"ov-section\"><div class=\"ov-section-header\">BMC Information</div><div class=\"ov-section-body\"><div class=\"ov-row\"><span class=\"ov-label\">Application</span> <span class=\"ov-value flex items-center gap-1.5 justify-end\"><span id=\"info-app\">—</span>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<section><div class=\"ov-section-title\">BMC Information</div><div class=\"ov-row\"><span class=\"ov-label\">Application</span> <span class=\"ov-value flex items-center gap-1.5 justify-end\"><span id=\"info-app\">—</span>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -297,7 +276,7 @@ func bmcInfoSection() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"ov-row\"><span class=\"ov-label\">Interfaces</span> <span class=\"ov-value\">IPMI :623 · <a href=\"/redfish/v1\" class=\"underline underline-offset-4 hover:text-foreground\">Redfish</a></span></div></div></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div class=\"ov-row\"><span class=\"ov-label\">Interfaces</span> <span class=\"ov-value\">IPMI :623 · <a href=\"/redfish/v1\" class=\"underline underline-offset-4 hover:text-foreground\">Redfish</a></span></div></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -305,8 +284,7 @@ func bmcInfoSection() templ.Component {
 	})
 }
 
-// biosInfoSection renders U-Boot details + boot override / kernel controls.
-func biosInfoSection() templ.Component {
+func overviewBiosSection() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -327,7 +305,7 @@ func biosInfoSection() templ.Component {
 			templ_7745c5c3_Var8 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<section class=\"ov-section\"><div class=\"ov-section-header\">BIOS Information</div><div class=\"ov-section-body\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<section><div class=\"ov-section-title\">BIOS Information</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -439,11 +417,7 @@ func biosInfoSection() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = button.Button(button.Props{
-			Variant:    button.VariantOutline,
-			Size:       button.SizeSm,
-			Attributes: templ.Attributes{"onclick": "setBootOverride(false)"},
-		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var11), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Attributes: templ.Attributes{"onclick": "setBootOverride(false)"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var11), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -465,11 +439,7 @@ func biosInfoSection() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = button.Button(button.Props{
-			Variant:    button.VariantOutline,
-			Size:       button.SizeSm,
-			Attributes: templ.Attributes{"onclick": "setBootOverride(true)"},
-		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var12), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm, Attributes: templ.Attributes{"onclick": "setBootOverride(true)"}}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var12), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -582,7 +552,7 @@ func biosInfoSection() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</div><div id=\"bios-kernel-status\" class=\"text-[0.6875rem] text-muted-foreground\"></div></div></div></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</div><div id=\"bios-kernel-status\" class=\"text-[0.6875rem] text-muted-foreground\"></div></div></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -619,7 +589,7 @@ func kvRow(label, valueID string) templ.Component {
 		var templ_7745c5c3_Var18 string
 		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview.templ`, Line: 285, Col: 32}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview.templ`, Line: 217, Col: 32}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {
@@ -632,7 +602,7 @@ func kvRow(label, valueID string) templ.Component {
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(valueID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview.templ`, Line: 286, Col: 20}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview.templ`, Line: 218, Col: 20}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
@@ -647,7 +617,7 @@ func kvRow(label, valueID string) templ.Component {
 }
 
 // overviewToggleScript exposes openOverview / closeOverview / toggleOverview
-// globally so the navbar trigger + ESC handler can drive the drawer.
+// globally. The navbar button calls toggleOverview(); ESC closes.
 func overviewToggleScript() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -669,7 +639,7 @@ func overviewToggleScript() templ.Component {
 			templ_7745c5c3_Var20 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<script>\n\t\twindow.openOverview = function() {\n\t\t\tdocument.getElementById('overview-panel').classList.add('open');\n\t\t\tdocument.getElementById('overview-backdrop').classList.add('open');\n\t\t\tdocument.getElementById('overview-panel').setAttribute('aria-hidden', 'false');\n\t\t};\n\t\twindow.closeOverview = function() {\n\t\t\tdocument.getElementById('overview-panel').classList.remove('open');\n\t\t\tdocument.getElementById('overview-backdrop').classList.remove('open');\n\t\t\tdocument.getElementById('overview-panel').setAttribute('aria-hidden', 'true');\n\t\t};\n\t\twindow.toggleOverview = function() {\n\t\t\tconst panel = document.getElementById('overview-panel');\n\t\t\tpanel.classList.contains('open') ? closeOverview() : openOverview();\n\t\t};\n\t\tdocument.addEventListener('keydown', (e) => {\n\t\t\tif (e.key === 'Escape' && document.getElementById('overview-panel').classList.contains('open')) {\n\t\t\t\tcloseOverview();\n\t\t\t}\n\t\t});\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "<script>\n\t\t(function() {\n\t\t\tconst el = () => document.getElementById('overview-sidebar');\n\t\t\tconst setState = (s) => { const a = el(); if (a) a.dataset.state = s; };\n\t\t\twindow.openOverview  = () => setState('open');\n\t\t\twindow.closeOverview = () => setState('closed');\n\t\t\twindow.toggleOverview = () => {\n\t\t\t\tconst a = el();\n\t\t\t\tif (!a) return;\n\t\t\t\ta.dataset.state = a.dataset.state === 'open' ? 'closed' : 'open';\n\t\t\t};\n\t\t\tdocument.addEventListener('keydown', (e) => {\n\t\t\t\tif (e.key === 'Escape') {\n\t\t\t\t\tconst a = el();\n\t\t\t\t\tif (a && a.dataset.state === 'open') closeOverview();\n\t\t\t\t}\n\t\t\t});\n\t\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

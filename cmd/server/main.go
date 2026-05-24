@@ -14,6 +14,7 @@ import (
 	"github.com/BMCPi/NanoKVM/server/middleware"
 	"github.com/BMCPi/NanoKVM/server/router"
 	"github.com/BMCPi/NanoKVM/server/service/application"
+	"github.com/BMCPi/NanoKVM/server/service/autoupdate"
 	"github.com/BMCPi/NanoKVM/server/service/firmware"
 	"github.com/BMCPi/NanoKVM/server/service/ipmi"
 	"github.com/BMCPi/NanoKVM/server/telemetry"
@@ -64,6 +65,9 @@ func initialize() {
 	if err := firmware.GetController().Init(); err != nil {
 		log.Printf("Firmware controller init: %v", err)
 	}
+
+	// Start the auto-update ticker (no-op when AutoUpdate.Enabled is false).
+	autoupdate.Start()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -118,6 +122,7 @@ func run() {
 }
 
 func dispose() {
+	autoupdate.Stop()
 	if ipmiServer != nil {
 		ipmiServer.Stop()
 	}

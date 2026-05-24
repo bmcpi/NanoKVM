@@ -36,6 +36,13 @@ templ layout(title string, showNav bool) {
 					{ children... }
 				</main>
 			</div>
+			if showNav {
+				// SettingsDialog must be at the root so the trigger (in the
+				// navbar) and the modal share a DOM scope. The Server Overview
+				// sidebar only exists on DashboardPage (see dashboardLayout);
+				// on other showNav pages the trigger button is a harmless no-op.
+				@SettingsDialog()
+			}
 			// templui scripts (each gated by its own scriptOnce handle).
 			@popover.Script()
 			@dropdown.Script()

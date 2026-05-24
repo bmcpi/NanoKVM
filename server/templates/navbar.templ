@@ -6,10 +6,15 @@ import (
 )
 
 // Navbar is the top BMC nav: brand, power dropdown, virtual-media dropdown,
-// server-overview sheet trigger, settings dropdown, logout.
+// server-overview sidebar trigger, settings dialog trigger, logout.
 //
-// Each dropdown is a focused component in its own file (power_menu,
-// virtual_media, settings_menu, overview_sheet).
+// Each menu is a focused component in its own file (power_menu,
+// virtual_media, settings_menu / SettingsDialog, overview / OverviewSidebar).
+//
+// The Server Overview trigger uses sidebar.Trigger(Target: overviewSidebarID)
+// — Navbar must therefore render inside the sidebar.Layout established by
+// DashboardPage. Pages that don't have an overview sidebar (login, password)
+// skip Navbar entirely.
 templ Navbar() {
 	<header class="flex items-center justify-between border-b border-border bg-card px-4 py-2">
 		<div class="flex items-center gap-3">
@@ -19,14 +24,17 @@ templ Navbar() {
 		</div>
 		<div class="flex items-center gap-2">
 			@button.Button(button.Props{
-				Variant:    button.VariantGhost,
-				Size:       button.SizeSm,
-				Attributes: templ.Attributes{"onclick": "openOverview()", "title": "Server Overview"},
+				Variant: button.VariantGhost,
+				Size:    button.SizeSm,
+				Attributes: templ.Attributes{
+					"onclick": "toggleOverview()",
+					"title":   "Server Overview",
+				},
 			}) {
 				@icon.MonitorSpeaker()
 				<span>Server Overview</span>
 			}
-			@SettingsMenu()
+			@SettingsDialogTrigger()
 			@button.Button(button.Props{
 				Variant:    button.VariantGhost,
 				Size:       button.SizeIcon,
@@ -36,7 +44,6 @@ templ Navbar() {
 			}
 		</div>
 	</header>
-	@OverviewSheet()
 	@navbarScript()
 }
 

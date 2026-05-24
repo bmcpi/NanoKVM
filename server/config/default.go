@@ -70,6 +70,12 @@ var defaultConfig = &Config{
 			Insecure: true,
 		},
 	},
+	AutoUpdate: AutoUpdate{
+		Enabled:         false,
+		IntervalMinutes: 360, // 6 hours
+		Application:     true,
+		BIOS:            false,
+	},
 }
 
 func checkDefaultValue() {
@@ -144,6 +150,10 @@ func checkDefaultValue() {
 	}
 	if instance.Telemetry.Prometheus.Path == "" {
 		instance.Telemetry.Prometheus.Path = defaultConfig.Telemetry.Prometheus.Path
+	}
+
+	if instance.AutoUpdate.IntervalMinutes <= 0 {
+		instance.AutoUpdate.IntervalMinutes = defaultConfig.AutoUpdate.IntervalMinutes
 	}
 
 	instance.Hardware = getHardware()

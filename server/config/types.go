@@ -15,9 +15,25 @@ type Config struct {
 	Serial         Serial   `yaml:"serial"`
 	Firmware       Firmware `yaml:"firmware"`
 
-	Power     Power     `yaml:"power"`
-	Telemetry Telemetry `yaml:"telemetry"`
-	Hardware  Hardware  `yaml:"-"`
+	Power      Power      `yaml:"power"`
+	Telemetry  Telemetry  `yaml:"telemetry"`
+	AutoUpdate AutoUpdate `yaml:"autoUpdate"`
+	Hardware   Hardware   `yaml:"-"`
+}
+
+// AutoUpdate configures the background updater that periodically checks
+// for new application and BIOS (U-Boot) releases and applies them when
+// enabled. Disabled by default — opt-in via config or the settings dialog.
+type AutoUpdate struct {
+	// Enabled gates the whole subsystem; when false the ticker doesn't run.
+	Enabled bool `yaml:"enabled"`
+	// IntervalMinutes between check-and-apply runs. Clamped to >= 5 at runtime
+	// so a misconfigured value can't hammer GitHub.
+	IntervalMinutes int `yaml:"intervalMinutes"`
+	// Application toggles auto-updating the NanoKVM application package.
+	Application bool `yaml:"application"`
+	// BIOS toggles auto-updating the U-Boot BIOS image.
+	BIOS bool `yaml:"bios"`
 }
 
 // Telemetry holds OpenTelemetry + Prometheus configuration.
