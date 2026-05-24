@@ -5,6 +5,7 @@ import (
 	"github.com/templui/templui/components/button"
 	"github.com/templui/templui/components/dropdown"
 	"github.com/templui/templui/components/icon"
+	"github.com/templui/templui/components/selectbox"
 )
 
 // PowerMenu is the navbar power-state pill and the dropdown holding power
@@ -35,17 +36,8 @@ templ PowerMenu() {
 				Boot Device Override
 			}
 			<div class="flex flex-col gap-2 px-2 pb-2">
-				@nativeSelect("boot-device", []selectOption{
-					{Value: "None", Label: "Default"},
-					{Value: "Pxe", Label: "PXE / Network"},
-					{Value: "Hdd", Label: "HDD / SD / NVMe"},
-					{Value: "Cd", Label: "USB / CD-ROM"},
-					{Value: "BiosSetup", Label: "BIOS Setup"},
-				})
-				@nativeSelect("boot-persist", []selectOption{
-					{Value: "Once", Label: "Once (default)"},
-					{Value: "Continuous", Label: "Continuous"},
-				})
+				@bootDeviceSelect()
+				@bootPersistSelect()
 				<div class="flex gap-2">
 					@button.Button(button.Props{
 						Size:       button.SizeSm,
@@ -83,6 +75,59 @@ templ dropdownIconItem(onclick, class string, ico func(...icon.Props) templ.Comp
 			{ label }
 		</span>
 	}
+}
+
+// bootDeviceSelect is the templui Selectbox driving the Redfish boot
+// device override. The hidden input keeps id="boot-device" so the existing
+// applyBootOverride()/clearBootOverride() handlers in powerMenuScript can
+// continue reading `document.getElementById('boot-device').value`.
+templ bootDeviceSelect() {
+	@selectbox.SelectBox() {
+		@selectbox.Trigger(selectbox.TriggerProps{
+			Name:       "boot-device",
+			Attributes: templ.Attributes{"id": "boot-device"},
+		}) {
+			@selectbox.Value(selectbox.ValueProps{Placeholder: "Default"})
+		}
+		@selectbox.Content() {
+			@selectbox.Item(selectbox.ItemProps{Value: "None", Selected: true}) {
+				Default
+			}
+			@selectbox.Item(selectbox.ItemProps{Value: "Pxe"}) {
+				PXE / Network
+			}
+			@selectbox.Item(selectbox.ItemProps{Value: "Hdd"}) {
+				HDD / SD / NVMe
+			}
+			@selectbox.Item(selectbox.ItemProps{Value: "Cd"}) {
+				USB / CD-ROM
+			}
+			@selectbox.Item(selectbox.ItemProps{Value: "BiosSetup"}) {
+				BIOS Setup
+			}
+		}
+	}
+}
+
+// bootPersistSelect chooses Once vs Continuous for the boot override.
+templ bootPersistSelect() {
+	@selectbox.SelectBox() {
+		@selectbox.Trigger(selectbox.TriggerProps{
+			Name:       "boot-persist",
+			Attributes: templ.Attributes{"id": "boot-persist"},
+		}) {
+			@selectbox.Value(selectbox.ValueProps{Placeholder: "Once (default)"})
+		}
+		@selectbox.Content() {
+			@selectbox.Item(selectbox.ItemProps{Value: "Once", Selected: true}) {
+				Once (default)
+			}
+			@selectbox.Item(selectbox.ItemProps{Value: "Continuous"}) {
+				Continuous
+			}
+		}
+	}
+	@selectbox.Script()
 }
 
 // PowerBadge is a small inline pill showing the current power state.

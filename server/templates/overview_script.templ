@@ -246,47 +246,95 @@ templ overviewDataScript() {
 		};
 
 		// ── Kernel-version → U-Boot image selector ─────────────────────────
+		// The selectbox content (data-tui-selectbox-content) is populated
+		// dynamically — templui's selectbox.js attaches via event delegation
+		// (document-level click handler) so dynamic .select-item children
+		// participate in selection without any per-item wiring.
+
+		// Class string for an item div, copied from selectbox.Item template
+		// so dynamic items render identically to server-rendered ones.
+		const KERNEL_ITEM_CLASS = [
+			'select-item', 'group', 'relative', 'flex', 'w-full',
+			'cursor-default', 'select-none', 'items-center', 'rounded-sm',
+			'py-1.5', 'px-2', 'text-sm', 'font-light', 'outline-none',
+			'hover:bg-accent', 'hover:text-accent-foreground',
+			'focus-visible:bg-accent', 'focus-visible:text-accent-foreground',
+			'data-[tui-selectbox-selected=true]:bg-accent',
+			'data-[tui-selectbox-selected=true]:text-accent-foreground',
+		].join(' ');
+
+		function kernelContent() {
+			const box = document.getElementById('bios-kernel-box');
+			return box?.querySelector('[data-tui-selectbox-content]') || null;
+		}
+
+		function kernelHiddenInput() {
+			return document.getElementById('bios-kernel-select');
+		}
+
+		function selectedKernelItem() {
+			const content = kernelContent();
+			const hidden = kernelHiddenInput();
+			if (!content || !hidden || !hidden.value) return null;
+			return content.querySelector(`.select-item[data-tui-selectbox-value="${CSS.escape(hidden.value)}"]`);
+		}
+
 		async function loadKernelVersions() {
 			try {
 				const r = await fetch('/api/firmware/bios/kernels', { headers: getAuthHeaders() });
 				if (!r.ok) return;
 				const data = await r.json();
-				const select = document.getElementById('bios-kernel-select');
-				if (!select) return;
-				while (select.options.length > 1) select.remove(1);
+				const content = kernelContent();
+				if (!content) return;
+				content.innerHTML = '';
 				for (const k of (data.kernels || [])) {
-					const opt = document.createElement('option');
-					opt.value = k.kernel;
+					const item = document.createElement('div');
+					item.className = KERNEL_ITEM_CLASS;
+					item.setAttribute('role', 'option');
+					item.setAttribute('data-tui-selectbox-value', k.kernel);
+					item.setAttribute('data-tui-selectbox-selected', 'false');
+					item.setAttribute('data-tui-selectbox-disabled', 'false');
+					item.setAttribute('tabindex', '0');
+					item.dataset.downloaded = k.downloaded ? '1' : '';
+					item.dataset.active = k.active ? '1' : '';
+
+					const text = document.createElement('span');
+					text.className = 'truncate select-item-text';
 					let label = `Linux ${k.kernel} → U-Boot ${k.uboot}`;
 					if (k.active) label += ' ★ Active';
 					else if (k.downloaded) label += ' (Downloaded)';
-					opt.textContent = label;
-					opt.dataset.downloaded = k.downloaded ? '1' : '';
-					opt.dataset.active = k.active ? '1' : '';
-					select.appendChild(opt);
+					text.textContent = label;
+					item.appendChild(text);
+
+					content.appendChild(item);
 				}
 				updateKernelButtons();
 			} catch(e) { console.warn('kernel version list failed:', e); }
 		}
 		loadKernelVersions();
 
+		// Re-evaluate action buttons whenever the selectbox's hidden input
+		// dispatches change (selectbox.js does this on item click).
+		(function() {
+			const hidden = kernelHiddenInput();
+			if (hidden) hidden.addEventListener('change', () => updateKernelButtons());
+		})();
+
 		window.updateKernelButtons = function() {
-			const select = document.getElementById('bios-kernel-select');
-			if (!select) return;
-			const opt = select.options[select.selectedIndex];
+			const item = selectedKernelItem();
 			const dlBtn = document.getElementById('btn-kernel-download');
 			const rfBtn = document.getElementById('btn-kernel-refresh');
 			const actBtn = document.getElementById('btn-kernel-activate');
 			const status = document.getElementById('bios-kernel-status');
-			if (!opt || !opt.value) {
+			if (!item) {
 				dlBtn.classList.add('hidden');
 				if (rfBtn) rfBtn.classList.add('hidden');
 				actBtn.classList.add('hidden');
 				status.textContent = '';
 				return;
 			}
-			const downloaded = !!opt.dataset.downloaded;
-			const active = !!opt.dataset.active;
+			const downloaded = !!item.dataset.downloaded;
+			const active = !!item.dataset.active;
 			dlBtn.classList.toggle('hidden', downloaded);
 			if (rfBtn) rfBtn.classList.toggle('hidden', !downloaded);
 			actBtn.classList.toggle('hidden', !(downloaded && !active));
@@ -294,7 +342,7 @@ templ overviewDataScript() {
 		};
 
 		window.downloadKernelBIOS = async function() {
-			const kernel = document.getElementById('bios-kernel-select').value;
+			const kernel = kernelHiddenInput()?.value;
 			if (!kernel) return;
 			const dlBtn = document.getElementById('btn-kernel-download');
 			const status = document.getElementById('bios-kernel-status');
@@ -333,11 +381,10 @@ templ overviewDataScript() {
 		};
 
 		window.refreshKernelBIOS = async function() {
-			const select = document.getElementById('bios-kernel-select');
-			const kernel = select.value;
+			const kernel = kernelHiddenInput()?.value;
 			if (!kernel) return;
-			const opt = select.options[select.selectedIndex];
-			const ubootVer = opt ? opt.textContent.match(/U-Boot (\S+)/)?.[1] || kernel : kernel;
+			const item = selectedKernelItem();
+			const ubootVer = item ? item.textContent.match(/U-Boot (\S+)/)?.[1] || kernel : kernel;
 			if (!confirm(`Re-download U-Boot image for Linux ${kernel} (${ubootVer})? The existing cached image will be overwritten.`)) return;
 			const rfBtn = document.getElementById('btn-kernel-refresh');
 			const status = document.getElementById('bios-kernel-status');
@@ -378,7 +425,7 @@ templ overviewDataScript() {
 		};
 
 		window.activateKernelBIOS = async function() {
-			const kernel = document.getElementById('bios-kernel-select').value;
+			const kernel = kernelHiddenInput()?.value;
 			if (!kernel) return;
 			if (!confirm(`Activate U-Boot for Linux ${kernel}? Env files (machine.env, persistent.env, once.env) are preserved.`)) return;
 			const actBtn = document.getElementById('btn-kernel-activate');
