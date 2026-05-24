@@ -144,6 +144,42 @@ templ eepromDialogScript() {
 				s.classList.add(cls || 'text-muted-foreground');
 			}
 
+			// catalogByName indexes the per-platform catalog from the API
+			// response so renderPreview can show each row's documented
+			// default + description. Re-built each time a fresh summary
+			// arrives from the server.
+			let catalogByName = {};
+
+			function buildCatalogIndex(summary) {
+				const idx = {};
+				for (const k of (summary.catalog || [])) idx[k.name] = k;
+				catalogByName = idx;
+			}
+
+			// rowMatchesDefault mirrors eepromkeys.IsDefault for [all].
+			// Returns true when the value would be filtered out at save
+			// time. Only the [all] section is filtered server-side; other
+			// sections are always kept verbatim.
+			function rowMatchesDefault(section, key, value) {
+				if (section !== 'all') return false;
+				const meta = catalogByName[key];
+				if (!meta || !meta.default) return false;
+				// Permissive comparator: trim, lower-case hex, numeric
+				// parsing for ints/bools. Matches the Go EqualValues
+				// well enough for visual hinting.
+				const a = String(value).trim();
+				const b = String(meta.default).trim();
+				if (a === b) return true;
+				if (meta.type === 'hex') {
+					return a.replace(/^0x/i, '').toLowerCase() === b.replace(/^0x/i, '').toLowerCase();
+				}
+				if (meta.type === 'integer' || meta.type === 'bool') {
+					const na = Number(a), nb = Number(b);
+					return Number.isFinite(na) && Number.isFinite(nb) && na === nb;
+				}
+				return false;
+			}
+
 			// renderPreview mirrors EEPROMConfigSummary returned by the API:
 			// { raw, sections: { [name]: [{section,key,value}, ...] }, order: [...] }
 			// We accept either a parsed payload (from API) or a string (for
@@ -163,10 +199,22 @@ templ eepromDialogScript() {
 					parts.push(`<div><div class="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground mb-1">[${escapeHTML(name)}]</div>`);
 					parts.push('<div class="space-y-0.5">');
 					for (const r of rows) {
-						parts.push(`<div class="flex items-baseline justify-between gap-2 border-b border-border/40 py-0.5"><span class="font-mono">${escapeHTML(r.key)}</span><span class="font-mono text-muted-foreground text-right break-all">${escapeHTML(r.value)}</span></div>`);
+						const meta = catalogByName[r.key];
+						const isDefault = rowMatchesDefault(r.section, r.key, r.value);
+						const tooltip = meta ? escapeHTML(meta.description) : '';
+						const defaultBadge = meta && meta.default
+							? `<span class="text-[0.625rem] text-muted-foreground/70 ml-2" title="Documented default">def: ${escapeHTML(meta.default)}</span>`
+							: '';
+						const valueClasses = isDefault
+							? 'font-mono text-muted-foreground/60 text-right break-all line-through'
+							: 'font-mono text-muted-foreground text-right break-all';
+						const keyAttr = tooltip ? ` title="${tooltip}"` : '';
+						parts.push(`<div class="flex items-baseline justify-between gap-2 border-b border-border/40 py-0.5"><span class="font-mono"${keyAttr}>${escapeHTML(r.key)}</span><span class="flex items-baseline gap-1 min-w-0"><span class="${valueClasses}">${escapeHTML(r.value)}</span>${defaultBadge}</span></div>`);
 					}
 					parts.push('</div></div>');
 				}
+				// Hint about what the strikethrough means.
+				parts.unshift('<p class="text-[0.625rem] text-muted-foreground/70 mb-2"><span class="line-through">Strikethrough</span> = value equals the documented default and will be omitted on save.</p>');
 				pv.innerHTML = parts.join('');
 			}
 
@@ -239,6 +287,7 @@ templ eepromDialogScript() {
 					}
 					const data = await r.json();
 					editor().value = data.raw || '';
+					buildCatalogIndex(data);
 					renderPreview(data);
 					applyPendingChrome(data);
 					if (!data.raw) {
@@ -324,6 +373,7 @@ templ eepromDialogScript() {
 						return;
 					}
 					const data = await r.json();
+					buildCatalogIndex(data);
 					renderPreview(data);
 					applyPendingChrome(data);
 					setStatus('Staged as pieeprom.upd. rpi-eeprom-update will flash on the next boot.', 'text-green-500');

@@ -25,6 +25,8 @@ builds:
 
 upx:
   - enabled: false
+    compress: best
+    lzma: true
 
 archives:
   - id: nanokvm

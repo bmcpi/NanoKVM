@@ -1,0 +1,810 @@
+openapi: 3.1.0
+info:
+  title: NanoKVM BMC Redfish API
+  version: 1.0.0
+  summary: Out-of-band management for Raspberry Pi 5 via the Redfish standard.
+  description: |
+    This is the Redfish (DMTF DSP0266) surface the NanoKVM BMC exposes for
+    out-of-band management of a managed Raspberry Pi 5.
+
+    The schemas here describe the **subset** of standard Redfish this BMC
+    implements, plus the BMC-specific BIOS layer that maps RPi 5 bootloader
+    EEPROM configuration (the `bootconf.txt` `[all]` section) onto Redfish
+    `Bios.Attributes`.
+
+    For the full Redfish data-model reference, see
+    https://redfish.dmtf.org/schemas/v1/ — every `@odata.type` returned by
+    this BMC is a real DMTF schema name.
+
+    ## Authentication
+
+    Public endpoints (no auth):
+      - `GET  /redfish`
+      - `GET  /redfish/v1` (ServiceRoot)
+      - `GET  /redfish/v1/SessionService`
+      - `POST /redfish/v1/SessionService/Sessions` (create a session)
+
+    All other endpoints require either:
+      - an `X-Auth-Token` header carrying a session token, or
+      - the JWT cookie issued by the web UI's `/api/auth/login` flow.
+
+    Tinkerbell / `bmclib` callers should create a session at
+    `/redfish/v1/SessionService/Sessions` and re-use the returned token.
+
+  contact:
+    name: NanoKVM
+    url: https://github.com/BMCPi/NanoKVM
+
+servers:
+  - url: /
+    description: The BMC itself.
+
+tags:
+  - name: ServiceRoot
+    description: Redfish discovery (public).
+  - name: Sessions
+    description: Session-based authentication.
+  - name: Systems
+    description: Managed-server power + boot.
+  - name: Bios
+    description: RPi 5 bootloader EEPROM configuration as Redfish Attributes.
+  - name: Managers
+    description: BMC itself + serial interfaces + virtual media.
+  - name: UpdateService
+    description: Firmware update (U-Boot BIOS).
+
+security:
+  - XAuthToken: []
+  - BMCCookie: []
+
+paths:
+
+  # ---------------------------------------------------------------- Discovery
+
+  /redfish:
+    get:
+      tags: [ServiceRoot]
+      summary: Redfish version pointer (DMTF DSP0266 §6.1).
+      security: []
+      responses:
+        "200":
+          description: Single-field document pointing at the v1 ServiceRoot.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  v1:
+                    type: string
+                    example: "/redfish/v1/"
+
+  /redfish/v1:
+    get:
+      tags: [ServiceRoot]
+      summary: ServiceRoot — entry point that links to every collection.
+      security: []
+      responses:
+        "200":
+          description: ServiceRoot document.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRoot"
+
+  # ---------------------------------------------------------------- Sessions
+
+  /redfish/v1/SessionService:
+    get:
+      tags: [Sessions]
+      summary: Session service overview.
+      security: []
+      responses:
+        "200":
+          description: SessionService document.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  "@odata.id": { type: string }
+                  "@odata.type": { type: string }
+                  Sessions:
+                    type: object
+                    properties:
+                      "@odata.id": { type: string }
+
+  /redfish/v1/SessionService/Sessions:
+    get:
+      tags: [Sessions]
+      summary: List active sessions.
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [Sessions]
+      summary: Create a new session (login).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [UserName, Password]
+              properties:
+                UserName: { type: string }
+                Password: { type: string }
+              example:
+                UserName: admin
+                Password: admin
+      responses:
+        "201":
+          description: Session created.
+          headers:
+            X-Auth-Token:
+              description: Session token; resend with every subsequent request.
+              schema: { type: string }
+            Location:
+              description: URI of the created Session resource.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /redfish/v1/SessionService/Sessions/{id}:
+    parameters:
+      - $ref: "#/components/parameters/SessionId"
+    delete:
+      tags: [Sessions]
+      summary: Terminate a session (logout).
+      responses:
+        "204":
+          description: Session deleted.
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ---------------------------------------------------------------- Systems
+
+  /redfish/v1/Systems:
+    get:
+      tags: [Systems]
+      summary: Collection of managed systems (always one).
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+
+  /redfish/v1/Systems/1:
+    get:
+      tags: [Systems]
+      summary: The managed Raspberry Pi 5 — power state, boot override, inventory.
+      responses:
+        "200":
+          description: ComputerSystem document.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ComputerSystem" }
+    patch:
+      tags: [Systems]
+      summary: Change boot override (sets U-Boot env on the FAT).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                Boot:
+                  type: object
+                  properties:
+                    BootSourceOverrideTarget:
+                      type: string
+                      enum: [None, Pxe, Hdd, Cd, BiosSetup, UefiHttp]
+                    BootSourceOverrideEnabled:
+                      type: string
+                      enum: [Disabled, Once, Continuous]
+              example:
+                Boot:
+                  BootSourceOverrideTarget: Pxe
+                  BootSourceOverrideEnabled: Once
+      responses:
+        "200":
+          description: New ComputerSystem state.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ComputerSystem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /redfish/v1/Systems/1/Actions/ComputerSystem.Reset:
+    post:
+      tags: [Systems]
+      summary: Power control (on / off / cycle / reset / NMI).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ResetType]
+              properties:
+                ResetType:
+                  type: string
+                  enum:
+                    - "On"
+                    - ForceOff
+                    - GracefulShutdown
+                    - ForceRestart
+                    - PowerCycle
+              example: { ResetType: ForceRestart }
+      responses:
+        "200":
+          description: Reset accepted.
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  # ----------------------------------------------------------------- Bios
+
+  /redfish/v1/Systems/1/Bios:
+    get:
+      tags: [Bios]
+      summary: |
+        Live bootloader EEPROM configuration. `Attributes` is the
+        `[all]` section of `bootconf.txt` (RPi 5 bootloader). Conditional
+        sections (`[gpio4=1]`, …) are NOT exposed here — use the raw
+        text endpoint `/api/firmware/eeprom` for those.
+      responses:
+        "200":
+          description: Bios resource.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Bios" }
+
+  /redfish/v1/Systems/1/Bios/Settings:
+    get:
+      tags: [Bios]
+      summary: Pending bootloader changes staged in `pieeprom.upd`.
+      responses:
+        "200":
+          description: Pending Bios resource (empty Attributes when no update is staged).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BiosSettings" }
+    patch:
+      tags: [Bios]
+      summary: |
+        Stage a bootloader EEPROM change. Replaces the entire `[all]`
+        section with the supplied Attributes; conditional sections in
+        the source `bootconf.txt` are preserved verbatim. The host's
+        `rpi-eeprom-update` flashes the staged image on next boot.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [Attributes]
+              properties:
+                Attributes:
+                  $ref: "#/components/schemas/BiosAttributes"
+              example:
+                Attributes:
+                  BOOT_ORDER: "0xf41"
+                  BOOT_UART: 1
+                  POWER_OFF_ON_HALT: 1
+      responses:
+        "200":
+          description: Pending Bios resource reflecting what was staged.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BiosSettings" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /redfish/v1/Systems/1/Bios/AttributeRegistry:
+    get:
+      tags: [Bios]
+      summary: |
+        Schema for the Bios `Attributes` map — name, type, documented
+        default, help text — for every key applicable to RPi 5.
+        Sourced from raspberrypi/documentation.
+      responses:
+        "200":
+          description: Attribute registry.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AttributeRegistry" }
+
+  # --------------------------------------------------------------- Managers
+
+  /redfish/v1/Managers:
+    get:
+      tags: [Managers]
+      summary: Collection of managers (always one — the BMC itself).
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+
+  /redfish/v1/Managers/1:
+    get:
+      tags: [Managers]
+      summary: The NanoKVM BMC.
+      responses:
+        "200":
+          description: Manager document.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Manager" }
+
+  /redfish/v1/Managers/1/SerialInterfaces:
+    get:
+      tags: [Managers]
+      summary: Serial interfaces exposed by the BMC.
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+
+  /redfish/v1/Managers/1/SerialInterfaces/1:
+    get:
+      tags: [Managers]
+      summary: The single serial interface bridged to the host.
+      responses:
+        "200":
+          description: SerialInterface document.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SerialInterface" }
+    patch:
+      tags: [Managers]
+      summary: Adjust baud / parity / data-bits / stop-bits on the serial bridge.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SerialInterfacePatch" }
+      responses:
+        "200":
+          description: New SerialInterface state.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SerialInterface" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /redfish/v1/Managers/1/VirtualMedia:
+    get:
+      tags: [Managers]
+      summary: Virtual media collection (one CD/USB slot).
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+
+  /redfish/v1/Managers/1/VirtualMedia/1:
+    get:
+      tags: [Managers]
+      summary: Current virtual-media state.
+      responses:
+        "200":
+          description: VirtualMedia document.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VirtualMedia" }
+
+  /redfish/v1/Managers/1/VirtualMedia/1/Actions/VirtualMedia.InsertMedia:
+    post:
+      tags: [Managers]
+      summary: Insert an ISO image as a USB CD/disk to the managed host.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [Image]
+              properties:
+                Image:
+                  type: string
+                  description: |
+                    HTTP(S) URL to the ISO, OR a filename of an ISO already
+                    uploaded to the BMC's media directory.
+                Inserted: { type: boolean }
+                WriteProtected: { type: boolean }
+              example: { Image: "ubuntu-22.04-live-server-arm64.iso" }
+      responses:
+        "204": { description: Media inserted. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "500": { $ref: "#/components/responses/ServerError" }
+
+  /redfish/v1/Managers/1/VirtualMedia/1/Actions/VirtualMedia.EjectMedia:
+    post:
+      tags: [Managers]
+      summary: Eject the currently-inserted virtual media.
+      responses:
+        "204": { description: Media ejected. }
+
+  # ----------------------------------------------------------- UpdateService
+
+  /redfish/v1/UpdateService:
+    get:
+      tags: [UpdateService]
+      summary: Firmware update service root.
+      responses:
+        "200":
+          description: UpdateService document.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  "@odata.type": { type: string, example: "#UpdateService.v1_11_0.UpdateService" }
+                  "@odata.id":   { type: string, example: "/redfish/v1/UpdateService" }
+                  ServiceEnabled: { type: boolean }
+                  FirmwareInventory:
+                    type: object
+                    properties:
+                      "@odata.id": { type: string }
+
+  /redfish/v1/UpdateService/FirmwareInventory:
+    get:
+      tags: [UpdateService]
+      summary: Firmware inventory collection.
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+
+  /redfish/v1/UpdateService/FirmwareInventory/BIOS:
+    get:
+      tags: [UpdateService]
+      summary: U-Boot (BIOS) version + update-available flag.
+      responses:
+        "200":
+          description: SoftwareInventory document for the BIOS slot.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  "@odata.type": { type: string, example: "#SoftwareInventory.v1_10_0.SoftwareInventory" }
+                  "@odata.id":   { type: string }
+                  Id:            { type: string, example: BIOS }
+                  Name:          { type: string }
+                  Version:       { type: string, example: "v2026.04-rc4.1" }
+                  Updateable:    { type: boolean }
+
+  /redfish/v1/UpdateService/Actions/UpdateService.SimpleUpdate:
+    post:
+      tags: [UpdateService]
+      summary: Download + install a U-Boot image from a URL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ImageURI]
+              properties:
+                ImageURI:
+                  type: string
+                  format: uri
+                TransferProtocol:
+                  type: string
+                  enum: [HTTP, HTTPS]
+              example:
+                ImageURI: https://github.com/tinkerbell-community/uboot-raspberrypi/releases/download/v2026.04-rc4.1/uboot-raspberrypi-2026.04-rc4.1.img.xz
+                TransferProtocol: HTTPS
+      responses:
+        "202": { description: Update accepted; runs in background. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+
+  /redfish/v1/UpdateService/Actions/UpdateService.StartUpdate:
+    post:
+      tags: [UpdateService]
+      summary: Apply an already-uploaded image (multipart upload precursor).
+      responses:
+        "202": { description: Update accepted; runs in background. }
+
+components:
+
+  securitySchemes:
+    XAuthToken:
+      type: apiKey
+      in: header
+      name: X-Auth-Token
+      description: Session token issued by `POST /redfish/v1/SessionService/Sessions`.
+    BMCCookie:
+      type: apiKey
+      in: cookie
+      name: nano-kvm-token
+      description: JWT cookie issued by the web UI's login flow.
+
+  parameters:
+    SessionId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+      description: Session identifier.
+
+  responses:
+
+    Collection:
+      description: A Redfish collection (Members + Members@odata.count).
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              "@odata.type":   { type: string }
+              "@odata.id":     { type: string }
+              Name:            { type: string }
+              "Members@odata.count": { type: integer, format: int32 }
+              Members:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    "@odata.id": { type: string }
+
+    Unauthorized:
+      description: Missing or invalid `X-Auth-Token` / cookie.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/RedfishError" }
+
+    NotFound:
+      description: Resource doesn't exist.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/RedfishError" }
+
+    BadRequest:
+      description: Request couldn't be parsed or contained an invalid value.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/RedfishError" }
+
+    ServerError:
+      description: BMC-side failure (FS error, hardware control failure, etc.).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/RedfishError" }
+
+  schemas:
+
+    ServiceRoot:
+      type: object
+      properties:
+        "@odata.type":    { type: string, example: "#ServiceRoot.v1_9_0.ServiceRoot" }
+        "@odata.id":      { type: string, example: "/redfish/v1" }
+        "@odata.context": { type: string }
+        Id:               { type: string, example: RootService }
+        Name:             { type: string, example: "Root Service" }
+        Systems:        { type: object, properties: { "@odata.id": { type: string } } }
+        Managers:       { type: object, properties: { "@odata.id": { type: string } } }
+        Chassis:        { type: object, properties: { "@odata.id": { type: string } } }
+        SessionService: { type: object, properties: { "@odata.id": { type: string } } }
+        UpdateService:  { type: object, properties: { "@odata.id": { type: string } } }
+
+    Session:
+      type: object
+      properties:
+        "@odata.type":   { type: string, example: "#Session.v1_5_0.Session" }
+        "@odata.id":     { type: string, example: "/redfish/v1/SessionService/Sessions/abc123" }
+        Id:              { type: string }
+        Name:            { type: string }
+        UserName:        { type: string }
+
+    ComputerSystem:
+      type: object
+      properties:
+        "@odata.type":     { type: string, example: "#ComputerSystem.v1_13_0.ComputerSystem" }
+        "@odata.id":       { type: string, example: "/redfish/v1/Systems/1" }
+        Id:                { type: string, example: "1" }
+        Name:              { type: string }
+        SystemType:        { type: string, example: Physical }
+        PowerState:        { type: string, enum: ["On", "Off"] }
+        Model:             { type: string }
+        Manufacturer:      { type: string }
+        SerialNumber:      { type: string }
+        MACAddress:        { type: string }
+        FirmwareVersion:   { type: string }
+        ProcessorSummary:
+          type: object
+          properties:
+            Model: { type: string }
+        Boot:
+          type: object
+          properties:
+            BootSourceOverrideTarget:  { type: string, enum: [None, Pxe, Hdd, Cd, BiosSetup, UefiHttp] }
+            BootSourceOverrideEnabled: { type: string, enum: [Disabled, Once, Continuous] }
+            "BootSourceOverrideTarget@Redfish.AllowableValues":
+              type: array
+              items: { type: string }
+            "BootSourceOverrideEnabled@Redfish.AllowableValues":
+              type: array
+              items: { type: string }
+        Actions:
+          type: object
+          properties:
+            "#ComputerSystem.Reset":
+              type: object
+              properties:
+                target: { type: string }
+                "ResetType@Redfish.AllowableValues":
+                  type: array
+                  items: { type: string }
+        Bios:
+          type: object
+          properties:
+            "@odata.id": { type: string, example: "/redfish/v1/Systems/1/Bios" }
+
+    Bios:
+      type: object
+      properties:
+        "@odata.type":        { type: string, example: "#Bios.v1_2_0.Bios" }
+        "@odata.id":          { type: string, example: "/redfish/v1/Systems/1/Bios" }
+        Id:                   { type: string, example: Bios }
+        Name:                 { type: string }
+        Description:          { type: string }
+        BiosVersion:          { type: string, description: U-Boot version string. }
+        AttributeRegistry:    { type: string, example: RPiBootloader.1 }
+        Attributes:           { $ref: "#/components/schemas/BiosAttributes" }
+        "@Redfish.Settings":
+          type: object
+          properties:
+            "@odata.type":         { type: string }
+            SettingsObject:
+              type: object
+              properties:
+                "@odata.id":       { type: string }
+            SupportedApplyTimes:
+              type: array
+              items: { type: string, example: OnReset }
+        Links:
+          type: object
+          properties:
+            ActiveSoftwareImage:
+              type: object
+              properties:
+                "@odata.id":       { type: string }
+        Actions:
+          type: object
+
+    BiosSettings:
+      type: object
+      properties:
+        "@odata.type": { type: string, example: "#Bios.v1_2_0.Bios" }
+        "@odata.id":   { type: string, example: "/redfish/v1/Systems/1/Bios/Settings" }
+        Id:            { type: string, example: Settings }
+        Name:          { type: string }
+        Description:   { type: string }
+        Attributes:    { $ref: "#/components/schemas/BiosAttributes" }
+        Pending:       { type: boolean, description: True when a pieeprom.upd is staged. }
+
+    BiosAttributes:
+      type: object
+      description: |
+        Flat key→value map of bootloader EEPROM settings (the `[all]` section
+        of `bootconf.txt`). See `AttributeRegistry` for the full set of keys
+        applicable to RPi 5; below are the common ones.
+      additionalProperties:
+        oneOf:
+          - { type: string }
+          - { type: integer }
+          - { type: boolean }
+      properties:
+        BOOT_ORDER:        { type: string, example: "0xf41", description: Boot mode priority; read right-to-left. }
+        BOOT_UART:         { type: integer, enum: [0, 1] }
+        UART_BAUD:         { type: integer, example: 115200 }
+        WAKE_ON_GPIO:      { type: integer, enum: [0, 1] }
+        POWER_OFF_ON_HALT: { type: integer, enum: [0, 1] }
+        PSU_MAX_CURRENT:   { type: integer, enum: [3000, 5000] }
+        NET_INSTALL_ENABLED:     { type: integer, enum: [0, 1] }
+        NET_INSTALL_AT_POWER_ON: { type: integer, enum: [0, 1] }
+        DISABLE_HDMI:      { type: integer, enum: [0, 1] }
+        HDMI_DELAY:        { type: integer }
+        BOOT_WATCHDOG_TIMEOUT: { type: integer }
+        ENABLE_SELF_UPDATE: { type: integer, enum: [0, 1] }
+
+    AttributeRegistry:
+      type: object
+      properties:
+        "@odata.type":     { type: string, example: "#AttributeRegistry.v1_3_8.AttributeRegistry" }
+        "@odata.id":       { type: string }
+        Id:                { type: string, example: RPiBootloader.1 }
+        Name:              { type: string }
+        Language:          { type: string, example: en }
+        OwningEntity:      { type: string, example: raspberrypi.com }
+        RegistryVersion:   { type: string }
+        SupportedSystems:
+          type: array
+          items:
+            type: object
+            properties:
+              ProductName:              { type: string }
+              SystemId:                 { type: string }
+              AttributeRegistryVersion: { type: string }
+        RegistryEntries:
+          type: object
+          properties:
+            Attributes:
+              type: array
+              items:
+                type: object
+                properties:
+                  AttributeName: { type: string, example: BOOT_UART }
+                  Type:          { type: string, enum: [Boolean, Integer, String, Enumeration, Password] }
+                  DefaultValue:  { type: string, example: "0" }
+                  HelpText:      { type: string }
+                  ReadOnly:      { type: boolean }
+                  ResetRequired: { type: boolean }
+
+    Manager:
+      type: object
+      properties:
+        "@odata.type": { type: string, example: "#Manager.v1_15_0.Manager" }
+        "@odata.id":   { type: string, example: "/redfish/v1/Managers/1" }
+        Id:            { type: string, example: "1" }
+        Name:          { type: string, example: "NanoKVM BMC" }
+        ManagerType:   { type: string, example: BMC }
+        FirmwareVersion: { type: string }
+        Status:
+          type: object
+          properties:
+            State:   { type: string, example: Enabled }
+            Health:  { type: string, example: OK }
+
+    SerialInterface:
+      type: object
+      properties:
+        "@odata.type": { type: string, example: "#SerialInterface.v1_2_0.SerialInterface" }
+        "@odata.id":   { type: string }
+        Id:            { type: string, example: "1" }
+        Name:          { type: string }
+        InterfaceEnabled: { type: boolean }
+        SignalType:    { type: string, example: Rs232 }
+        BitRate:       { type: string, example: "115200" }
+        Parity:        { type: string, example: None }
+        DataBits:      { type: string, example: "8" }
+        StopBits:      { type: string, example: "1" }
+        FlowControl:   { type: string, example: None }
+
+    SerialInterfacePatch:
+      type: object
+      properties:
+        InterfaceEnabled: { type: boolean }
+        BitRate:          { type: string }
+        Parity:           { type: string }
+        DataBits:         { type: string }
+        StopBits:         { type: string }
+        FlowControl:      { type: string }
+
+    VirtualMedia:
+      type: object
+      properties:
+        "@odata.type": { type: string, example: "#VirtualMedia.v1_5_0.VirtualMedia" }
+        "@odata.id":   { type: string }
+        Id:            { type: string, example: "1" }
+        Name:          { type: string }
+        MediaTypes:
+          type: array
+          items: { type: string, example: CD }
+        Image:         { type: [string, "null"], example: ubuntu-22.04-live-server-arm64.iso }
+        Inserted:      { type: boolean }
+        WriteProtected: { type: boolean }
+        ConnectedVia:  { type: string, example: Applet }
+        Actions:
+          type: object
+
+    RedfishError:
+      type: object
+      description: |
+        Standard Redfish error envelope (DSP0266 §6.5.6). The `code` field
+        is a DMTF-defined Message ID; `message` is the human-readable text.
+      properties:
+        error:
+          type: object
+          properties:
+            code:    { type: string, example: "Base.1.13.GeneralError" }
+            message: { type: string }
+            "@Message.ExtendedInfo":
+              type: array
+              items:
+                type: object
+                properties:
+                  MessageId: { type: string }
+                  Message:   { type: string }
+                  Severity:  { type: string, enum: [OK, Warning, Critical] }

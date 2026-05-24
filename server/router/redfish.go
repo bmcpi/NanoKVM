@@ -16,6 +16,13 @@ func redfishRouter(r *gin.Engine) {
 	r.GET("/redfish/v1/SessionService", service.GetSessionService)
 	r.POST("/redfish/v1/SessionService/Sessions", service.CreateSession)
 
+	// OpenAPI documentation — public so clients can introspect the
+	// surface before authenticating. Swagger UI loads the YAML from the
+	// same origin.
+	r.GET("/redfish/v1/openapi.yaml", service.GetOpenAPIYAML)
+	r.GET("/redfish/v1/openapi.json", service.GetOpenAPIJSON)
+	r.GET("/redfish/v1/docs", service.GetSwaggerUI)
+
 	// Protected endpoints
 	api := r.Group("/redfish/v1").Use(middleware.CheckToken())
 	{
@@ -24,6 +31,15 @@ func redfishRouter(r *gin.Engine) {
 		api.GET("/Systems/1", service.GetSystem)
 		api.POST("/Systems/1/Actions/ComputerSystem.Reset", service.ResetSystem)
 		api.PATCH("/Systems/1", service.PatchSystem)
+
+		// Bios — RPi 5 bootloader EEPROM as Redfish Bios.Attributes.
+		// Live values come from eeprom.txt (U-Boot's per-boot dump);
+		// PATCH /Bios/Settings stages a pieeprom.upd for the host's
+		// rpi-eeprom-update to flash on next boot.
+		api.GET("/Systems/1/Bios", service.GetBios)
+		api.GET("/Systems/1/Bios/Settings", service.GetBiosSettings)
+		api.PATCH("/Systems/1/Bios/Settings", service.PatchBiosSettings)
+		api.GET("/Systems/1/Bios/AttributeRegistry", service.GetBiosAttributeRegistry)
 
 		// Managers
 		api.GET("/Managers", service.GetManagerCollection)

@@ -35,11 +35,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/BMCPi/NanoKVM/server/service/firmware/eepromkeys"
 	"github.com/BMCPi/NanoKVM/server/service/firmware/eepromupdater"
 	"github.com/BMCPi/NanoKVM/server/service/firmware/rpieeprom"
 
 	log "github.com/sirupsen/logrus"
 )
+
+// PlatformDefault is the EEPROM-key catalog platform this BMC manages.
+// Hardcoded to Pi 5 because the device target is Pi 5; extend later if
+// we add Pi 4 support (e.g. read from config + the firmware inventory).
+const PlatformDefault = eepromkeys.PlatformRPi5
 
 const (
 	// File names on the firmware-image FAT root.
@@ -77,6 +83,12 @@ type EEPROMConfigSummary struct {
 	// PieepromBinPresent reports whether the FAT already holds a
 	// pieeprom.bin. Edits download one automatically if missing.
 	PieepromBinPresent bool `json:"pieepromBinPresent"`
+	// Catalog is the documented EEPROM-key reference for the active
+	// platform (name/type/default/description). Lets clients build a
+	// structured editor that shows the default beside each value.
+	Catalog []eepromkeys.Key `json:"catalog"`
+	// Platform is the catalog scope (e.g. "2712" for RPi 5).
+	Platform eepromkeys.Platform `json:"platform"`
 }
 
 // GetEEPROMConfig returns the current bootloader config from eeprom.txt
@@ -95,6 +107,8 @@ func (c *Controller) GetEEPROMConfig() (EEPROMConfigSummary, error) {
 
 	summary := summarise(text, source, pending)
 	summary.PieepromBinPresent = binPresent
+	summary.Platform = PlatformDefault
+	summary.Catalog = eepromkeys.ForPlatform(PlatformDefault)
 	return summary, nil
 }
 
@@ -109,6 +123,12 @@ func (c *Controller) SetEEPROMConfig(ctx context.Context, bootconfTxt string) (E
 		return EEPROMConfigSummary{}, err
 	}
 	normalised := normaliseLineEndings(bootconfTxt)
+	// Drop key=value lines in [all] whose value matches the documented
+	// platform default. Keeps bootconf.txt minimal so the operator sees
+	// only the intentional deviations, and matches rpi-eeprom-config's
+	// own convention (bootloader applies its own defaults for anything
+	// not explicitly set).
+	normalised = eepromkeys.FilterDefaultsFromBootconf(PlatformDefault, normalised)
 
 	if err := c.EnsurePieepromBin(ctx); err != nil {
 		return EEPROMConfigSummary{}, fmt.Errorf("ensure pieeprom.bin: %w", err)
@@ -133,6 +153,81 @@ func (c *Controller) SetEEPROMConfig(ctx context.Context, bootconfTxt string) (E
 
 	// Refresh the summary: text still reads from eeprom.txt (current
 	// live state) — what we just wrote is staged, not active.
+	out, _ := c.GetEEPROMConfig()
+	out.Pending = true
+	return out, nil
+}
+
+// GetBIOSAttributes returns the live [all]-section keys from eeprom.txt
+// as a flat map suitable for the Redfish Bios.Attributes resource.
+// Conditional sections ([gpio4=1] etc.) are not exposed via this surface.
+func (c *Controller) GetBIOSAttributes() (map[string]string, error) {
+	data, err := c.ReadFileFromImage(eepromTextFile)
+	if err != nil || len(data) == 0 {
+		// Empty map (not nil) so downstream callers can json-encode without
+		// special-casing absence.
+		return map[string]string{}, nil
+	}
+	return eepromkeys.ParseAllSection(string(data)), nil
+}
+
+// GetPendingBIOSAttributes returns the [all]-section keys staged in
+// pieeprom.upd if a pending update is present, else nil. Used by the
+// Redfish Bios.Settings (SettingsObject) resource.
+func (c *Controller) GetPendingBIOSAttributes() (map[string]string, bool, error) {
+	data, err := c.ReadFileFromImage(eepromPendingFile)
+	if err != nil || len(data) == 0 {
+		return nil, false, nil
+	}
+	img, err := rpieeprom.ParseBytes(data)
+	if err != nil {
+		return nil, false, fmt.Errorf("parse pending image: %w", err)
+	}
+	bc, err := img.GetFile(rpieeprom.BootConfTxt)
+	if err != nil {
+		return nil, false, fmt.Errorf("extract pending bootconf.txt: %w", err)
+	}
+	return eepromkeys.ParseAllSection(string(bc)), true, nil
+}
+
+// SetBIOSAttributes stages a Redfish PATCH against the BIOS settings
+// resource. The incoming attrs replace the entire [all] section; any
+// conditional sections ([gpio4=1] etc.) currently in the source bootconf
+// are preserved verbatim. Default values are stripped before writing.
+//
+// "Source" bootconf is the same chain as SetEEPROMConfig: prefer the
+// already-pending .upd (so two PATCHes chain), else pieeprom.bin (which
+// EnsurePieepromBin guarantees exists).
+func (c *Controller) SetBIOSAttributes(ctx context.Context, attrs map[string]string) (EEPROMConfigSummary, error) {
+	// Read current source bootconf so we can keep its non-[all] sections.
+	if err := c.EnsurePieepromBin(ctx); err != nil {
+		return EEPROMConfigSummary{}, fmt.Errorf("ensure pieeprom.bin: %w", err)
+	}
+	source, sourceName, err := c.loadEEPROMSourceImage()
+	if err != nil {
+		return EEPROMConfigSummary{}, err
+	}
+	img, err := rpieeprom.ParseBytes(source)
+	if err != nil {
+		return EEPROMConfigSummary{}, fmt.Errorf("parse %s: %w", sourceName, err)
+	}
+	existingBootconf := ""
+	if bc, err := img.GetFile(rpieeprom.BootConfTxt); err == nil {
+		existingBootconf = string(bc)
+	}
+
+	nonAll := eepromkeys.ExtractNonAllSections(existingBootconf)
+	newBootconf := eepromkeys.SerializeAllSection(PlatformDefault, attrs, nonAll)
+
+	if err := validateBootconfBytes([]byte(newBootconf)); err != nil {
+		return EEPROMConfigSummary{}, err
+	}
+	if err := img.UpdateFile(rpieeprom.BootConfTxt, []byte(newBootconf)); err != nil {
+		return EEPROMConfigSummary{}, fmt.Errorf("replace bootconf.txt: %w", err)
+	}
+	if err := c.WriteFileToImage(eepromPendingFile, img.Bytes()); err != nil {
+		return EEPROMConfigSummary{}, fmt.Errorf("write %s: %w", eepromPendingFile, err)
+	}
 	out, _ := c.GetEEPROMConfig()
 	out.Pending = true
 	return out, nil

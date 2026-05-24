@@ -184,6 +184,12 @@ func buildSystemResource() gin.H {
 				},
 			},
 		},
+		// Bios link points the Redfish client at the EEPROM configuration
+		// surface (see bios.go). Standard navigation property — clients
+		// follow @odata.id to GET the current bootloader settings.
+		"Bios": gin.H{
+			"@odata.id": "/redfish/v1/Systems/1/Bios",
+		},
 	}
 
 	if inv, err := fwCtrl.GetInventory(); err == nil {
