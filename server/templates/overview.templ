@@ -134,9 +134,9 @@ templ overviewBmcCard() {
 					}) {
 						Latest
 					}
-					<span id="info-app-update-status" class="text-[0.6875rem] text-muted-foreground"></span>
 				</span>
 			</div>
+			@DownloadProgress("app-update")
 			@kvRow("Image", "info-image")
 			@kvRow("Hardware", "info-hw")
 			@kvRow("IP Address", "info-ip")
@@ -183,15 +183,15 @@ templ overviewBiosCard() {
 					}) {
 						Latest
 					}
-					<span id="info-bios-update-status" class="text-[0.6875rem] text-muted-foreground"></span>
 				</span>
 			</div>
+			@DownloadProgress("bios-update")
 			@kvRow("Device Tree", "info-fdtfile")
 			@kvRow("Boot Targets", "info-boot-target")
 			@kvRow("Boot Override", "info-boot-override")
 			@kvRow("Boot Methods", "info-bootmeths")
 		}
-		@card.Footer(card.FooterProps{Class: "pt-2"}) {
+		@card.Footer(card.FooterProps{Class: "pt-2 flex flex-col gap-2 w-full"}) {
 			<div id="fw-download-item" class="hidden w-full flex items-center justify-between">
 				<span class="text-xs text-muted-foreground">Firmware image not cached</span>
 				@button.Button(button.Props{
@@ -203,6 +203,7 @@ templ overviewBiosCard() {
 					Download
 				}
 			</div>
+			@DownloadProgress("fw-download")
 		}
 	}
 }
@@ -309,16 +310,19 @@ templ overviewKernelCard() {
 			}
 			<div id="bios-kernel-status" class="text-[0.6875rem] text-muted-foreground"></div>
 		}
-		@card.Footer(card.FooterProps{Class: "pt-2 flex flex-wrap items-center gap-1.5"}) {
-			@button.Button(button.Props{ID: "btn-kernel-download", Variant: button.VariantOutline, Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "downloadKernelBIOS()"}}) {
-				Download
-			}
-			@button.Button(button.Props{ID: "btn-kernel-refresh", Variant: button.VariantOutline, Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "refreshKernelBIOS()", "title": "Re-download to overwrite existing cached image"}}) {
-				Refresh
-			}
-			@button.Button(button.Props{ID: "btn-kernel-activate", Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "activateKernelBIOS()"}}) {
-				Activate
-			}
+		@card.Footer(card.FooterProps{Class: "pt-2 flex flex-col gap-2 w-full"}) {
+			<div class="flex flex-wrap items-center gap-1.5">
+				@button.Button(button.Props{ID: "btn-kernel-download", Variant: button.VariantOutline, Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "downloadKernelBIOS()"}}) {
+					Download
+				}
+				@button.Button(button.Props{ID: "btn-kernel-refresh", Variant: button.VariantOutline, Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "refreshKernelBIOS()", "title": "Re-download to overwrite existing cached image"}}) {
+					Refresh
+				}
+				@button.Button(button.Props{ID: "btn-kernel-activate", Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "activateKernelBIOS()"}}) {
+					Activate
+				}
+			</div>
+			@DownloadProgress("kernel")
 		}
 	}
 }

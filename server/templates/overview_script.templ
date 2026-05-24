@@ -24,7 +24,6 @@ templ overviewDataScript() {
 		async function loadAppVersion() {
 			const btn = document.getElementById('btn-app-update');
 			const badge = document.getElementById('info-app-latest-badge');
-			const status = document.getElementById('info-app-update-status');
 			try {
 				const r = await fetch('/api/application/version', { headers: getAuthHeaders() });
 				const data = await r.json();
@@ -32,7 +31,6 @@ templ overviewDataScript() {
 				const cur = (data.data.current || '').replace(/^v/, '');
 				const latest = (data.data.latest || '').replace(/^v/, '');
 				document.getElementById('info-app').textContent = cur ? 'v' + cur : '—';
-				status.textContent = '';
 				if (latest && cur && latest !== cur) {
 					btn.textContent = 'Update → v' + latest;
 					btn.classList.remove('hidden');
@@ -50,28 +48,28 @@ templ overviewDataScript() {
 
 		window.updateApplication = async function() {
 			const btn = document.getElementById('btn-app-update');
-			const status = document.getElementById('info-app-update-status');
 			if (!confirm('Download and install the latest application? The service will restart.')) return;
 			btn.disabled = true;
-			const original = btn.textContent;
-			btn.textContent = 'Updating…';
-			status.textContent = '';
+			dlProgress.start('app-update', 'Downloading update…');
+			// Simulated tick — service has no progress endpoint, so we just
+			// fill the bar until restart kicks in.
+			const tick = setInterval(() => dlProgress.tick('app-update'), 1000);
 			try {
 				const r = await fetch('/api/application/update', { method: 'POST', headers: getAuthHeaders() });
 				const data = await r.json().catch(() => ({}));
+				clearInterval(tick);
 				if (r.ok && data.code === 0) {
-					status.textContent = 'Restarting…';
+					dlProgress.done('app-update', 'Restarting service…');
 					btn.classList.add('hidden');
 					setTimeout(() => window.location.reload(), 5000);
 				} else {
-					status.textContent = 'Error: ' + (data.msg || r.statusText);
+					dlProgress.fail('app-update', 'Error: ' + (data.msg || r.statusText));
 					btn.disabled = false;
-					btn.textContent = original;
 				}
 			} catch(e) {
-				status.textContent = 'Error: ' + e.message;
+				clearInterval(tick);
+				dlProgress.fail('app-update', 'Error: ' + e.message);
 				btn.disabled = false;
-				btn.textContent = original;
 			}
 		};
 
@@ -132,7 +130,6 @@ templ overviewDataScript() {
 		async function loadBIOSVersion() {
 			const btn = document.getElementById('btn-bios-update');
 			const badge = document.getElementById('info-bios-latest-badge');
-			const status = document.getElementById('info-bios-update-status');
 			try {
 				const r = await fetch('/api/firmware/bios/version', { headers: getAuthHeaders() });
 				if (!r.ok) return;
@@ -140,7 +137,6 @@ templ overviewDataScript() {
 				const cur = (data.current || '').replace(/^v/, '');
 				const latest = (data.latest || '').replace(/^v/, '');
 				if (cur) document.getElementById('info-bios-ver').textContent = 'v' + cur;
-				status.textContent = '';
 				if (latest && cur && latest !== cur) {
 					btn.textContent = 'Update → v' + latest;
 					btn.classList.remove('hidden');
@@ -158,40 +154,37 @@ templ overviewDataScript() {
 
 		window.updateBIOS = async function() {
 			const btn = document.getElementById('btn-bios-update');
-			const status = document.getElementById('info-bios-update-status');
 			if (!confirm('Download the latest BIOS (U-Boot) firmware? Env files (machine.env, persistent.env, once.env) are preserved.')) return;
 			btn.disabled = true;
-			const original = btn.textContent;
-			btn.textContent = 'Updating…';
-			status.textContent = '';
+			dlProgress.start('bios-update', 'Starting update…');
 			try {
 				const r = await fetch('/api/firmware/bios/update', { method: 'POST', headers: getAuthHeaders() });
 				if (r.ok) {
-					status.textContent = 'Update started…';
+					dlProgress.tick('bios-update', 'Downloading image…');
 					const poll = setInterval(async () => {
 						try {
 							const sr = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
 							const st = await sr.json();
 							if (st.downloaded && !st.downloading) {
 								clearInterval(poll);
-								status.textContent = 'Update complete';
+								dlProgress.done('bios-update', 'Update complete');
 								btn.disabled = false;
-								btn.textContent = original;
 								loadFirmwareInfo();
 								loadBIOSVersion();
+								setTimeout(() => dlProgress.hide('bios-update'), 4000);
+							} else {
+								dlProgress.tick('bios-update', 'Downloading image…');
 							}
 						} catch(e) {}
 					}, 5000);
 				} else {
 					const err = await r.json().catch(() => ({}));
-					status.textContent = 'Error: ' + (err.error || r.statusText);
+					dlProgress.fail('bios-update', 'Error: ' + (err.error || r.statusText));
 					btn.disabled = false;
-					btn.textContent = original;
 				}
 			} catch(e) {
-				status.textContent = 'Error: ' + e.message;
+				dlProgress.fail('bios-update', 'Error: ' + e.message);
 				btn.disabled = false;
-				btn.textContent = original;
 			}
 		};
 
@@ -221,26 +214,33 @@ templ overviewDataScript() {
 		window.downloadFirmware = async function() {
 			const btn = document.getElementById('btn-fw-download');
 			btn.disabled = true;
-			btn.textContent = 'Downloading…';
+			dlProgress.start('fw-download', 'Starting download…');
 			try {
 				const r = await fetch('/api/firmware/download', { method: 'POST', headers: getAuthHeaders() });
 				if (r.ok) {
-					btn.textContent = 'Started…';
+					dlProgress.tick('fw-download', 'Downloading image…');
 					const poll = setInterval(async () => {
-						const sr = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
-						const st = await sr.json();
-						if (st.downloaded) {
-							clearInterval(poll);
-							loadFirmwareInfo();
-						}
+						try {
+							const sr = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
+							const st = await sr.json();
+							if (st.downloaded) {
+								clearInterval(poll);
+								dlProgress.done('fw-download', 'Image cached');
+								btn.disabled = false;
+								loadFirmwareInfo();
+								setTimeout(() => dlProgress.hide('fw-download'), 4000);
+							} else {
+								dlProgress.tick('fw-download', 'Downloading image…');
+							}
+						} catch(e) {}
 					}, 5000);
 				} else {
-					const err = await r.json();
-					btn.textContent = err.error || 'Failed';
+					const err = await r.json().catch(() => ({}));
+					dlProgress.fail('fw-download', 'Error: ' + (err.error || 'Failed'));
 					btn.disabled = false;
 				}
 			} catch(e) {
-				btn.textContent = 'Error';
+				dlProgress.fail('fw-download', 'Error: ' + e.message);
 				btn.disabled = false;
 			}
 		};
@@ -341,42 +341,46 @@ templ overviewDataScript() {
 			status.textContent = active ? '★ Active' : '';
 		};
 
+		// pollKernelDownload runs the shared download poll/poll-done flow for
+		// both downloadKernelBIOS and refreshKernelBIOS.
+		function pollKernelDownload(btn, doneLabel) {
+			const poll = setInterval(async () => {
+				try {
+					const sr = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
+					const st = await sr.json();
+					if (!st.downloading) {
+						clearInterval(poll);
+						dlProgress.done('kernel', doneLabel);
+						await loadKernelVersions();
+						btn.disabled = false;
+						setTimeout(() => dlProgress.hide('kernel'), 4000);
+					} else {
+						dlProgress.tick('kernel', 'Downloading image…');
+					}
+				} catch(e) {}
+			}, 5000);
+		}
+
 		window.downloadKernelBIOS = async function() {
 			const kernel = kernelHiddenInput()?.value;
 			if (!kernel) return;
 			const dlBtn = document.getElementById('btn-kernel-download');
-			const status = document.getElementById('bios-kernel-status');
 			dlBtn.disabled = true;
-			dlBtn.textContent = 'Downloading…';
-			status.textContent = '';
+			dlProgress.start('kernel', 'Starting download…');
 			try {
 				const r = await fetch(`/api/firmware/bios/kernel/${encodeURIComponent(kernel)}/download`, {
 					method: 'POST', headers: getAuthHeaders()
 				});
 				if (r.ok) {
-					status.textContent = 'Download started…';
-					const poll = setInterval(async () => {
-						try {
-							const sr = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
-							const st = await sr.json();
-							if (!st.downloading) {
-								clearInterval(poll);
-								await loadKernelVersions();
-								dlBtn.disabled = false;
-								dlBtn.textContent = 'Download';
-							}
-						} catch(e) {}
-					}, 5000);
+					pollKernelDownload(dlBtn, 'Download complete');
 				} else {
 					const err = await r.json().catch(() => ({}));
-					status.textContent = 'Error: ' + (err.error || r.statusText);
+					dlProgress.fail('kernel', 'Error: ' + (err.error || r.statusText));
 					dlBtn.disabled = false;
-					dlBtn.textContent = 'Download';
 				}
 			} catch(e) {
-				status.textContent = 'Error: ' + e.message;
+				dlProgress.fail('kernel', 'Error: ' + e.message);
 				dlBtn.disabled = false;
-				dlBtn.textContent = 'Download';
 			}
 		};
 
@@ -387,40 +391,22 @@ templ overviewDataScript() {
 			const ubootVer = item ? item.textContent.match(/U-Boot (\S+)/)?.[1] || kernel : kernel;
 			if (!confirm(`Re-download U-Boot image for Linux ${kernel} (${ubootVer})? The existing cached image will be overwritten.`)) return;
 			const rfBtn = document.getElementById('btn-kernel-refresh');
-			const status = document.getElementById('bios-kernel-status');
 			rfBtn.disabled = true;
-			rfBtn.textContent = 'Downloading…';
-			status.textContent = '';
+			dlProgress.start('kernel', 'Re-downloading image…');
 			try {
 				const r = await fetch(`/api/firmware/bios/kernel/${encodeURIComponent(kernel)}/download?force=true`, {
 					method: 'POST', headers: getAuthHeaders()
 				});
 				if (r.ok) {
-					status.textContent = 'Re-downloading…';
-					const poll = setInterval(async () => {
-						try {
-							const sr = await fetch('/api/firmware/status', { headers: getAuthHeaders() });
-							const st = await sr.json();
-							if (!st.downloading) {
-								clearInterval(poll);
-								status.textContent = 'Image refreshed.';
-								setTimeout(() => { status.textContent = ''; }, 4000);
-								await loadKernelVersions();
-								rfBtn.disabled = false;
-								rfBtn.textContent = 'Refresh';
-							}
-						} catch(e) {}
-					}, 5000);
+					pollKernelDownload(rfBtn, 'Image refreshed');
 				} else {
 					const err = await r.json().catch(() => ({}));
-					status.textContent = 'Error: ' + (err.error || r.statusText);
+					dlProgress.fail('kernel', 'Error: ' + (err.error || r.statusText));
 					rfBtn.disabled = false;
-					rfBtn.textContent = 'Refresh';
 				}
 			} catch(e) {
-				status.textContent = 'Error: ' + e.message;
+				dlProgress.fail('kernel', 'Error: ' + e.message);
 				rfBtn.disabled = false;
-				rfBtn.textContent = 'Refresh';
 			}
 		};
 

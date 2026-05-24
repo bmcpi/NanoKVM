@@ -5,6 +5,7 @@ import (
 	"github.com/templui/templui/components/dropdown"
 	"github.com/templui/templui/components/input"
 	"github.com/templui/templui/components/popover"
+	"github.com/templui/templui/components/progress"
 )
 
 // layout renders the common HTML document shell. The `dark` class on <html>
@@ -48,6 +49,7 @@ templ layout(title string, showNav bool) {
 			@dropdown.Script()
 			@dialog.Script()
 			@input.Script()
+			@progress.Script()
 		</body>
 	</html>
 }
