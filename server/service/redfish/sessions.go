@@ -35,7 +35,7 @@ func (s *Service) CreateSession(c *gin.Context) {
 		return
 	}
 
-	if ok := auth.CompareAccount(req.UserName, req.Password); !ok {
+	if ok := auth.ComparePlainAccount(req.UserName, req.Password); !ok {
 		time.Sleep(2 * time.Second)
 		redfishErrorResponse(c, http.StatusUnauthorized, "invalid username or password")
 		return

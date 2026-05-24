@@ -85,6 +85,7 @@ func run() {
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
+	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 	if conf.Authentication == "disable" {
 		r.Use(cors.Default())

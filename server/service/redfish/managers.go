@@ -43,5 +43,14 @@ func (s *Service) GetManager(c *gin.Context) {
 		"NetworkInterfaces": gin.H{
 			"@odata.id": "/redfish/v1/Managers/1/NetworkInterfaces",
 		},
+		// Links.ManagerForServers binds this BMC to the system(s) it
+		// manages. Standards-based clients (Dell terraform provider,
+		// bmclib) resolve system_id from this link when invoking actions
+		// that target a specific ComputerSystem.
+		"Links": gin.H{
+			"ManagerForServers": []gin.H{
+				{"@odata.id": "/redfish/v1/Systems/1"},
+			},
+		},
 	})
 }

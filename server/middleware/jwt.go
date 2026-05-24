@@ -127,6 +127,15 @@ func allowByToken(c *gin.Context) bool {
 		return true
 	}
 
+	// Web UI uses an HttpOnly cookie; Redfish clients (gofish/bmclib/Dell
+	// Terraform provider) use the X-Auth-Token header set by the session
+	// create response. Accept either.
+	if token := c.GetHeader("X-Auth-Token"); token != "" {
+		if _, err := ParseJWT(token); err == nil {
+			return true
+		}
+	}
+
 	cookie, err := c.Cookie(cookieName)
 	if err != nil {
 		return false

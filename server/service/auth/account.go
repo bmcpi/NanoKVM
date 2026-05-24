@@ -95,6 +95,29 @@ func CompareAccount(username string, plainPassword string) bool {
 	return true
 }
 
+// ComparePlainAccount validates a username + plain-text password against
+// the stored account. Used by standards-based protocols (Redfish, IPMI,
+// HTTP Basic) where the client sends the password in plain text rather
+// than the obfuscated form the web UI uses.
+func ComparePlainAccount(username string, plainPassword string) bool {
+	account, err := GetAccount()
+	if err != nil {
+		return false
+	}
+	if username != account.Username {
+		return false
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(plainPassword)); err == nil {
+		return true
+	}
+	// Legacy: older installs stored the password as an encrypted blob
+	// rather than a bcrypt hash. Decrypt and compare directly.
+	if stored, err := utils.DecodeDecrypt(account.Password); err == nil && stored == plainPassword {
+		return true
+	}
+	return false
+}
+
 func DelAccount() error {
 	if err := os.Remove(AccountFile); err != nil {
 		log.Errorf("failed to delete password: %s", err)

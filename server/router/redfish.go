@@ -1,7 +1,6 @@
 package router
 
 import (
-	"github.com/BMCPi/NanoKVM/server/middleware"
 	"github.com/BMCPi/NanoKVM/server/service/redfish"
 
 	"github.com/gin-gonic/gin"
@@ -24,7 +23,7 @@ func redfishRouter(r *gin.Engine) {
 	r.GET("/redfish/v1/openapi.json", service.GetOpenAPIJSON)
 
 	// Protected endpoints
-	api := r.Group("/redfish/v1").Use(middleware.CheckToken())
+	api := r.Group("/redfish/v1").Use(redfish.CheckAuth())
 	{
 		// Systems
 		api.GET("/Systems", service.GetSystemCollection)
@@ -52,9 +51,9 @@ func redfishRouter(r *gin.Engine) {
 
 		// Virtual Media
 		api.GET("/Managers/1/VirtualMedia", service.GetVirtualMediaCollection)
-		api.GET("/Managers/1/VirtualMedia/1", service.GetVirtualMedia)
-		api.POST("/Managers/1/VirtualMedia/1/Actions/VirtualMedia.InsertMedia", service.InsertMedia)
-		api.POST("/Managers/1/VirtualMedia/1/Actions/VirtualMedia.EjectMedia", service.EjectMedia)
+		api.GET("/Managers/1/VirtualMedia/CD", service.GetVirtualMedia)
+		api.POST("/Managers/1/VirtualMedia/CD/Actions/VirtualMedia.InsertMedia", service.InsertMedia)
+		api.POST("/Managers/1/VirtualMedia/CD/Actions/VirtualMedia.EjectMedia", service.EjectMedia)
 
 		// Sessions
 		api.GET("/SessionService/Sessions", service.GetSessionCollection)

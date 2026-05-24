@@ -1,16 +1,53 @@
 package redfish
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/BMCPi/NanoKVM/server/service/firmware"
 )
+
+// insertMediaRequest is the JSON body for VirtualMedia.InsertMedia.
+// Accepted both as the application/json body for TransferMethod=Stream
+// (the default) and as the "InsertMediaRequestBody" multipart part when
+// the client uses TransferMethod=Upload.
+// lastTransfer records the parameters of the most recent successful
+// InsertMedia call so subsequent GETs can echo them back. The Dell
+// terraform provider compares these against config on refresh and will
+// raise "inconsistent result after apply" if they're missing.
+var lastTransfer struct {
+	sync.Mutex
+	Method       string // "Stream" or "Upload"
+	ProtocolType string // "HTTPS", "HTTP", "NFS", ...
+	Image        string // last URL or filename
+}
+
+func recordTransfer(method, protocolType, image string) {
+	lastTransfer.Lock()
+	defer lastTransfer.Unlock()
+	lastTransfer.Method = method
+	lastTransfer.ProtocolType = protocolType
+	lastTransfer.Image = image
+}
+
+type insertMediaRequest struct {
+	Image          string `json:"Image"`
+	TransferMethod string `json:"TransferMethod"` // "Stream" (default) or "Upload"
+	Inserted       *bool  `json:"Inserted"`
+	WriteProtected *bool  `json:"WriteProtected"`
+	UserName       string `json:"UserName"` // accepted but ignored
+	Password       string `json:"Password"` // accepted but ignored
+}
 
 // GetVirtualMediaCollection returns the VirtualMedia collection for Manager/1.
 func (s *Service) GetVirtualMediaCollection(c *gin.Context) {
@@ -21,7 +58,7 @@ func (s *Service) GetVirtualMediaCollection(c *gin.Context) {
 		"Name":                "Virtual Media Collection",
 		"Members@odata.count": 1,
 		"Members": []gin.H{
-			{"@odata.id": "/redfish/v1/Managers/1/VirtualMedia/1"},
+			{"@odata.id": "/redfish/v1/Managers/1/VirtualMedia/CD"},
 		},
 	})
 }
@@ -32,17 +69,36 @@ func (s *Service) GetVirtualMedia(c *gin.Context) {
 }
 
 // InsertMedia handles POST …/VirtualMedia/1/Actions/VirtualMedia.InsertMedia.
-// Body: { "Image": "<http(s) URL to ISO>" }
-// The ISO is downloaded into the media staging directory and then inserted
-// into the firmware FAT image as vm.iso.
+//
+// Two transfer methods are supported (per Redfish VirtualMedia v1_3_0):
+//
+//   - Stream (default) — JSON body with { "Image": "<http(s) URL>" }.
+//     The BMC pulls the image from the URL and stages it.
+//   - Upload — multipart/form-data push from the client. The request
+//     carries the binary image as a file part plus an optional
+//     "InsertMediaRequestBody" JSON part naming the file. This is how
+//     redfishtool/gofish/python-redfish-utility ship local ISOs that
+//     aren't reachable from the BMC's network.
 func (s *Service) InsertMedia(c *gin.Context) {
-	var req struct {
-		Image    string `json:"Image"`    // URL of the ISO to download and insert
-		UserName string `json:"UserName"` // accepted but ignored
-		Password string `json:"Password"` // accepted but ignored
+	ctype, _, _ := mime.ParseMediaType(c.GetHeader("Content-Type"))
+	if ctype == "multipart/form-data" {
+		s.insertMediaUpload(c)
+		return
 	}
+	s.insertMediaStream(c)
+}
+
+// insertMediaStream handles TransferMethod=Stream: BMC fetches the image
+// from an HTTP(S) URL named in the JSON body.
+func (s *Service) insertMediaStream(c *gin.Context) {
+	var req insertMediaRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		redfishErrorResponse(c, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.TransferMethod != "" && !strings.EqualFold(req.TransferMethod, "Stream") {
+		redfishErrorResponse(c, http.StatusBadRequest,
+			"TransferMethod="+req.TransferMethod+" requires multipart/form-data; resend as multipart upload")
 		return
 	}
 	if req.Image == "" {
@@ -62,8 +118,6 @@ func (s *Service) InsertMedia(c *gin.Context) {
 		name = "vm.iso"
 	}
 
-	fwCtrl := firmware.GetController()
-
 	// Download the ISO into the media staging directory.
 	// #nosec G107 — scheme already validated above.
 	resp, err := http.Get(req.Image) //nolint:noctx
@@ -77,23 +131,105 @@ func (s *Service) InsertMedia(c *gin.Context) {
 		return
 	}
 
-	// For ISO sources, materialize a 1 GiB hybrid raw disk image so the
-	// gadget can present it as a writable, BIOS/UEFI-bootable USB block
-	// device rather than a CD-ROM. Other formats are stored verbatim.
-	mediaName := name
-	if _, err := fwCtrl.SaveMediaFile(name, resp.Body); err != nil {
-		redfishErrorResponse(c, http.StatusInternalServerError, "save media failed: "+err.Error())
+	if err := stageAndInsert(name, resp.Body); err != nil {
+		redfishErrorResponse(c, err.status, err.msg)
 		return
 	}
 
-	// Insert the staged file into the firmware image.
-	if err := fwCtrl.InsertVirtualMedia(mediaName); err != nil {
-		redfishErrorResponse(c, http.StatusConflict, "insert media failed: "+err.Error())
-		return
-	}
-
-	log.Infof("redfish: virtual media inserted: %s", mediaName)
+	protocol := strings.ToUpper(parsed.Scheme)
+	recordTransfer("Stream", protocol, req.Image)
+	log.Infof("redfish: virtual media inserted (stream): %s", name)
 	c.JSON(http.StatusOK, buildVirtualMediaResource())
+}
+
+// insertMediaUpload handles TransferMethod=Upload: the client pushes the
+// image body as a multipart file part. An optional "InsertMediaRequestBody"
+// JSON part may override the filename used when staging.
+func (s *Service) insertMediaUpload(c *gin.Context) {
+	// 8 GiB max upload — large enough for any installer ISO, small enough
+	// that a runaway client can't exhaust the BMC's tmpfs.
+	if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
+		redfishErrorResponse(c, http.StatusBadRequest, "parse multipart: "+err.Error())
+		return
+	}
+
+	var meta insertMediaRequest
+	if v := c.Request.FormValue("InsertMediaRequestBody"); v != "" {
+		if err := json.Unmarshal([]byte(v), &meta); err != nil {
+			redfishErrorResponse(c, http.StatusBadRequest, "InsertMediaRequestBody: "+err.Error())
+			return
+		}
+		if meta.TransferMethod != "" && !strings.EqualFold(meta.TransferMethod, "Upload") {
+			redfishErrorResponse(c, http.StatusBadRequest,
+				"TransferMethod="+meta.TransferMethod+" not valid for multipart upload")
+			return
+		}
+	}
+
+	// Accept the file under any of the conventional Redfish part names.
+	file, header, err := firstFormFile(c, "Image", "file", "VirtualMediaImage")
+	if err != nil {
+		redfishErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	defer file.Close()
+
+	name := meta.Image
+	if name == "" {
+		name = header.Filename
+	}
+	name = filepath.Base(name)
+	if name == "" || name == "." || name == "/" {
+		name = "vm.iso"
+	}
+
+	if err := stageAndInsert(name, file); err != nil {
+		redfishErrorResponse(c, err.status, err.msg)
+		return
+	}
+
+	recordTransfer("Upload", "", name)
+	log.Infof("redfish: virtual media inserted (upload): %s (%d bytes)", name, header.Size)
+	c.JSON(http.StatusOK, buildVirtualMediaResource())
+}
+
+type insertErr struct {
+	status int
+	msg    string
+}
+
+func (e *insertErr) Error() string { return e.msg }
+
+// stageAndInsert saves r to mediaDir/<name> then inserts it. Returns a
+// typed error so callers can map to the appropriate HTTP status.
+func stageAndInsert(name string, r io.Reader) *insertErr {
+	fwCtrl := firmware.GetController()
+	if _, err := fwCtrl.SaveMediaFile(name, r); err != nil {
+		return &insertErr{http.StatusInternalServerError, "save media failed: " + err.Error()}
+	}
+	if err := fwCtrl.InsertVirtualMedia(name); err != nil {
+		return &insertErr{http.StatusConflict, "insert media failed: " + err.Error()}
+	}
+	return nil
+}
+
+// firstFormFile returns the first multipart file part that matches any of
+// the supplied field names. Redfish clients vary on which name they use
+// (Image is the spec'd name; redfishtool uses "file"; some tools use the
+// resource name VirtualMediaImage).
+func firstFormFile(c *gin.Context, names ...string) (io.ReadCloser, *multipartHeader, error) {
+	for _, n := range names {
+		f, h, err := c.Request.FormFile(n)
+		if err == nil {
+			return f, &multipartHeader{Filename: h.Filename, Size: h.Size}, nil
+		}
+	}
+	return nil, nil, fmt.Errorf("no file part found; expected one of: %s", strings.Join(names, ", "))
+}
+
+type multipartHeader struct {
+	Filename string
+	Size     int64
 }
 
 // EjectMedia handles POST …/VirtualMedia/1/Actions/VirtualMedia.EjectMedia.
@@ -104,6 +240,7 @@ func (s *Service) EjectMedia(c *gin.Context) {
 		return
 	}
 
+	recordTransfer("", "", "")
 	log.Info("redfish: virtual media ejected")
 	c.Status(http.StatusNoContent)
 }
@@ -112,34 +249,50 @@ func buildVirtualMediaResource() gin.H {
 	fwCtrl := firmware.GetController()
 	vm := fwCtrl.GetVirtualMediaState()
 
-	connectedVia := []string{}
+	// ConnectedVia is a single Redfish enum string (NotConnected, URI,
+	// Applet, Oem). Not an array — gofish unmarshal will reject [].
+	connectedVia := "NotConnected"
 	insertedMedia := gin.H{}
 	if vm.Inserted {
-		connectedVia = []string{"USB"}
+		connectedVia = "URI"
 		insertedMedia = gin.H{
 			"ImageName":     vm.ImageName,
 			"CapacityBytes": vm.ImageSize,
 		}
 	}
 
+	lastTransfer.Lock()
+	method := lastTransfer.Method
+	protocol := lastTransfer.ProtocolType
+	image := lastTransfer.Image
+	lastTransfer.Unlock()
+
 	return gin.H{
-		"@odata.type":    "#VirtualMedia.v1_3_0.VirtualMedia",
-		"@odata.id":      "/redfish/v1/Managers/1/VirtualMedia/1",
-		"@odata.context": "/redfish/v1/$metadata#VirtualMedia.VirtualMedia",
-		"Id":             "1",
-		"Name":           "Virtual Removable Media",
-		"MediaTypes":     []string{"CD"},
-		"MediaType":      "CD",
-		"ConnectedVia":   connectedVia,
-		"Inserted":       vm.Inserted,
-		"WriteProtected": true,
-		"InsertedMedia":  insertedMedia,
+		"@odata.type":          "#VirtualMedia.v1_3_0.VirtualMedia",
+		"@odata.id":            "/redfish/v1/Managers/1/VirtualMedia/CD",
+		"@odata.context":       "/redfish/v1/$metadata#VirtualMedia.VirtualMedia",
+		"Id":                   "CD",
+		"Name":                 "Virtual Removable Media",
+		"MediaTypes":           []string{"CD"},
+		"MediaType":            "CD",
+		"ConnectedVia":         connectedVia,
+		"Inserted":             vm.Inserted,
+		"WriteProtected":       true,
+		"InsertedMedia":        insertedMedia,
+		"Image":                image,
+		"TransferMethod":       method,
+		"TransferProtocolType": protocol,
+		"Links": gin.H{
+			"Systems": []gin.H{
+				{"@odata.id": "/redfish/v1/Systems/1"},
+			},
+		},
 		"Actions": gin.H{
 			"#VirtualMedia.InsertMedia": gin.H{
-				"target": "/redfish/v1/Managers/1/VirtualMedia/1/Actions/VirtualMedia.InsertMedia",
+				"target": "/redfish/v1/Managers/1/VirtualMedia/CD/Actions/VirtualMedia.InsertMedia",
 			},
 			"#VirtualMedia.EjectMedia": gin.H{
-				"target": "/redfish/v1/Managers/1/VirtualMedia/1/Actions/VirtualMedia.EjectMedia",
+				"target": "/redfish/v1/Managers/1/VirtualMedia/CD/Actions/VirtualMedia.EjectMedia",
 			},
 		},
 	}

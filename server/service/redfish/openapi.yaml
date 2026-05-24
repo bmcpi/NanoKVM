@@ -373,7 +373,7 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/Collection" }
 
-  /redfish/v1/Managers/1/VirtualMedia/1:
+  /redfish/v1/Managers/1/VirtualMedia/CD:
     get:
       tags: [Managers]
       summary: Current virtual-media state.
@@ -384,10 +384,19 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/VirtualMedia" }
 
-  /redfish/v1/Managers/1/VirtualMedia/1/Actions/VirtualMedia.InsertMedia:
+  /redfish/v1/Managers/1/VirtualMedia/CD/Actions/VirtualMedia.InsertMedia:
     post:
       tags: [Managers]
       summary: Insert an ISO image as a USB CD/disk to the managed host.
+      description: |
+        Two transfer methods are supported:
+
+        * **Stream** (default) — `application/json` body names an HTTP(S)
+          URL; the BMC pulls the image.
+        * **Upload** — `multipart/form-data` push from the client. Include
+          the binary as a file part named `Image` (or `file`), plus an
+          optional `InsertMediaRequestBody` JSON part to override the
+          staged filename.
       requestBody:
         required: true
         content:
@@ -398,18 +407,36 @@ paths:
               properties:
                 Image:
                   type: string
-                  description: |
-                    HTTP(S) URL to the ISO, OR a filename of an ISO already
-                    uploaded to the BMC's media directory.
+                  description: HTTP(S) URL to the ISO.
+                TransferMethod:
+                  type: string
+                  enum: [Stream]
+                  default: Stream
                 Inserted: { type: boolean }
                 WriteProtected: { type: boolean }
-              example: { Image: "ubuntu-22.04-live-server-arm64.iso" }
+              example: { Image: "https://releases.ubuntu.com/22.04/ubuntu-22.04-live-server-arm64.iso" }
+          multipart/form-data:
+            schema:
+              type: object
+              required: [Image]
+              properties:
+                Image:
+                  type: string
+                  format: binary
+                  description: The image file body (also accepted as `file`).
+                InsertMediaRequestBody:
+                  type: string
+                  description: |
+                    Optional JSON metadata part. Same shape as the
+                    `application/json` body; useful to override the staged
+                    filename via `Image`.
+                  example: '{"TransferMethod":"Upload","Image":"ubuntu.iso"}'
       responses:
-        "204": { description: Media inserted. }
+        "200": { description: Media inserted. }
         "400": { $ref: "#/components/responses/BadRequest" }
         "500": { $ref: "#/components/responses/ServerError" }
 
-  /redfish/v1/Managers/1/VirtualMedia/1/Actions/VirtualMedia.EjectMedia:
+  /redfish/v1/Managers/1/VirtualMedia/CD/Actions/VirtualMedia.EjectMedia:
     post:
       tags: [Managers]
       summary: Eject the currently-inserted virtual media.

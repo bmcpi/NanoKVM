@@ -29,6 +29,14 @@ func (s *Service) GetServiceRoot(c *gin.Context) {
 		"UpdateService": gin.H{
 			"@odata.id": "/redfish/v1/UpdateService",
 		},
+		// Links.Sessions is what gofish and other DMTF-conformant clients
+		// POST to during Login() — without it they fail with "unable to
+		// execute request, no target provided".
+		"Links": gin.H{
+			"Sessions": gin.H{
+				"@odata.id": "/redfish/v1/SessionService/Sessions",
+			},
+		},
 	})
 }
 
