@@ -1,6 +1,7 @@
 package ipmi
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha1"
@@ -12,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/BMCPi/NanoKVM/server/service/serial"
+	"github.com/BMCPi/NanoKVM/server/telemetry"
 )
 
 // sessionState tracks RMCP+ authentication progress.
@@ -69,6 +71,7 @@ func (sm *sessionManager) newSession() *session {
 	sm.mu.Lock()
 	sm.sessions[id] = sess
 	sm.mu.Unlock()
+	telemetry.IPMISessionOpened(context.Background())
 	return sess
 }
 
@@ -80,8 +83,12 @@ func (sm *sessionManager) get(id uint32) *session {
 
 func (sm *sessionManager) remove(id uint32) {
 	sm.mu.Lock()
+	_, existed := sm.sessions[id]
 	delete(sm.sessions, id)
 	sm.mu.Unlock()
+	if existed {
+		telemetry.IPMISessionClosed(context.Background())
+	}
 }
 
 func (sm *sessionManager) closeAll() {
@@ -108,7 +115,8 @@ func (sm *sessionManager) handleIPMI15(data []byte, srv *Server) []byte {
 	ipmiMsg := data[10 : 10+msgLen]
 
 	netFn := ipmiMsg[1] >> 2
-	rqAddr := ipmiMsg[3]
+	rqOriginAddr := ipmiMsg[0] // Requester's address (client sending the request)
+	bmcAddr := ipmiMsg[3]      // BMC's address from the request
 	rqSeq := ipmiMsg[4] >> 2
 	rqLUN := ipmiMsg[4] & 0x03
 	cmd := ipmiMsg[5]
@@ -130,7 +138,7 @@ func (sm *sessionManager) handleIPMI15(data []byte, srv *Server) []byte {
 
 	respNetFnLUN := (netFn + 1) << 2
 	respNetFnLUN |= rqLUN
-	ipmiResp := buildIPMIMsg(rqAddr, respNetFnLUN, rqSeq, cmd, respData)
+	ipmiResp := buildIPMIMsg(bmcAddr, rqOriginAddr, respNetFnLUN, rqSeq, cmd, respData)
 	return wrapRMCP(rmcpClassIPMI, buildIPMI15Wrapper(ipmiResp))
 }
 
@@ -416,7 +424,8 @@ func (sm *sessionManager) handleIPMIPayload(sess *session, payload []byte, authe
 	}
 
 	netFn := payload[1] >> 2
-	rqAddr := payload[3]
+	rqOriginAddr := payload[0] // Requester's address (client sending the request)
+	bmcAddr := payload[3]      // BMC's address from the request
 	rqSeq := payload[4] >> 2
 	rqLUN := payload[4] & 0x03
 	cmd := payload[5]
@@ -476,7 +485,7 @@ func (sm *sessionManager) handleIPMIPayload(sess *session, payload []byte, authe
 	}
 
 	respNetFnLUN := ((netFn + 1) << 2) | rqLUN
-	ipmiResp := buildIPMIMsg(rqAddr, respNetFnLUN, rqSeq, cmd, respData)
+	ipmiResp := buildIPMIMsg(bmcAddr, rqOriginAddr, respNetFnLUN, rqSeq, cmd, respData)
 
 	outSeq := atomic.AddUint32(&sess.outSeq, 1)
 	if authenticated && sess.integAlgo != integAlgoNone && sess.k1 != nil {

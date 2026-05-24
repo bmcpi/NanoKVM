@@ -23,6 +23,7 @@
 package power
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -32,6 +33,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/BMCPi/NanoKVM/server/config"
+	"github.com/BMCPi/NanoKVM/server/telemetry"
 )
 
 const (
@@ -78,16 +80,21 @@ func GetController() *Controller {
 func (c *Controller) State() (bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.readState()
+	on, err := c.readState()
+	if err == nil {
+		telemetry.PowerState(context.Background(), on)
+	}
+	return on, err
 }
 
 // PowerOn powers on the system.
 //
 // Button mode:  sends a short press if the system is currently off.
 // Legacy mode:  runs the 1→0→1 boot sequence on the power pin.
-func (c *Controller) PowerOn() error {
+func (c *Controller) PowerOn() (retErr error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	defer func() { telemetry.PowerOperation(context.Background(), "on", retErr) }()
 
 	on, err := c.readState()
 	if err != nil {
@@ -111,9 +118,10 @@ func (c *Controller) PowerOn() error {
 //
 // Button mode:  short button press (OS handles the ACPI shutdown).
 // Legacy mode:  sets the power pin to 0 (immediate cut).
-func (c *Controller) PowerOff() error {
+func (c *Controller) PowerOff() (retErr error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	defer func() { telemetry.PowerOperation(context.Background(), "off", retErr) }()
 
 	on, err := c.readState()
 	if err != nil {
@@ -137,9 +145,10 @@ func (c *Controller) PowerOff() error {
 //
 // Button mode:  holds the power button LOW for ≥5 s.
 // Legacy mode:  sets the power pin to 0 (same as PowerOff — immediate cut).
-func (c *Controller) ForceOff() error {
+func (c *Controller) ForceOff() (retErr error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	defer func() { telemetry.PowerOperation(context.Background(), "force_off", retErr) }()
 
 	on, err := c.readState()
 	if err != nil {
@@ -160,9 +169,10 @@ func (c *Controller) ForceOff() error {
 }
 
 // Reset forces the system off and powers it back on.
-func (c *Controller) Reset() error {
+func (c *Controller) Reset() (retErr error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	defer func() { telemetry.PowerOperation(context.Background(), "reset", retErr) }()
 
 	on, err := c.readState()
 	if err != nil {

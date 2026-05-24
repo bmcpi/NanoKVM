@@ -72,7 +72,7 @@ func parseUBootVer(s string) string {
 		if t == "" {
 			continue
 		}
-		if !(t[0] >= '0' && t[0] <= '9') {
+		if t[0] < '0' || t[0] > '9' {
 			continue
 		}
 		// Looks like a version token (starts with a digit, contains a dot).
@@ -299,6 +299,16 @@ func (c *Controller) VersionedImageExists(version string) bool {
 	p := c.versionedImagePath(version)
 	info, err := os.Stat(p)
 	return err == nil && info.Size() > 0
+}
+
+// DeleteVersionedImage removes the locally cached image for the given u-boot
+// version. After calling this, DownloadVersionedImage will re-fetch from
+// upstream. No-op if the file does not exist.
+func (c *Controller) DeleteVersionedImage(version string) {
+	p := c.versionedImagePath(version)
+	if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
+		log.Warnf("firmware: delete versioned image %s: %v", version, err)
+	}
 }
 
 // DownloadVersionedImage fetches and decompresses the u-boot image for the

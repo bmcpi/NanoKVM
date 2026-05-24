@@ -121,6 +121,13 @@ func validate() error {
 	return readByDefault()
 }
 
+// Save persists the in-memory config to /etc/kvm/server.yaml. Used by
+// settings handlers (e.g. /api/autoupdate/settings) so user-driven changes
+// survive restarts.
+func Save() {
+	persistConfig()
+}
+
 // persistConfig writes the current in-memory config back to disk.
 // This is used to save generated values (e.g. JWT secret key) so they
 // survive server restarts.

@@ -114,9 +114,9 @@ func InvalidateLatestUBootCache() {
 }
 
 type ghRelease struct {
-	TagName string     `json:"tag_name"`
-	Assets  []ghAsset  `json:"assets"`
-	Draft   bool       `json:"draft"`
+	TagName string    `json:"tag_name"`
+	Assets  []ghAsset `json:"assets"`
+	Draft   bool      `json:"draft"`
 }
 
 type ghAsset struct {
@@ -193,9 +193,10 @@ func findUBootAsset(assets []ghAsset) *ghAsset {
 // ---------------------------------------------------------------------------
 
 // versionParts holds a parsed version like "v2026.07-rc1".
-//   numbers: [2026, 7]    (dot-separated decimal segments after stripping "v")
-//   pre:     "rc1"        (anything after the first "-"; empty for releases)
-//   preNum:  1            (numeric tail of pre, 0 if none)
+//
+//	numbers: [2026, 7]    (dot-separated decimal segments after stripping "v")
+//	pre:     "rc1"        (anything after the first "-"; empty for releases)
+//	preNum:  1            (numeric tail of pre, 0 if none)
 type versionParts struct {
 	numbers []int
 	pre     string

@@ -1,19 +1,23 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/BMCPi/NanoKVM/server/config"
 	"github.com/BMCPi/NanoKVM/server/logger"
 	"github.com/BMCPi/NanoKVM/server/middleware"
 	"github.com/BMCPi/NanoKVM/server/router"
 	"github.com/BMCPi/NanoKVM/server/service/application"
+	"github.com/BMCPi/NanoKVM/server/service/autoupdate"
 	"github.com/BMCPi/NanoKVM/server/service/firmware"
 	"github.com/BMCPi/NanoKVM/server/service/ipmi"
+	"github.com/BMCPi/NanoKVM/server/telemetry"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -40,8 +44,14 @@ func initialize() {
 
 	// Propagate build-time version to the application service.
 	application.Version = version
+	telemetry.Version = version
 
 	logger.Init()
+
+	// Initialize OpenTelemetry + Prometheus (no-op when disabled in config).
+	if err := telemetry.Init(context.Background()); err != nil {
+		log.Printf("telemetry init: %v", err)
+	}
 
 	// Start IPMI server on standard port 623
 	srv, err := ipmi.Start(623)
@@ -55,6 +65,9 @@ func initialize() {
 	if err := firmware.GetController().Init(); err != nil {
 		log.Printf("Firmware controller init: %v", err)
 	}
+
+	// Start the auto-update ticker (no-op when AutoUpdate.Enabled is false).
+	autoupdate.Start()
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
@@ -109,7 +122,11 @@ func run() {
 }
 
 func dispose() {
+	autoupdate.Stop()
 	if ipmiServer != nil {
 		ipmiServer.Stop()
 	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	telemetry.Shutdown(shutdownCtx)
 }

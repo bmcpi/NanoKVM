@@ -39,6 +39,41 @@ func (s *Service) Update(c *gin.Context) {
 	_ = exec.Command("sh", "-c", "/etc/init.d/S95nanokvm restart").Run()
 }
 
+// RunUpdate downloads and installs the latest application release without an
+// HTTP context. Acquires the global update lock so concurrent runs (HTTP
+// trigger + auto-update ticker) can't collide. On success the service
+// restart is initiated by the caller (HTTP handler) or by the auto-update
+// service after a short delay.
+func RunUpdate() error {
+	if !acquireUpdateLock() {
+		return fmt.Errorf("update already in progress")
+	}
+	defer releaseUpdateLock()
+	return update()
+}
+
+// RestartService kicks the init script. Best-effort and intended to be
+// called shortly after a successful RunUpdate.
+func RestartService() {
+	_ = exec.Command("sh", "-c", "/etc/init.d/S95nanokvm restart").Run()
+}
+
+// LatestVersion returns the latest available release version string (or
+// empty when the lookup fails). Exposed so the auto-update service can
+// compare against the running version without depending on internals.
+func LatestVersion() string {
+	l, err := getLatest()
+	if err != nil || l == nil {
+		return ""
+	}
+	return l.Version
+}
+
+// CurrentVersion returns the running application version.
+func CurrentVersion() string {
+	return currentAppVersion()
+}
+
 func update() error {
 	_ = os.RemoveAll(CacheDir)
 	_ = os.MkdirAll(CacheDir, 0o755)

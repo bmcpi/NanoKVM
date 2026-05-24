@@ -14,6 +14,14 @@ builds:
       - linux
     goarch:
       - riscv64
+  - id: rpiboot
+    env: ["CGO_ENABLED=0"]
+    main: ./cmd/rpiboot
+    binary: system/usr/bin/rpiboot
+    goos:
+      - linux
+    goarch:
+      - riscv64
 
 upx:
   - enabled: false
@@ -22,6 +30,7 @@ archives:
   - id: nanokvm
     ids:
       - server
+      - rpiboot
     formats:
       - tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}"

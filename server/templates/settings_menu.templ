@@ -1,0 +1,237 @@
+package templates
+
+import (
+	"github.com/templui/templui/components/button"
+	"github.com/templui/templui/components/card"
+	"github.com/templui/templui/components/dialog"
+	"github.com/templui/templui/components/icon"
+	"github.com/templui/templui/components/input"
+	"github.com/templui/templui/components/label"
+	"github.com/templui/templui/components/separator"
+	switchcomp "github.com/templui/templui/components/switch"
+)
+
+// SettingsDialogTrigger is the navbar button that opens the settings dialog.
+// Lives separately from the dialog body so dialog state survives across
+// navbar re-renders / page loads.
+templ SettingsDialogTrigger() {
+	@dialog.Trigger(dialog.TriggerProps{For: "settings-dialog"}) {
+		@button.Button(button.Props{
+			Variant: button.VariantGhost,
+			Size:    button.SizeSm,
+		}) {
+			@icon.Settings()
+			<span>Settings</span>
+		}
+	}
+}
+
+// SettingsDialog is the modal settings panel — Network, Security, System,
+// and Auto-Update controls. Rendered once near the root and triggered from
+// the navbar via @dialog.Trigger(For: "settings-dialog").
+templ SettingsDialog() {
+	@dialog.Dialog(dialog.Props{ID: "settings-dialog"}) {
+		@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+			@dialog.Header() {
+				@dialog.Title() {
+					Settings
+				}
+				@dialog.Description() {
+					Network, security, system, and automatic update settings.
+				}
+			}
+			<div class="flex flex-col gap-4 py-2">
+				@settingsNetworkCard()
+				@settingsSecurityCard()
+				@settingsAutoUpdateCard()
+				@settingsSystemCard()
+			</div>
+			@dialog.Footer() {
+				@dialog.Close() {
+					@button.Button(button.Props{Variant: button.VariantOutline}) {
+						Close
+					}
+				}
+			}
+		}
+	}
+	@settingsDialogScript()
+}
+
+// settingsNetworkCard groups network toggles (SSH).
+templ settingsNetworkCard() {
+	@card.Card() {
+		@card.Header() {
+			@card.Title(card.TitleProps{Class: "text-sm"}) {
+				Network
+			}
+		}
+		@card.Content(card.ContentProps{Class: "pt-0"}) {
+			<div class="flex items-center justify-between py-1">
+				@label.Label(label.Props{For: "ssh-switch"}) {
+					SSH
+				}
+				@switchcomp.Switch(switchcomp.Props{ID: "ssh-switch", Attributes: templ.Attributes{"onchange": "toggleSSH(this.checked)"}})
+			</div>
+		}
+	}
+}
+
+// settingsSecurityCard groups TLS toggle + password change.
+templ settingsSecurityCard() {
+	@card.Card() {
+		@card.Header() {
+			@card.Title(card.TitleProps{Class: "text-sm"}) {
+				Security
+			}
+		}
+		@card.Content(card.ContentProps{Class: "pt-0 space-y-2"}) {
+			<div class="flex items-center justify-between py-1">
+				@label.Label(label.Props{For: "tls-switch"}) {
+					TLS / HTTPS
+				}
+				@switchcomp.Switch(switchcomp.Props{ID: "tls-switch", Attributes: templ.Attributes{"onchange": "toggleTLS(this.checked)"}})
+			</div>
+			@separator.Separator()
+			@button.Button(button.Props{
+				Variant:    button.VariantOutline,
+				FullWidth:  true,
+				Attributes: templ.Attributes{"onclick": "window.location.href='/auth/password'"},
+			}) {
+				@icon.KeyRound()
+				<span>Change Password</span>
+			}
+		}
+	}
+}
+
+// settingsAutoUpdateCard exposes the auto-update toggle + interval + per-
+// component switches. State loads from /api/autoupdate/settings on dialog
+// open and writes via PATCH.
+templ settingsAutoUpdateCard() {
+	@card.Card() {
+		@card.Header() {
+			@card.Title(card.TitleProps{Class: "text-sm"}) {
+				Automatic Updates
+			}
+			@card.Description() {
+				Background ticker checks GitHub for newer releases and applies them.
+			}
+		}
+		@card.Content(card.ContentProps{Class: "pt-0 space-y-3"}) {
+			<div class="flex items-center justify-between py-1">
+				@label.Label(label.Props{For: "au-enabled"}) {
+					Enable auto-update
+				}
+				@switchcomp.Switch(switchcomp.Props{ID: "au-enabled", Attributes: templ.Attributes{"onchange": "saveAutoUpdate()"}})
+			</div>
+			<div class="space-y-1.5">
+				@label.Label(label.Props{For: "au-interval"}) {
+					Check interval (minutes)
+				}
+				@input.Input(input.Props{
+					ID:         "au-interval",
+					Type:       input.TypeNumber,
+					Value:      "360",
+					Attributes: templ.Attributes{"min": "5", "step": "5", "onchange": "saveAutoUpdate()"},
+				})
+			</div>
+			@separator.Separator()
+			<div class="flex items-center justify-between py-1">
+				@label.Label(label.Props{For: "au-application"}) {
+					Update application
+				}
+				@switchcomp.Switch(switchcomp.Props{ID: "au-application", Attributes: templ.Attributes{"onchange": "saveAutoUpdate()"}})
+			</div>
+			<div class="flex items-center justify-between py-1">
+				@label.Label(label.Props{For: "au-bios"}) {
+					Update BIOS (U-Boot)
+				}
+				@switchcomp.Switch(switchcomp.Props{ID: "au-bios", Attributes: templ.Attributes{"onchange": "saveAutoUpdate()"}})
+			</div>
+			<p id="au-status" class="text-xs text-muted-foreground min-h-[1rem]"></p>
+		}
+	}
+}
+
+// settingsSystemCard hosts system-wide actions (reboot).
+templ settingsSystemCard() {
+	@card.Card() {
+		@card.Header() {
+			@card.Title(card.TitleProps{Class: "text-sm"}) {
+				System
+			}
+		}
+		@card.Content(card.ContentProps{Class: "pt-0"}) {
+			@button.Button(button.Props{
+				Variant:    button.VariantDestructive,
+				FullWidth:  true,
+				Attributes: templ.Attributes{"onclick": "if(confirm('Reboot the BMC?')) rebootSystem()"},
+			}) {
+				@icon.RefreshCw()
+				<span>Reboot BMC</span>
+			}
+		}
+	}
+}
+
+templ settingsDialogScript() {
+	<script>
+		async function toggleSSH(enable) {
+			try { await apiPost(enable ? '/api/vm/ssh/enable' : '/api/vm/ssh/disable'); }
+			catch(e) { console.error(e); }
+		}
+		async function toggleTLS(enable) {
+			try { await apiPost('/api/vm/tls', { enabled: enable }); }
+			catch(e) { console.error(e); }
+			alert('TLS ' + (enable ? 'enabled' : 'disabled') + '. Page may reload.');
+		}
+		async function rebootSystem() {
+			try { await apiPost('/api/vm/system/reboot'); }
+			catch(e) { console.error(e); }
+		}
+
+		async function loadAutoUpdate() {
+			try {
+				const r = await fetch('/api/autoupdate/settings', { headers: getAuthHeaders() });
+				if (!r.ok) return;
+				const s = await r.json();
+				document.getElementById('au-enabled').checked = !!s.enabled;
+				document.getElementById('au-interval').value = s.intervalMinutes ?? 360;
+				document.getElementById('au-application').checked = !!s.application;
+				document.getElementById('au-bios').checked = !!s.bios;
+			} catch(e) {}
+		}
+
+		async function saveAutoUpdate() {
+			const status = document.getElementById('au-status');
+			const body = {
+				enabled: document.getElementById('au-enabled').checked,
+				intervalMinutes: parseInt(document.getElementById('au-interval').value, 10) || 360,
+				application: document.getElementById('au-application').checked,
+				bios: document.getElementById('au-bios').checked,
+			};
+			status.textContent = 'Saving…';
+			try {
+				const r = await fetch('/api/autoupdate/settings', {
+					method: 'PATCH', headers: getAuthHeaders(),
+					body: JSON.stringify(body),
+				});
+				status.textContent = r.ok ? 'Saved' : 'Save failed';
+			} catch(e) { status.textContent = 'Error: ' + e.message; }
+			setTimeout(() => { status.textContent = ''; }, 3000);
+		}
+
+		// Load initial state on page load + every time the dialog opens.
+		(async function() {
+			try {
+				const s = await apiGet('/api/vm/ssh');
+				const el = document.getElementById('ssh-switch');
+				if (el) el.checked = !!(s.data?.enabled);
+			} catch(e) {}
+			const tls = document.getElementById('tls-switch');
+			if (tls) tls.checked = window.location.protocol === 'https:';
+			loadAutoUpdate();
+		})();
+	</script>
+}

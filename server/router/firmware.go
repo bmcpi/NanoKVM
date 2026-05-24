@@ -407,6 +407,8 @@ func firmwareRouter(r *gin.Engine) {
 
 	// POST /api/firmware/bios/kernel/:kernel/download — download and cache the
 	// U-Boot image for the given kernel version without activating it.
+	// Optional query: ?force=true deletes any existing cached image first,
+	// forcing a fresh download even if the file is already present.
 	api.POST("/bios/kernel/:kernel/download", func(c *gin.Context) {
 		kernel := c.Param("kernel")
 		ubootVer, ok := firmware.KernelUBootMap[kernel]
@@ -423,11 +425,15 @@ func firmwareRouter(r *gin.Engine) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
 		}
-		go func(ver, url string) {
+		force := c.Query("force") == "true"
+		go func(ver, url string, force bool) {
+			if force {
+				ctrl.DeleteVersionedImage(ver)
+			}
 			if err := ctrl.DownloadVersionedImage(ver, url); err != nil {
 				log.Errorf("versioned image download failed (%s): %v", ver, err)
 			}
-		}(ubootVer, rel.AssetURL)
+		}(ubootVer, rel.AssetURL, force)
 		c.JSON(http.StatusAccepted, gin.H{"message": "download started", "uboot": ubootVer})
 	})
 

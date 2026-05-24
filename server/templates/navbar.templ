@@ -1,0 +1,59 @@
+package templates
+
+import (
+	"github.com/templui/templui/components/button"
+	"github.com/templui/templui/components/icon"
+)
+
+// Navbar is the top BMC nav: brand, power dropdown, virtual-media dropdown,
+// server-overview sidebar trigger, settings dialog trigger, logout.
+//
+// Each menu is a focused component in its own file (power_menu,
+// virtual_media, settings_menu / SettingsDialog, overview / OverviewSidebar).
+//
+// The Server Overview trigger uses sidebar.Trigger(Target: overviewSidebarID)
+// — Navbar must therefore render inside the sidebar.Layout established by
+// DashboardPage. Pages that don't have an overview sidebar (login, password)
+// skip Navbar entirely.
+templ Navbar() {
+	<header class="flex items-center justify-between border-b border-border bg-card px-4 py-2">
+		<div class="flex items-center gap-3">
+			<span class="text-sm font-bold tracking-wide">NanoKVM BMC</span>
+			@PowerMenu()
+			@VirtualMediaMenu()
+		</div>
+		<div class="flex items-center gap-2">
+			@button.Button(button.Props{
+				Variant: button.VariantGhost,
+				Size:    button.SizeSm,
+				Attributes: templ.Attributes{
+					"onclick": "toggleOverview()",
+					"title":   "Server Overview",
+				},
+			}) {
+				@icon.MonitorSpeaker()
+				<span>Server Overview</span>
+			}
+			@SettingsDialogTrigger()
+			@button.Button(button.Props{
+				Variant:    button.VariantGhost,
+				Size:       button.SizeIcon,
+				Attributes: templ.Attributes{"onclick": "doLogout()", "title": "Logout"},
+			}) {
+				@icon.LogOut()
+			}
+		</div>
+	</header>
+	@navbarScript()
+}
+
+// navbarScript wires Logout. Per-menu polling lives with each menu component.
+templ navbarScript() {
+	<script>
+		async function doLogout() {
+			try { await apiPost('/api/auth/logout'); } catch(e) {}
+			document.cookie = 'nano-kvm-token=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+			window.location.replace('/auth/login');
+		}
+	</script>
+}

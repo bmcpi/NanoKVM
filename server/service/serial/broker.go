@@ -2,6 +2,7 @@ package serial
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	goserial "go.bug.st/serial"
 
 	"github.com/BMCPi/NanoKVM/server/config"
+	"github.com/BMCPi/NanoKVM/server/telemetry"
 )
 
 // Session represents one consumer of the serial port (WebSocket, IPMI SOL, etc.).
@@ -110,6 +112,7 @@ func (b *Broker) Connect(id string, output io.Writer) (*Session, error) {
 		_, _ = output.Write(replay)
 	}
 
+	telemetry.SerialSessionOpened(context.Background())
 	log.Infof("serial: session %q connected (%d total)", id, b.sessionCount.Load())
 	return sess, nil
 }
@@ -127,6 +130,7 @@ func (b *Broker) Disconnect(id string) {
 	sess := val.(*Session)
 	b.mw.Remove(sess.output)
 	remaining := b.sessionCount.Add(-1)
+	telemetry.SerialSessionClosed(context.Background())
 
 	log.Infof("serial: session %q disconnected (%d remaining)", id, remaining)
 
@@ -144,7 +148,9 @@ func (b *Broker) Write(data []byte) (int, error) {
 	if stdin == nil {
 		return 0, fmt.Errorf("serial port not active")
 	}
-	return stdin.Write(data)
+	n, err := stdin.Write(data)
+	telemetry.SerialBytesTx(context.Background(), n)
+	return n, err
 }
 
 // Active reports whether the serial port process is running.
@@ -276,6 +282,7 @@ func (b *Broker) readLoop() {
 		}
 
 		if n > 0 {
+			telemetry.SerialBytesRx(context.Background(), n)
 			// Map LF → CRLF for terminal display (like picocom --imap lfcrlf).
 			mapped := mapLFtoCRLF(buf[:n])
 			b.appendScrollback(mapped)

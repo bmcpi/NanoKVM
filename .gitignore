@@ -33,3 +33,8 @@ kvmapp/kvm_system/kvm_system
 dist
 bin
 version
+out
+
+# Transient CSS file written by go generate (server/assets/assets.go): holds
+# the templui module path for the Tailwind scan, removed after the build.
+server/assets/css/sources.generated.css

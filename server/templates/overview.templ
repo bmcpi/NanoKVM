@@ -1,215 +1,360 @@
 package templates
 
-// ServerOverview renders the slide-in side panel with two sections:
+import (
+	"github.com/templui/templui/components/badge"
+	"github.com/templui/templui/components/button"
+	"github.com/templui/templui/components/card"
+	"github.com/templui/templui/components/selectbox"
+)
+
+// overviewSidebarID is the ID of the slide-in panel.
+const overviewSidebarID = "overview-sidebar"
+
+// OverviewSidebar is a push-style sidebar contained within the dashboard's
+// flex row (next to the console pane, below the navbar). Width animates
+// from 0 (closed) to 24rem (open) via data-state, so opening it shrinks
+// the console pane rather than overlaying it.
 //
-//   - Server Information: identity, network and inventory of the managed
-//     server (board, vendor, CPU, MACs, interfaces).
-//   - BMC Information: U-Boot version, boot targets, boot override controls,
-//     firmware image management, and virtual media.
-//
-// All field IDs match what the dashboard JS already populates, so dropping
-// in this panel is a pure DOM relocation.
-templ ServerOverview() {
+// We do NOT use templui's Sidebar component here: that one positions its
+// <aside> as `fixed inset-y-0 h-svh`, so it always covers the navbar.
+templ OverviewSidebar() {
+	@overviewSidebarStyles()
+	<aside
+		id={ overviewSidebarID }
+		class="ov-sidebar"
+		data-state="closed"
+		aria-label="Server Overview"
+	>
+		<div class="ov-sidebar-inner">
+			<div class="flex items-center justify-between border-b border-border px-4 py-3">
+				<div>
+					<h2 class="text-sm font-semibold">Server Overview</h2>
+					<p class="text-xs text-muted-foreground">Identity, network, and firmware state.</p>
+				</div>
+			</div>
+			<div class="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-4">
+				@overviewServerCard()
+				@overviewBmcCard()
+				@overviewBiosCard()
+				@overviewBootOverrideCard()
+				@overviewKernelCard()
+			</div>
+		</div>
+	</aside>
+	@overviewToggleScript()
+}
+
+templ overviewSidebarStyles() {
 	<style>
-		/* Inline slide-in drawer — sibling of <main>, animates width. */
-		#overview-panel {
+		.ov-sidebar {
 			width: 0;
-			max-width: 493px;
-			background: #0f0f0f;
-			border-left: 1px solid #262626;
-			box-shadow: -10px 0 25px rgba(0,0,0,0.4);
-			overflow: hidden;
 			flex-shrink: 0;
-			transition: width 0.2s ease;
+			overflow: hidden;
+			border-left: 1px solid var(--border);
+			background: var(--card);
 			display: flex;
 			flex-direction: column;
+			transition: width 0.2s ease;
 		}
-		#overview-panel.open { width: 100%; }
-		@media (min-width: 640px) {
-			#overview-panel.open { width: 493px; }
+		.ov-sidebar[data-state="open"] { width: 24rem; }
+		@media (max-width: 640px) {
+			.ov-sidebar[data-state="open"] { width: 100%; }
 		}
-		/* Inner wrapper keeps content at full width while the outer width animates. */
-		.ov-inner {
-			width: 493px;
-			max-width: 100%;
+		/* Inner wrapper keeps content at a stable width during the width
+		   animation so nothing reflows mid-transition. */
+		.ov-sidebar-inner {
+			width: 24rem;
+			max-width: 100vw;
 			height: 100%;
 			display: flex;
 			flex-direction: column;
 		}
-
-		.ov-header {
-			display: flex; align-items: center; justify-content: space-between;
-			padding: 0.625rem 1rem;
-			border-bottom: 1px solid #262626;
-			background: #171717;
-			flex-shrink: 0;
-		}
-		.ov-header h2 { font-size: 0.875rem; font-weight: 600; color: #fafafa; }
-		.ov-body { flex: 1; min-height: 0; overflow-y: auto; padding: 1rem; }
-		.ov-section + .ov-section { margin-top: 1.5rem; }
-		.ov-section h3 {
-			font-size: 0.6875rem; font-weight: 600;
-			text-transform: uppercase; letter-spacing: 0.08em;
-			color: #737373; margin-bottom: 0.5rem;
-			padding-bottom: 0.375rem; border-bottom: 1px solid #1f1f1f;
-		}
-		.ov-row {
-			display: flex; align-items: center; justify-content: space-between;
-			padding: 0.375rem 0;
-			gap: 0.75rem;
-			border-bottom: 1px solid #161616;
-		}
+		.ov-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .375rem 0; border-bottom: 1px solid var(--border); }
 		.ov-row:last-child { border-bottom: none; }
-		.ov-label { font-size: 0.75rem; color: #a3a3a3; flex-shrink: 0; }
-		.ov-value {
-			font-size: 0.75rem; color: #e5e5e5;
-			font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
-			text-align: right;
-			word-break: break-word;
-			min-width: 0;
-		}
-		.ov-block { padding: 0.5rem 0; }
-		.ov-block-label { font-size: 0.75rem; color: #a3a3a3; margin-bottom: 0.375rem; }
-		.ov-controls { display: flex; gap: 0.375rem; align-items: center; flex-wrap: wrap; }
-		.ov-status-text { font-size: 0.6875rem; color: #71717a; }
-		.ov-input,
-		.ov-select {
-			background: #0a0a0a;
-			border: 1px solid #303030;
-			border-radius: 0.25rem;
-			padding: 0.25rem 0.5rem;
-			font-size: 0.75rem;
-			color: #e5e5e5;
-		}
-		.ov-input:focus, .ov-select:focus { outline: none; border-color: #1d4ed8; }
-		.ov-tab {
-			padding: 0.125rem 0.625rem;
-			border-radius: 0.25rem;
-			font-size: 0.6875rem;
-			cursor: pointer;
-			border: 1px solid #404040;
-			background: transparent;
-			color: #a3a3a3;
-		}
-		.ov-tab.active { border-color: #1d4ed8; background: #1d4ed8; color: white; }
+		.ov-label { font-size: .75rem; color: var(--muted-foreground); flex-shrink: 0; }
+		.ov-value { font-size: .75rem; font-family: var(--font-mono); text-align: right; word-break: break-all; min-width: 0; }
 	</style>
+}
 
-	<aside id="overview-panel" aria-hidden="true">
-		<div class="ov-inner">
-		<div class="ov-header">
-			<h2>Server Overview</h2>
-			<button class="toolbar-btn" onclick="window.toggleServerOverview()" title="Close">
-				<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-				Hide
-			</button>
-		</div>
+// overviewServerCard is the server identity card.
+templ overviewServerCard() {
+	@card.Card() {
+		@card.Header() {
+			@card.Title(card.TitleProps{Class: "text-sm"}) {
+				Server Information
+			}
+			@card.Description(card.DescriptionProps{Class: "text-xs"}) {
+				Hardware identity of the managed server.
+			}
+		}
+		@card.Content(card.ContentProps{Class: "py-0 pb-2"}) {
+			@kvRow("Board", "info-board")
+			@kvRow("Vendor", "info-vendor")
+			@kvRow("CPU / SoC", "info-cpu")
+			@kvRow("Serial", "info-board-serial")
+			@kvRow("Revision", "info-board-rev")
+			@kvRow("Board MAC", "info-board-mac")
+		}
+		@card.Footer(card.FooterProps{Class: "pt-2 text-[0.6875rem] text-muted-foreground"}) {
+			Read from U-Boot machine.env on the managed server.
+		}
+	}
+}
 
-		<div class="ov-body">
-			<!-- Server Information -->
-			<section class="ov-section">
-				<h3>Server Information</h3>
-				<div class="ov-row"><span class="ov-label">Board</span><span class="ov-value" id="info-board">—</span></div>
-				<div class="ov-row"><span class="ov-label">Vendor</span><span class="ov-value" id="info-vendor">—</span></div>
-				<div class="ov-row"><span class="ov-label">CPU / SoC</span><span class="ov-value" id="info-cpu">—</span></div>
-				<div class="ov-row"><span class="ov-label">Serial</span><span class="ov-value" id="info-board-serial">—</span></div>
-				<div class="ov-row"><span class="ov-label">Revision</span><span class="ov-value" id="info-board-rev">—</span></div>
-				<div class="ov-row"><span class="ov-label">Board MAC</span><span class="ov-value" id="info-board-mac">—</span></div>
-			</section>
+// overviewBmcCard is the BMC build + network identity card. Footer surfaces
+// the management interfaces.
+templ overviewBmcCard() {
+	@card.Card() {
+		@card.Header() {
+			@card.Title(card.TitleProps{Class: "text-sm"}) {
+				BMC Information
+			}
+			@card.Description(card.DescriptionProps{Class: "text-xs"}) {
+				Current BMC build + management interface.
+			}
+		}
+		@card.Content(card.ContentProps{Class: "py-0 pb-2"}) {
+			<div class="ov-row">
+				<span class="ov-label">Application</span>
+				<span class="ov-value flex items-center gap-1.5 justify-end">
+					<span id="info-app">—</span>
+					@button.Button(button.Props{
+						ID:         "btn-app-update",
+						Variant:    button.VariantOutline,
+						Size:       button.SizeSm,
+						Class:      "hidden h-6 px-2 text-xs",
+						Attributes: templ.Attributes{"onclick": "updateApplication()"},
+					}) {
+						Update
+					}
+					@badge.Badge(badge.Props{
+						ID:      "info-app-latest-badge",
+						Variant: badge.VariantSecondary,
+						Class:   "hidden bg-green-500/15 text-green-500",
+					}) {
+						Latest
+					}
+				</span>
+			</div>
+			@DownloadProgress("app-update")
+			@kvRow("Image", "info-image")
+			@kvRow("Hardware", "info-hw")
+			@kvRow("IP Address", "info-ip")
+			@kvRow("MAC", "info-mac")
+		}
+		@card.Footer(card.FooterProps{Class: "pt-2 text-xs text-muted-foreground"}) {
+			Interfaces: IPMI :623 · <a href="/redfish/v1" class="ml-1 underline underline-offset-4 hover:text-foreground">Redfish</a>
+		}
+	}
+}
 
-			<!-- BMC Information -->
-			<section class="ov-section">
-				<h3>BMC Information</h3>
-				<div class="ov-row">
-					<span class="ov-label">Application</span>
-					<span class="ov-value">
-						<span id="info-app">—</span>
-						<button id="btn-app-update" class="toolbar-btn" style="display:none; margin-left:0.375rem;" onclick="updateApplication()" title="Update to latest"></button>
-						<span id="info-app-latest-badge" class="ov-status-text" style="display:none; margin-left:0.375rem; color:#22c55e;">(Latest)</span>
-						<span id="info-app-update-status" class="ov-status-text" style="margin-left:0.375rem;"></span>
-					</span>
-				</div>
-				<div class="ov-row"><span class="ov-label">Image</span><span class="ov-value" id="info-image">—</span></div>
-				<div class="ov-row"><span class="ov-label">Hardware</span><span class="ov-value" id="info-hw">—</span></div>
-				<div class="ov-row"><span class="ov-label">IP Address</span><span class="ov-value" id="info-ip">—</span></div>
-				<div class="ov-row"><span class="ov-label">MAC</span><span class="ov-value" id="info-mac">—</span></div>
-				<div class="ov-row">
-					<span class="ov-label">Interfaces</span>
-					<span class="ov-value">IPMI :623 · <a href="/redfish/v1" class="text-blue-400 hover:underline">Redfish</a></span>
-				</div>
-			</section>
+// overviewBiosCard shows U-Boot identity + firmware state. Footer holds the
+// firmware-image download button (hidden until /api/firmware/status reports
+// the image is missing).
+templ overviewBiosCard() {
+	@card.Card() {
+		@card.Header() {
+			@card.Title(card.TitleProps{Class: "text-sm"}) {
+				BIOS Information
+			}
+			@card.Description(card.DescriptionProps{Class: "text-xs"}) {
+				U-Boot identity and boot-method discovery.
+			}
+		}
+		@card.Content(card.ContentProps{Class: "py-0 pb-2"}) {
+			@kvRow("Firmware", "info-fw-status")
+			<div class="ov-row">
+				<span class="ov-label">U-Boot</span>
+				<span class="ov-value flex items-center gap-1.5 justify-end">
+					<span id="info-bios-ver">—</span>
+					@button.Button(button.Props{
+						ID:         "btn-bios-update",
+						Variant:    button.VariantOutline,
+						Size:       button.SizeSm,
+						Class:      "hidden h-6 px-2 text-xs",
+						Attributes: templ.Attributes{"onclick": "updateBIOS()"},
+					}) {
+						Update
+					}
+					@badge.Badge(badge.Props{
+						ID:      "info-bios-latest-badge",
+						Variant: badge.VariantSecondary,
+						Class:   "hidden bg-green-500/15 text-green-500",
+					}) {
+						Latest
+					}
+				</span>
+			</div>
+			@DownloadProgress("bios-update")
+			@kvRow("Device Tree", "info-fdtfile")
+			@kvRow("Boot Targets", "info-boot-target")
+			@kvRow("Boot Override", "info-boot-override")
+			@kvRow("Boot Methods", "info-bootmeths")
+		}
+		@card.Footer(card.FooterProps{Class: "pt-2 flex flex-col gap-2 w-full"}) {
+			<div id="fw-download-item" class="hidden w-full flex items-center justify-between">
+				<span class="text-xs text-muted-foreground">Firmware image not cached</span>
+				@button.Button(button.Props{
+					ID:         "btn-fw-download",
+					Variant:    button.VariantOutline,
+					Size:       button.SizeSm,
+					Attributes: templ.Attributes{"onclick": "downloadFirmware()"},
+				}) {
+					Download
+				}
+			</div>
+			@DownloadProgress("fw-download")
+		}
+	}
+}
 
-			<!-- BIOS / U-Boot Information -->
-			<section class="ov-section">
-				<h3>BIOS Information</h3>
-				<div class="ov-row"><span class="ov-label">Firmware</span><span class="ov-value" id="info-fw-status">—</span></div>
-				<div class="ov-row">
-					<span class="ov-label">U-Boot</span>
-					<span class="ov-value">
-						<span id="info-bios-ver">—</span>
-						<button id="btn-bios-update" class="toolbar-btn" style="display:none; margin-left:0.375rem;" onclick="updateBIOS()" title="Update to latest"></button>
-						<span id="info-bios-latest-badge" class="ov-status-text" style="display:none; margin-left:0.375rem; color:#22c55e;">(Latest)</span>
-						<span id="info-bios-update-status" class="ov-status-text" style="margin-left:0.375rem;"></span>
-					</span>
-				</div>
-				<div class="ov-row"><span class="ov-label">Device Tree</span><span class="ov-value" id="info-fdtfile">—</span></div>
-				<div class="ov-row"><span class="ov-label">Boot Targets</span><span class="ov-value" id="info-boot-target">—</span></div>
-				<div class="ov-row"><span class="ov-label">Boot Override</span><span class="ov-value" id="info-boot-override">—</span></div>
-				<div class="ov-row"><span class="ov-label">Boot Methods</span><span class="ov-value" id="info-bootmeths">—</span></div>
+// overviewBootOverrideCard wraps the Redfish boot override controls in a
+// dedicated card so the Selectbox + action buttons get a clean layout.
+templ overviewBootOverrideCard() {
+	@card.Card() {
+		@card.Header() {
+			@card.Title(card.TitleProps{Class: "text-sm"}) {
+				Boot Override
+			}
+			@card.Description(card.DescriptionProps{Class: "text-xs"}) {
+				Override the next boot source via Redfish.
+			}
+		}
+		@card.Content(card.ContentProps{Class: "py-2"}) {
+			@bootOverrideSelect()
+		}
+		@card.Footer(card.FooterProps{Class: "pt-2 flex items-center gap-2 flex-wrap"}) {
+			@button.Button(button.Props{
+				Variant:    button.VariantOutline,
+				Size:       button.SizeSm,
+				Attributes: templ.Attributes{"onclick": "setBootOverride(false)"},
+			}) {
+				Once
+			}
+			@button.Button(button.Props{
+				Variant:    button.VariantOutline,
+				Size:       button.SizeSm,
+				Attributes: templ.Attributes{"onclick": "setBootOverride(true)"},
+			}) {
+				Persistent
+			}
+			<span id="boot-override-status" class="text-[0.6875rem] text-muted-foreground"></span>
+		}
+	}
+}
 
-				<div class="ov-block">
-					<div class="ov-block-label">Set Boot Override</div>
-					<div class="ov-controls">
-						<select id="boot-override-select" class="ov-select">
-							<option value="None">None (default)</option>
-							<option value="Pxe">PXE (network)</option>
-							<option value="Hdd">HDD / MMC / NVMe</option>
-							<option value="Cd">CD / USB</option>
-							<option value="BiosSetup">BIOS Setup</option>
-							<option value="UefiHttp">UEFI HTTP Boot</option>
-						</select>
-						<button class="toolbar-btn" onclick="setBootOverride(false)">Once</button>
-						<button class="toolbar-btn" onclick="setBootOverride(true)">Persistent</button>
-						<span id="boot-override-status" class="ov-status-text"></span>
-					</div>
-				</div>
+// bootOverrideSelect is the templui Selectbox that backs the Boot Override
+// Once/Persistent buttons. The hidden input carries id=boot-override-select
+// for backwards-compat with the existing JS reader.
+templ bootOverrideSelect() {
+	@selectbox.SelectBox() {
+		@selectbox.Trigger(selectbox.TriggerProps{
+			Name:       "boot-override-select",
+			Attributes: templ.Attributes{"id": "boot-override-select"},
+		}) {
+			@selectbox.Value(selectbox.ValueProps{Placeholder: "None (default)"})
+		}
+		@selectbox.Content() {
+			@selectbox.Item(selectbox.ItemProps{Value: "None", Selected: true}) {
+				None (default)
+			}
+			@selectbox.Item(selectbox.ItemProps{Value: "Pxe"}) {
+				PXE (network)
+			}
+			@selectbox.Item(selectbox.ItemProps{Value: "Hdd"}) {
+				HDD / MMC / NVMe
+			}
+			@selectbox.Item(selectbox.ItemProps{Value: "Cd"}) {
+				CD / USB
+			}
+			@selectbox.Item(selectbox.ItemProps{Value: "BiosSetup"}) {
+				BIOS Setup
+			}
+			@selectbox.Item(selectbox.ItemProps{Value: "UefiHttp"}) {
+				UEFI HTTP Boot
+			}
+		}
+	}
+	@selectbox.Script()
+}
 
-				<div class="ov-block" id="fw-download-item" style="display:none">
-					<div class="ov-block-label">Firmware Image</div>
-					<div class="ov-controls">
-						<button class="toolbar-btn" id="btn-fw-download" onclick="downloadFirmware()">Download</button>
-					</div>
-				</div>
-
-				<div class="ov-block">
-					<div class="ov-block-label">Kernel Version</div>
-					<div class="ov-controls" style="flex-wrap:wrap; gap:0.375rem;">
-						<select id="bios-kernel-select" class="ov-select" onchange="updateKernelButtons()" style="flex:1; min-width:10rem;">
-							<option value="">Select kernel version…</option>
-						</select>
-						<button class="toolbar-btn" id="btn-kernel-download" style="display:none" onclick="downloadKernelBIOS()">Download</button>
-						<button class="toolbar-btn" id="btn-kernel-activate" style="display:none" onclick="activateKernelBIOS()">Activate</button>
-					</div>
-					<div id="bios-kernel-status" class="ov-status-text" style="margin-top:0.25rem;"></div>
-				</div>
-			</section>
-		</div>
-		</div>
-	</aside>
-
-	<script>
-		window.toggleServerOverview = function() {
-			const panel = document.getElementById('overview-panel');
-			const open = panel.classList.toggle('open');
-			panel.setAttribute('aria-hidden', open ? 'false' : 'true');
-		};
-		// Esc closes the panel.
-		document.addEventListener('keydown', (e) => {
-			if (e.key === 'Escape') {
-				const panel = document.getElementById('overview-panel');
-				if (panel && panel.classList.contains('open')) {
-					window.toggleServerOverview();
+// overviewKernelCard wraps the kernel-version selector + per-kernel actions
+// in a dedicated card. The Selectbox starts empty; loadKernelVersions()
+// in overview_script.templ injects items dynamically via the standard
+// .select-item DOM structure (templui's selectbox.js uses event delegation
+// so dynamic items get picked up without any extra wiring).
+templ overviewKernelCard() {
+	@card.Card() {
+		@card.Header() {
+			@card.Title(card.TitleProps{Class: "text-sm"}) {
+				Kernel Version
+			}
+			@card.Description(card.DescriptionProps{Class: "text-xs"}) {
+				Cached U-Boot images by supported Linux kernel version.
+			}
+		}
+		@card.Content(card.ContentProps{Class: "py-2 space-y-1.5"}) {
+			@selectbox.SelectBox(selectbox.Props{ID: "bios-kernel-box"}) {
+				@selectbox.Trigger(selectbox.TriggerProps{
+					Name:       "bios-kernel-select",
+					Attributes: templ.Attributes{"id": "bios-kernel-select"},
+				}) {
+					@selectbox.Value(selectbox.ValueProps{Placeholder: "Select kernel version…"})
+				}
+				@selectbox.Content() {
+					// Items injected dynamically by loadKernelVersions() in
+					// overview_script.templ — selectbox.js uses event
+					// delegation so dynamic items pick up click/select
+					// behaviour without re-binding.
 				}
 			}
-		});
+			<div id="bios-kernel-status" class="text-[0.6875rem] text-muted-foreground"></div>
+		}
+		@card.Footer(card.FooterProps{Class: "pt-2 flex flex-col gap-2 w-full"}) {
+			<div class="flex flex-wrap items-center gap-1.5">
+				@button.Button(button.Props{ID: "btn-kernel-download", Variant: button.VariantOutline, Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "downloadKernelBIOS()"}}) {
+					Download
+				}
+				@button.Button(button.Props{ID: "btn-kernel-refresh", Variant: button.VariantOutline, Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "refreshKernelBIOS()", "title": "Re-download to overwrite existing cached image"}}) {
+					Refresh
+				}
+				@button.Button(button.Props{ID: "btn-kernel-activate", Size: button.SizeSm, Class: "hidden", Attributes: templ.Attributes{"onclick": "activateKernelBIOS()"}}) {
+					Activate
+				}
+			</div>
+			@DownloadProgress("kernel")
+		}
+	}
+}
+
+// kvRow renders a single label / value row in an overview card.
+templ kvRow(label, valueID string) {
+	<div class="ov-row">
+		<span class="ov-label">{ label }</span>
+		<span id={ valueID } class="ov-value">—</span>
+	</div>
+}
+
+// overviewToggleScript exposes openOverview / closeOverview / toggleOverview
+// globally. The navbar button calls toggleOverview(); ESC closes.
+templ overviewToggleScript() {
+	<script>
+		(function() {
+			const el = () => document.getElementById('overview-sidebar');
+			const setState = (s) => { const a = el(); if (a) a.dataset.state = s; };
+			window.openOverview  = () => setState('open');
+			window.closeOverview = () => setState('closed');
+			window.toggleOverview = () => {
+				const a = el();
+				if (!a) return;
+				a.dataset.state = a.dataset.state === 'open' ? 'closed' : 'open';
+			};
+			document.addEventListener('keydown', (e) => {
+				if (e.key === 'Escape') {
+					const a = el();
+					if (a && a.dataset.state === 'open') closeOverview();
+				}
+			});
+		})();
 	</script>
 }

@@ -1,5 +1,4 @@
 package firmware
-package firmware
 
 import "testing"
 
