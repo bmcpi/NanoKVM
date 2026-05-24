@@ -26,6 +26,17 @@ templ Navbar() {
 			@button.Button(button.Props{
 				Variant: button.VariantGhost,
 				Size:    button.SizeSm,
+				Href:    "/docs",
+				Attributes: templ.Attributes{
+					"title": "Redfish API documentation",
+				},
+			}) {
+				@icon.BookOpen()
+				<span>API Docs</span>
+			}
+			@button.Button(button.Props{
+				Variant: button.VariantGhost,
+				Size:    button.SizeSm,
 				Attributes: templ.Attributes{
 					"onclick": "toggleOverview()",
 					"title":   "Server Overview",

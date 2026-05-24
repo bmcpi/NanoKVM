@@ -1,19 +1,20 @@
 package redfish
 
 // openapi.go serves the OpenAPI 3.1 specification for the Redfish surface
-// this BMC implements, plus a small Swagger UI page that consumes it.
-//
-// The spec is authored in YAML (openapi.yaml, embedded below) — that's
-// the canonical form a human edits. JSON is produced on demand from the
-// same source so clients that prefer JSON aren't left out.
+// this BMC implements. The spec is authored in YAML (openapi.yaml,
+// embedded below) — that's the canonical form a human edits. JSON is
+// produced on demand from the same source so clients that prefer JSON
+// aren't left out.
 //
 // Endpoints (wired in server/router/redfish.go):
 //   GET /redfish/v1/openapi.yaml — the spec, served as application/yaml
 //   GET /redfish/v1/openapi.json — same spec, converted to JSON
-//   GET /redfish/v1/docs         — Swagger UI loading openapi.yaml
 //
-// All three are public (no auth) so a tool can discover the surface
-// before authenticating.
+// A custom templui-based docs page is served at /docs (see
+// server/templates/api_docs.templ); SwaggerUI is no longer used.
+//
+// Both endpoints are public (no auth) so a tool can discover the
+// surface before authenticating.
 
 import (
 	_ "embed"
@@ -27,6 +28,15 @@ import (
 
 //go:embed openapi.yaml
 var openAPIYAML []byte
+
+// OpenAPIYAML returns the embedded spec bytes. Exported so other
+// packages (e.g. the templates layer that renders the docs page) can
+// parse the same source the HTTP handlers serve.
+func OpenAPIYAML() []byte {
+	out := make([]byte, len(openAPIYAML))
+	copy(out, openAPIYAML)
+	return out
+}
 
 // jsonOnce / cachedJSON memoise the YAML→JSON conversion so we only do
 // it once per process. The spec is static for the lifetime of a binary.
@@ -45,8 +55,8 @@ func (s *Service) GetOpenAPIYAML(c *gin.Context) {
 // (sync.Once) and serves the cached bytes on every subsequent call.
 func (s *Service) GetOpenAPIJSON(c *gin.Context) {
 	jsonOnce.Do(func() {
-		var any map[string]any
-		if err := yaml.Unmarshal(openAPIYAML, &any); err != nil {
+		var doc map[string]any
+		if err := yaml.Unmarshal(openAPIYAML, &doc); err != nil {
 			cachedErr = err
 			return
 		}
@@ -54,7 +64,7 @@ func (s *Service) GetOpenAPIJSON(c *gin.Context) {
 		// produces for nested maps). We unmarshalled into map[string]any
 		// at the top level, but nested maps may still be map[any]any
 		// depending on the YAML doc — normalise before marshalling.
-		normalised := normaliseYAMLMaps(any)
+		normalised := normaliseYAMLMaps(doc)
 		out, err := json.Marshal(normalised)
 		if err != nil {
 			cachedErr = err
@@ -67,15 +77,6 @@ func (s *Service) GetOpenAPIJSON(c *gin.Context) {
 		return
 	}
 	c.Data(http.StatusOK, "application/json; charset=utf-8", cachedJSON)
-}
-
-// GetSwaggerUI serves a self-contained HTML page that loads Swagger UI
-// from a CDN and points it at /redfish/v1/openapi.yaml.
-//
-// Uses a pinned Swagger UI version so the rendered docs don't drift if
-// upstream pushes a breaking change.
-func (s *Service) GetSwaggerUI(c *gin.Context) {
-	c.Data(http.StatusOK, "text/html; charset=utf-8", []byte(swaggerUIHTML))
 }
 
 // normaliseYAMLMaps walks a decoded YAML value and converts every
@@ -106,32 +107,3 @@ func normaliseYAMLMaps(in any) any {
 		return v
 	}
 }
-
-// swaggerUIHTML is the minimal Swagger UI host page. Loads CSS + bundle
-// from the jsdelivr CDN at a pinned version, then renders the spec from
-// the same-origin YAML endpoint.
-const swaggerUIHTML = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>NanoKVM Redfish API</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css" />
-  <style>body { margin: 0; }</style>
-</head>
-<body>
-  <div id="swagger-ui"></div>
-  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui-bundle.js" crossorigin></script>
-  <script>
-    window.onload = () => {
-      window.ui = SwaggerUIBundle({
-        url: "/redfish/v1/openapi.yaml",
-        dom_id: "#swagger-ui",
-        deepLinking: true,
-        presets: [SwaggerUIBundle.presets.apis],
-        layout: "BaseLayout",
-      });
-    };
-  </script>
-</body>
-</html>
-`

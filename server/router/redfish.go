@@ -16,12 +16,12 @@ func redfishRouter(r *gin.Engine) {
 	r.GET("/redfish/v1/SessionService", service.GetSessionService)
 	r.POST("/redfish/v1/SessionService/Sessions", service.CreateSession)
 
-	// OpenAPI documentation — public so clients can introspect the
-	// surface before authenticating. Swagger UI loads the YAML from the
-	// same origin.
+	// OpenAPI documentation — public so clients (bmclib, gofish, etc.)
+	// can introspect the surface before authenticating. The rendered
+	// human-readable docs page lives at /docs (behind auth, sharing the
+	// dashboard chrome); see router.apiDocsHandler.
 	r.GET("/redfish/v1/openapi.yaml", service.GetOpenAPIYAML)
 	r.GET("/redfish/v1/openapi.json", service.GetOpenAPIJSON)
-	r.GET("/redfish/v1/docs", service.GetSwaggerUI)
 
 	// Protected endpoints
 	api := r.Group("/redfish/v1").Use(middleware.CheckToken())

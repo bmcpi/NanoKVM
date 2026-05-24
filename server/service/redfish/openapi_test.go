@@ -80,24 +80,20 @@ func TestGetOpenAPIJSON_RoundTrip(t *testing.T) {
 	}
 }
 
-func TestGetSwaggerUI_ServesHTML(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	svc := NewService()
-	r.GET("/docs", svc.GetSwaggerUI)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/docs", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("status = %d; want 200", w.Code)
+func TestOpenAPIYAML_Exported(t *testing.T) {
+	// The exported byte slice is what the templates layer parses to
+	// render the custom docs page; make sure it's non-empty and a
+	// defensive copy (mutating the returned slice mustn't poke at the
+	// embedded source).
+	a := OpenAPIYAML()
+	b := OpenAPIYAML()
+	if len(a) == 0 {
+		t.Fatal("OpenAPIYAML() returned empty bytes")
 	}
-	if !strings.HasPrefix(w.Header().Get("Content-Type"), "text/html") {
-		t.Errorf("Content-Type = %q; want text/html*", w.Header().Get("Content-Type"))
-	}
-	body := w.Body.String()
-	if !strings.Contains(body, "swagger-ui") || !strings.Contains(body, "/redfish/v1/openapi.yaml") {
-		t.Errorf("Swagger UI HTML missing expected references:\n%s", body)
+	if len(a) > 0 {
+		a[0] ^= 0xff
+		if b[0] == a[0] {
+			t.Error("OpenAPIYAML() returned an aliased slice; want a defensive copy")
+		}
 	}
 }

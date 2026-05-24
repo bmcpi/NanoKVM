@@ -127,6 +127,27 @@ func web(r *gin.Engine) {
 		render := newRender(c.Request.Context(), http.StatusOK, templates.SettingsPage())
 		c.Render(http.StatusOK, render)
 	})
+
+	// API docs — custom templui-rendered view of the embedded OpenAPI
+	// spec. The raw spec stays public at /redfish/v1/openapi.{yaml,json}
+	// for tooling discovery; the rendered docs page is behind auth so
+	// it shares the dashboard chrome.
+	protected.GET("/docs", apiDocsHandler())
+}
+
+// apiDocsHandler parses the OpenAPI spec once (sync.Once via the model
+// cache below) and renders the templates.APIDocsPage on every request.
+func apiDocsHandler() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		model, err := loadAPIDocsModel()
+		if err != nil {
+			log.Errorf("api docs: load model: %v", err)
+			c.String(http.StatusInternalServerError, "API docs unavailable: %v", err)
+			return
+		}
+		render := newRender(c.Request.Context(), http.StatusOK, templates.APIDocsPage(model))
+		c.Render(http.StatusOK, render)
+	}
 }
 
 // templuiRoutes serves templui's per-component JavaScript (loaded by the
