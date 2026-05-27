@@ -4,13 +4,13 @@ import (
 	"strconv"
 
 	"github.com/templui/templui/components/badge"
-	"github.com/templui/templui/components/card"
 	"github.com/templui/templui/components/separator"
 )
 
-// APIDocsPage renders the OpenAPI-derived Redfish API reference. Layout
-// is a sticky left sidebar with tag-grouped nav links + a scrollable
-// right column with one Card per operation.
+// APIDocsPage renders the OpenAPI-derived Redfish API reference in a
+// UniFi-style three-column layout:
+//
+//	[ tag/op sidebar ] [ operation prose ] [ method+path + samples ]
 //
 // Page is reached via /docs (public, no auth — discovery should be open
 // for clients like bmclib that want to introspect the surface first).
@@ -19,7 +19,7 @@ templ APIDocsPage(m APIDocsModel) {
 		<div class="flex h-full min-h-0 w-full">
 			@apiDocsSidebar(m)
 			<main class="flex-1 min-w-0 overflow-y-auto">
-				<div class="mx-auto max-w-4xl px-6 py-8 space-y-8">
+				<div class="px-8 py-8 space-y-12 max-w-[120rem] mx-auto">
 					@apiDocsHeader(m)
 					for _, tag := range m.Tags {
 						if len(m.ByTag[tag.Name]) > 0 {
@@ -32,26 +32,64 @@ templ APIDocsPage(m APIDocsModel) {
 	}
 }
 
-// apiDocsSidebar is the fixed-width left rail with per-tag nav links.
-// Uses fragment hrefs (#tag-foo) so navigation is purely browser-side.
+// apiDocsSidebar is the left rail. Each tag is a <details> with its
+// operations nested as method-badge + summary links. Using the native
+// <details>/<summary> element means no JS — the browser handles
+// expand/collapse and remembers open state across same-page navigation.
 templ apiDocsSidebar(m APIDocsModel) {
-	<aside class="w-60 flex-shrink-0 border-r border-border bg-card overflow-y-auto p-4">
-		<div class="mb-4 space-y-0.5">
+	<aside class="w-64 flex-shrink-0 border-r border-border bg-card overflow-y-auto">
+		<div class="p-4 border-b border-border space-y-0.5">
 			<h2 class="text-sm font-semibold">{ m.Title }</h2>
 			<p class="text-xs text-muted-foreground">v{ m.Version }</p>
 		</div>
-		<nav class="space-y-0.5">
+		<nav class="p-2 space-y-0.5">
 			for _, tag := range m.Tags {
-				<a
-					href={ templ.URL("#" + tag.Anchor) }
-					class="flex items-center justify-between rounded-md px-2 py-1 text-sm hover:bg-accent transition-colors"
-				>
-					<span>{ tag.Name }</span>
-					<span class="text-xs text-muted-foreground">{ strconv.Itoa(tag.Count) }</span>
-				</a>
+				if len(m.ByTag[tag.Name]) > 0 {
+					@apiDocsSidebarTag(tag, m.ByTag[tag.Name])
+				}
 			}
 		</nav>
 	</aside>
+}
+
+// apiDocsSidebarTag is one collapsible tag group with its operations
+// nested as method-badge + summary links.
+templ apiDocsSidebarTag(tag APIDocsTag, ops []APIDocsOperation) {
+	<details class="group">
+		<summary class="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-accent transition-colors list-none [&::-webkit-details-marker]:hidden">
+			<a href={ templ.URL("#" + tag.Anchor) } class="flex-1 truncate">{ tag.Name }</a>
+			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-3.5 text-muted-foreground transition-transform group-open:rotate-90">
+				<polyline points="9 18 15 12 9 6"></polyline>
+			</svg>
+		</summary>
+		<div class="ml-1 mt-0.5 mb-1 space-y-0.5 border-l border-border/60 pl-2">
+			for _, op := range ops {
+				<a
+					href={ templ.URL("#" + op.Anchor) }
+					class="flex items-center gap-2 rounded-md px-2 py-1 text-xs hover:bg-accent transition-colors"
+				>
+					@apiDocsSidebarMethodTag(op.Method)
+					<span class="truncate flex-1">
+						if op.Summary != "" {
+							{ op.Summary }
+						} else {
+							{ op.Path }
+						}
+					</span>
+				</a>
+			}
+		</div>
+	</details>
+	<span class="sr-only">{ strconv.Itoa(tag.Count) }</span>
+}
+
+// apiDocsSidebarMethodTag is the compact (4-letter) method tag used in
+// the sidebar — narrower than the inline method badge so long operation
+// names fit without wrapping.
+templ apiDocsSidebarMethodTag(method string) {
+	<span class={ "inline-flex items-center justify-center rounded px-1 text-[0.625rem] font-mono font-semibold uppercase tracking-tight w-9 shrink-0", MethodColorClass(method) }>
+		{ shortMethod(method) }
+	</span>
 }
 
 // apiDocsHeader is the page banner: title, version, summary, description.
@@ -72,51 +110,55 @@ templ apiDocsHeader(m APIDocsModel) {
 	</section>
 }
 
-// apiDocsTagSection is one tag (e.g. "Bios") with all its operations
-// under a section heading + optional description.
+// apiDocsTagSection is one tag (e.g. "Bios") with a section heading +
+// description, followed by every operation under it.
 templ apiDocsTagSection(tag APIDocsTag, ops []APIDocsOperation) {
-	<section id={ tag.Anchor } class="space-y-3 scroll-mt-4">
-		<div class="border-b border-border pb-2">
-			<h2 class="text-lg font-semibold">{ tag.Name }</h2>
+	<section id={ tag.Anchor } class="space-y-8 scroll-mt-4">
+		<div class="border-b border-border pb-3">
+			<h2 class="text-2xl font-bold">{ tag.Name }</h2>
 			if tag.Description != "" {
-				<p class="mt-1 text-sm text-muted-foreground">{ tag.Description }</p>
+				<p class="mt-2 text-sm text-muted-foreground">{ tag.Description }</p>
 			}
 		</div>
 		for _, op := range ops {
-			@apiDocsOperationCard(op)
+			@apiDocsOperation(op)
 		}
 	</section>
 }
 
-// apiDocsOperationCard renders one Method+Path entry — the meat of the
-// docs page. Header carries the method badge + path + optional "public"
-// auth indicator; content has description, parameters, request body
-// example, and responses.
-templ apiDocsOperationCard(op APIDocsOperation) {
-	@card.Card(card.Props{ID: op.Anchor, Class: "scroll-mt-4"}) {
-		@card.Header(card.HeaderProps{Class: "pb-3"}) {
-			<div class="flex items-center gap-2 flex-wrap">
-				@apiDocsMethodBadge(op.Method)
-				<code class="font-mono text-sm break-all">{ op.Path }</code>
-				if op.PublicAuth {
-					@badge.Badge(badge.Props{Variant: badge.VariantSecondary, Class: "text-[0.6875rem]"}) {
-						public
+// apiDocsOperation renders one operation as a two-column row: prose on
+// the left (description, parameters, request body, responses), and the
+// method+path summary plus response sample on the right. The right
+// column is sticky within the operation block so the endpoint header
+// stays visible while the operator scrolls through long parameter lists.
+templ apiDocsOperation(op APIDocsOperation) {
+	<article id={ op.Anchor } class="grid grid-cols-1 lg:grid-cols-[1fr_28rem] gap-x-10 gap-y-4 scroll-mt-4 pb-8 border-b border-border/40 last:border-b-0">
+		<div class="min-w-0 space-y-5">
+			<div>
+				<div class="flex items-center gap-2 flex-wrap mb-2">
+					if op.Summary != "" {
+						<h3 class="text-xl font-semibold">{ op.Summary }</h3>
+					} else {
+						<h3 class="text-xl font-semibold font-mono">{ op.Method } { op.Path }</h3>
 					}
+					if op.PublicAuth {
+						@badge.Badge(badge.Props{Variant: badge.VariantSecondary, Class: "text-[0.6875rem]"}) {
+							public
+						}
+					}
+				</div>
+				if op.Description != "" {
+					<p class="text-sm text-muted-foreground whitespace-pre-line">{ op.Description }</p>
 				}
 			</div>
-			if op.Summary != "" {
-				@card.Title(card.TitleProps{Class: "text-base mt-2"}) {
-					{ op.Summary }
-				}
+			if hasParamsIn(op.Parameters, "path") {
+				@apiDocsParamGroup("Path parameters", filterParams(op.Parameters, "path"))
 			}
-		}
-		@card.Content(card.ContentProps{Class: "pt-0 space-y-4"}) {
-			if op.Description != "" {
-				<p class="text-sm text-muted-foreground whitespace-pre-line">{ op.Description }</p>
+			if hasParamsIn(op.Parameters, "query") {
+				@apiDocsParamGroup("Query parameters", filterParams(op.Parameters, "query"))
 			}
-			if len(op.Parameters) > 0 {
-				@apiDocsSubheading("Parameters")
-				@apiDocsParameters(op.Parameters)
+			if hasParamsIn(op.Parameters, "header") {
+				@apiDocsParamGroup("Header parameters", filterParams(op.Parameters, "header"))
 			}
 			if op.RequestBody != nil {
 				@apiDocsSubheading("Request body")
@@ -126,8 +168,40 @@ templ apiDocsOperationCard(op APIDocsOperation) {
 				@apiDocsSubheading("Responses")
 				@apiDocsResponses(op.Responses)
 			}
-		}
-	}
+		</div>
+		<aside class="min-w-0">
+			<div class="lg:sticky lg:top-4 space-y-3">
+				@apiDocsEndpointBar(op)
+				if sample := op.FirstResponseSample(); sample.Example != "" {
+					@apiDocsResponseSamples(sample)
+				}
+			</div>
+		</aside>
+	</article>
+}
+
+// apiDocsEndpointBar is the small framed strip at the top of the right
+// column that mirrors the operation's method + path. Acts as a visual
+// anchor when long operations push the heading off-screen.
+templ apiDocsEndpointBar(op APIDocsOperation) {
+	<div class="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
+		@apiDocsMethodBadge(op.Method)
+		<code class="font-mono text-xs break-all flex-1 min-w-0">{ op.Path }</code>
+	</div>
+}
+
+// apiDocsResponseSamples renders the "Response samples" panel: heading,
+// a status badge, and the JSON example in a scrollable code block.
+templ apiDocsResponseSamples(sample APIDocsResponse) {
+	<div class="rounded-md border border-border bg-muted/20 overflow-hidden">
+		<div class="flex items-center justify-between gap-2 px-3 py-2 border-b border-border">
+			<span class="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">Response sample</span>
+			@badge.Badge(badge.Props{Class: StatusColorClass(sample.Status) + " font-mono text-xs px-2"}) {
+				{ sample.Status }
+			}
+		</div>
+		<pre class="overflow-x-auto p-3 text-xs leading-relaxed max-h-[28rem]"><code class="font-mono">{ sample.Example }</code></pre>
+	</div>
 }
 
 templ apiDocsSubheading(label string) {
@@ -145,21 +219,31 @@ templ apiDocsMethodBadge(method string) {
 	}
 }
 
-// apiDocsParameters is a small three-column grid: name / location+req / description.
+// apiDocsParamGroup renders a labelled parameter table (one group per
+// `in` location, e.g. all `path` params under "Path parameters").
+templ apiDocsParamGroup(label string, params []APIDocsParam) {
+	<div class="space-y-2">
+		@apiDocsSubheading(label)
+		@apiDocsParameters(params)
+	</div>
+}
+
+// apiDocsParameters is a small three-column grid: name + meta / description.
 templ apiDocsParameters(params []APIDocsParam) {
 	<div class="space-y-1.5 text-sm">
 		for _, p := range params {
-			<div class="grid grid-cols-[minmax(7rem,auto)_minmax(5rem,auto)_1fr] items-baseline gap-x-3 gap-y-1 border-b border-border/40 pb-1.5 last:border-b-0">
-				<code class="font-mono text-xs">{ p.Name }</code>
-				<span class="text-[0.6875rem] text-muted-foreground">
-					{ p.In }
-					if p.Required {
-						<span class="ml-1 text-destructive">· required</span>
-					}
-					if p.Type != "" {
-						<span class="ml-1">· { p.Type }</span>
-					}
-				</span>
+			<div class="grid grid-cols-[minmax(8rem,auto)_1fr] items-baseline gap-x-4 gap-y-1 border-b border-border/40 pb-2 last:border-b-0">
+				<div class="space-y-0.5">
+					<code class="font-mono text-xs font-semibold">{ p.Name }</code>
+					<div class="text-[0.6875rem] text-muted-foreground">
+						if p.Type != "" {
+							<span>{ p.Type }</span>
+						}
+						if p.Required {
+							<span class="ml-1 text-destructive">· required</span>
+						}
+					</div>
+				</div>
 				<span class="text-xs text-muted-foreground">{ p.Description }</span>
 			</div>
 		}

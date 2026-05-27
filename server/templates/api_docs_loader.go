@@ -71,10 +71,13 @@ type APIDocsBody struct {
 	Example     string // pretty-printed JSON when an `example` was set
 }
 
-// APIDocsResponse is one (status → description) pair.
+// APIDocsResponse is one (status → description) pair, optionally with a
+// pretty-printed JSON example for the right-column "Response samples" panel.
 type APIDocsResponse struct {
 	Status      string // "200", "default", etc.
 	Description string
+	ContentType string // first content type with an example, when present
+	Example     string // pretty-printed JSON example, empty when absent
 }
 
 // LoadAPIDocs parses an OpenAPI YAML document into APIDocsModel.
@@ -288,9 +291,45 @@ func extractAPIResponses(op map[string]any) []APIDocsResponse {
 				ar.Description = "(" + lastPathSegment(ref) + ")"
 			}
 		}
+		if content, ok := r["content"].(map[string]any); ok {
+			cts := make([]string, 0, len(content))
+			for ck := range content {
+				cts = append(cts, ck)
+			}
+			sort.Strings(cts)
+			for _, ct := range cts {
+				vm, ok := content[ct].(map[string]any)
+				if !ok {
+					continue
+				}
+				if ex, ok := vm["example"]; ok {
+					if pretty, err := json.MarshalIndent(ex, "", "  "); err == nil {
+						ar.ContentType = ct
+						ar.Example = string(pretty)
+						break
+					}
+				}
+			}
+		}
 		out = append(out, ar)
 	}
 	return out
+}
+
+// FirstResponseSample returns the first response that carries an example
+// payload (preferring 2xx). Empty status means no sample is available.
+func (op APIDocsOperation) FirstResponseSample() APIDocsResponse {
+	for _, r := range op.Responses {
+		if r.Example != "" && strings.HasPrefix(r.Status, "2") {
+			return r
+		}
+	}
+	for _, r := range op.Responses {
+		if r.Example != "" {
+			return r
+		}
+	}
+	return APIDocsResponse{}
 }
 
 // normaliseYAMLForJSON converts the map[any]any subtrees gopkg.in/yaml.v3
@@ -348,6 +387,45 @@ func lastPathSegment(s string) string {
 		return s[i+1:]
 	}
 	return s
+}
+
+// shortMethod returns a fixed-width abbreviation for sidebar method
+// tags. Keeps long operation summaries from wrapping next to wider verbs
+// like DELETE / OPTIONS.
+func shortMethod(method string) string {
+	switch method {
+	case "DELETE":
+		return "DEL"
+	case "OPTIONS":
+		return "OPT"
+	case "PATCH":
+		return "PAT"
+	default:
+		return method
+	}
+}
+
+// hasParamsIn reports whether params contains at least one entry whose
+// In field equals loc ("path", "query", "header", "cookie").
+func hasParamsIn(params []APIDocsParam, loc string) bool {
+	for _, p := range params {
+		if p.In == loc {
+			return true
+		}
+	}
+	return false
+}
+
+// filterParams returns the subset of params whose In field equals loc.
+// Preserves source order so docs match the spec's parameter ordering.
+func filterParams(params []APIDocsParam, loc string) []APIDocsParam {
+	out := make([]APIDocsParam, 0, len(params))
+	for _, p := range params {
+		if p.In == loc {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // MethodColorClass returns Tailwind utility classes for an HTTP method
