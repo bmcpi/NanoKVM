@@ -2,89 +2,105 @@ package eepromupdater
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 )
 
-// TestFindLatest_PicksLexicallyGreatestPieeprom verifies we sort by name
-// descending and pick the newest pieeprom-*.bin, while ignoring
-// non-matching entries.
-func TestFindLatest_PicksLexicallyGreatestPieeprom(t *testing.T) {
+const sampleVersionsTxt = `# firmware-2712 firmware versions
+#
+# version   build_epoch  fw_git_hash  release  mfg_ver
+2026-05-22  1779408415   7dcdc4b8     latest   1
+2026-05-17  1778976445   1abffaec     latest   1
+2026-05-11  1778498402   66f33f7e     default  1
+2026-04-30  1777551683   1a17f6cb     latest
+2025-12-08  1765222194   2226a853     default
+2025-11-27  1764250826   999d0ec9     old
+`
+
+// withRawBase points the package at srv for the duration of t.
+func withRawBase(t *testing.T, srv *httptest.Server) {
+	t.Helper()
+	prev := rawBase
+	rawBase = srv.URL
+	t.Cleanup(func() { rawBase = prev })
+}
+
+func TestFindLatest_StableUsesDefaultRelease(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Sanity: we hit the GitHub Contents API for the expected dir.
-		if !strings.Contains(r.URL.Path, "firmware-2712/stable") {
+		if !strings.HasSuffix(r.URL.Path, "/firmware-2712/versions.txt") {
 			t.Errorf("unexpected path %q", r.URL.Path)
 		}
-		w.Header().Set("Content-Type", "application/json")
-		entries := []map[string]any{
-			{"name": "pieeprom-2024-01-01.bin", "type": "file", "size": 524288, "download_url": "https://example/pieeprom-2024-01-01.bin"},
-			{"name": "pieeprom-2024-12-04.bin", "type": "file", "size": 2097152, "download_url": "https://example/pieeprom-2024-12-04.bin"},
-			{"name": "pieeprom-2023-06-15.bin", "type": "file", "size": 524288, "download_url": "https://example/pieeprom-2023-06-15.bin"},
-			{"name": "recovery.bin", "type": "file", "size": 1024, "download_url": "https://example/recovery.bin"},
-			{"name": "subdir", "type": "dir", "size": 0, "download_url": ""},
-		}
-		_ = json.NewEncoder(w).Encode(entries)
+		_, _ = w.Write([]byte(sampleVersionsTxt))
 	}))
 	defer srv.Close()
-
-	// Inject a transport that redirects api.github.com → our test server.
-	client := &http.Client{
-		Transport: rewriteTransport{to: srv.URL},
-	}
+	withRawBase(t, srv)
 
 	img, err := FindLatest(context.Background(), FindLatestOptions{
-		Platform:   PlatformRPi5,
-		Channel:    ChannelStable,
-		HTTPClient: client,
+		Platform: PlatformRPi5,
+		Channel:  ChannelStable,
 	})
 	if err != nil {
 		t.Fatalf("FindLatest: %v", err)
 	}
-	if img.Name != "pieeprom-2024-12-04.bin" {
-		t.Errorf("Name = %q; want pieeprom-2024-12-04.bin", img.Name)
+	if img.Version != "2026-05-11" {
+		t.Errorf("Version = %q; want newest default 2026-05-11", img.Version)
 	}
-	if img.Version != "2024-12-04" {
-		t.Errorf("Version = %q; want 2024-12-04", img.Version)
+	if img.Name != "pieeprom-2026-05-11.bin" {
+		t.Errorf("Name = %q", img.Name)
 	}
-	if img.Size != 2097152 {
-		t.Errorf("Size = %d; want 2097152", img.Size)
+	if !strings.HasSuffix(img.URL, "/firmware-2712/default/pieeprom-2026-05-11.bin") {
+		t.Errorf("URL = %q", img.URL)
 	}
-	if img.Platform != PlatformRPi5 {
-		t.Errorf("Platform = %q; want %q", img.Platform, PlatformRPi5)
+	if !strings.HasSuffix(img.RecoveryURL, "/firmware-2712/default/recovery.bin") {
+		t.Errorf("RecoveryURL = %q", img.RecoveryURL)
+	}
+}
+
+func TestFindLatest_BetaUsesLatestRelease(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(sampleVersionsTxt))
+	}))
+	defer srv.Close()
+	withRawBase(t, srv)
+
+	img, err := FindLatest(context.Background(), FindLatestOptions{
+		Platform: PlatformRPi5,
+		Channel:  ChannelBeta,
+	})
+	if err != nil {
+		t.Fatalf("FindLatest: %v", err)
+	}
+	if img.Version != "2026-05-22" {
+		t.Errorf("Version = %q; want newest latest 2026-05-22", img.Version)
+	}
+	if !strings.Contains(img.URL, "/firmware-2712/latest/") {
+		t.Errorf("URL = %q; want latest release dir", img.URL)
 	}
 }
 
 func TestFindLatest_HTTPError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, `{"message":"Not Found"}`, http.StatusNotFound)
+		http.Error(w, "not found", http.StatusNotFound)
 	}))
 	defer srv.Close()
-	client := &http.Client{Transport: rewriteTransport{to: srv.URL}}
+	withRawBase(t, srv)
 
-	_, err := FindLatest(context.Background(), FindLatestOptions{HTTPClient: client})
-	if err == nil {
+	if _, err := FindLatest(context.Background(), FindLatestOptions{}); err == nil {
 		t.Fatal("expected error on 404")
 	}
 }
 
-func TestFindLatest_NoBinariesInDirectory(t *testing.T) {
+func TestFindLatest_NoMatchingRelease(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode([]map[string]any{
-			{"name": "README.md", "type": "file", "size": 100, "download_url": "https://example/README.md"},
-		})
+		_, _ = w.Write([]byte("# only-old\n2024-01-01  0  abc  old  1\n"))
 	}))
 	defer srv.Close()
-	client := &http.Client{Transport: rewriteTransport{to: srv.URL}}
+	withRawBase(t, srv)
 
-	_, err := FindLatest(context.Background(), FindLatestOptions{HTTPClient: client})
-	if err == nil {
-		t.Fatal("expected error when no pieeprom-*.bin entries are present")
+	if _, err := FindLatest(context.Background(), FindLatestOptions{}); err == nil {
+		t.Fatal("expected error when no default-release entries exist")
 	}
 }
 
@@ -116,22 +132,16 @@ func TestDownload_RejectsSizeMismatch(t *testing.T) {
 	}
 }
 
-// rewriteTransport sends every request to `to` regardless of its hostname.
-// Lets the test pin the GitHub API call to a httptest server without
-// patching the production URL.
-type rewriteTransport struct{ to string }
-
-func (rt rewriteTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	// Preserve the path + query; swap scheme/host.
-	prefix, _, _ := strings.Cut(strings.TrimPrefix(rt.to, "http://"), "/")
-	url := fmt.Sprintf("http://%s%s", prefix, r.URL.RequestURI())
-	req, err := http.NewRequestWithContext(r.Context(), r.Method, url, r.Body)
-	if err != nil {
-		return nil, err
+func TestChannelRelease(t *testing.T) {
+	cases := map[Channel]string{
+		ChannelStable:   "default",
+		ChannelBeta:     "latest",
+		ChannelCritical: "default",
+		"":              "default",
 	}
-	req.Header = r.Header
-	return http.DefaultTransport.RoundTrip(req)
+	for c, want := range cases {
+		if got := c.release(); got != want {
+			t.Errorf("Channel(%q).release() = %q; want %q", c, got, want)
+		}
+	}
 }
-
-// Silence unused-import warnings if io/test changes shape later.
-var _ = io.ReadAll
