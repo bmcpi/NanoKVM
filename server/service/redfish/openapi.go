@@ -43,7 +43,7 @@ func OpenAPIYAML() []byte {
 var (
 	jsonOnce   sync.Once
 	cachedJSON []byte
-	cachedErr  error
+	errCached  error
 )
 
 // GetOpenAPIYAML serves the OpenAPI spec verbatim.
@@ -57,7 +57,7 @@ func (s *Service) GetOpenAPIJSON(c *gin.Context) {
 	jsonOnce.Do(func() {
 		var doc map[string]any
 		if err := yaml.Unmarshal(openAPIYAML, &doc); err != nil {
-			cachedErr = err
+			errCached = err
 			return
 		}
 		// json.Marshal can't represent map[any]any (which gopkg.in/yaml.v3
@@ -67,13 +67,13 @@ func (s *Service) GetOpenAPIJSON(c *gin.Context) {
 		normalised := normaliseYAMLMaps(doc)
 		out, err := json.Marshal(normalised)
 		if err != nil {
-			cachedErr = err
+			errCached = err
 			return
 		}
 		cachedJSON = out
 	})
-	if cachedErr != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": cachedErr.Error()})
+	if errCached != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": errCached.Error()})
 		return
 	}
 	c.Data(http.StatusOK, "application/json; charset=utf-8", cachedJSON)

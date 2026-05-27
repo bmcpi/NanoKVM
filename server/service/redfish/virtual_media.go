@@ -193,22 +193,22 @@ func (s *Service) insertMediaUpload(c *gin.Context) {
 	c.JSON(http.StatusOK, buildVirtualMediaResource())
 }
 
-type insertErr struct {
+type InsertError struct {
 	status int
 	msg    string
 }
 
-func (e *insertErr) Error() string { return e.msg }
+func (e *InsertError) Error() string { return e.msg }
 
 // stageAndInsert saves r to mediaDir/<name> then inserts it. Returns a
 // typed error so callers can map to the appropriate HTTP status.
-func stageAndInsert(name string, r io.Reader) *insertErr {
+func stageAndInsert(name string, r io.Reader) *InsertError {
 	fwCtrl := firmware.GetController()
 	if _, err := fwCtrl.SaveMediaFile(name, r); err != nil {
-		return &insertErr{http.StatusInternalServerError, "save media failed: " + err.Error()}
+		return &InsertError{http.StatusInternalServerError, "save media failed: " + err.Error()}
 	}
 	if err := fwCtrl.InsertVirtualMedia(name); err != nil {
-		return &insertErr{http.StatusConflict, "insert media failed: " + err.Error()}
+		return &InsertError{http.StatusConflict, "insert media failed: " + err.Error()}
 	}
 	return nil
 }

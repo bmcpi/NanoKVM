@@ -15,7 +15,7 @@ import (
 var (
 	apiDocsOnce  sync.Once
 	apiDocsModel templates.APIDocsModel
-	apiDocsError error
+	errAPIDocs   error
 )
 
 // loadAPIDocsModel parses redfish.OpenAPIYAML() into a renderable model.
@@ -23,7 +23,7 @@ var (
 // concurrent use.
 func loadAPIDocsModel() (templates.APIDocsModel, error) {
 	apiDocsOnce.Do(func() {
-		apiDocsModel, apiDocsError = templates.LoadAPIDocs(redfish.OpenAPIYAML())
+		apiDocsModel, errAPIDocs = templates.LoadAPIDocs(redfish.OpenAPIYAML())
 	})
-	return apiDocsModel, apiDocsError
+	return apiDocsModel, errAPIDocs
 }
