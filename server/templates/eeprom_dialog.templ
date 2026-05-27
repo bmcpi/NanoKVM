@@ -99,15 +99,26 @@ templ EEPROMDialog() {
 				}) {
 					Discard pending
 				}
-				// Force a re-download of the latest upstream pieeprom-*.bin
-				// from raspberrypi/rpi-eeprom into the FAT (replaces
-				// pieeprom.bin). Useful for picking up a new release.
+				// Force a re-download of the latest channel recovery.bin
+				// from raspberrypi/rpi-eeprom into the FAT. pieeprom.bin
+				// itself is left alone — U-Boot owns that file and it is
+				// the host's recovery source.
 				@button.Button(button.Props{
 					ID:         "eeprom-refresh-bin",
 					Variant:    button.VariantOutline,
-					Attributes: templ.Attributes{"onclick": "refreshPieepromBin()", "title": "Re-download latest pieeprom.bin from raspberrypi/rpi-eeprom"},
+					Attributes: templ.Attributes{"onclick": "refreshRecoveryBin()", "title": "Re-download recovery.bin from raspberrypi/rpi-eeprom"},
 				}) {
-					Refresh image
+					Refresh recovery.bin
+				}
+				// Stage a bootloader version upgrade: download the latest
+				// upstream pieeprom-*.bin, transplant the current bootconf
+				// into it, write as pieeprom.upd.
+				@button.Button(button.Props{
+					ID:         "eeprom-upgrade",
+					Variant:    button.VariantOutline,
+					Attributes: templ.Attributes{"onclick": "upgradeEEPROMVersion()", "title": "Stage the latest upstream bootloader as pieeprom.upd, preserving current config"},
+				}) {
+					Upgrade bootloader
 				}
 				@button.Button(button.Props{
 					Variant:    button.VariantOutline,
@@ -332,13 +343,13 @@ templ eepromDialogScript() {
 				}
 			};
 
-			window.refreshPieepromBin = async function() {
-				if (!confirm('Re-download the latest pieeprom.bin from raspberrypi/rpi-eeprom? This replaces the cached image on the firmware FAT. Any pending update keeps using its existing source until you re-save.')) return;
+			window.refreshRecoveryBin = async function() {
+				if (!confirm('Re-download recovery.bin from raspberrypi/rpi-eeprom into the firmware FAT? pieeprom.bin is left alone — U-Boot writes it on each boot and it is the host’s recovery source.')) return;
 				const btn = document.getElementById('eeprom-refresh-bin');
 				btn.disabled = true;
-				setStatus('Fetching latest EEPROM image…');
+				setStatus('Fetching latest recovery.bin…');
 				try {
-					const r = await fetch('/api/firmware/eeprom/refresh', {
+					const r = await fetch('/api/firmware/eeprom/recovery/refresh', {
 						method: 'POST',
 						headers: getAuthHeaders(),
 					});
@@ -349,7 +360,35 @@ templ eepromDialogScript() {
 					}
 					const data = await r.json();
 					applyPendingChrome(data);
-					setStatus('pieeprom.bin refreshed from upstream.', 'text-green-500');
+					setStatus('recovery.bin refreshed from upstream.', 'text-green-500');
+				} catch(e) {
+					setStatus('Error: ' + e.message, 'text-destructive');
+				} finally {
+					btn.disabled = false;
+				}
+			};
+
+			window.upgradeEEPROMVersion = async function() {
+				if (!confirm('Stage a bootloader version upgrade?\n\nThe latest upstream pieeprom-*.bin will be downloaded and written as pieeprom.upd, with your current bootconf transplanted into it. recovery.bin is staged alongside. The live pieeprom.bin is untouched.')) return;
+				const btn = document.getElementById('eeprom-upgrade');
+				btn.disabled = true;
+				setStatus('Downloading latest bootloader and staging…');
+				try {
+					const r = await fetch('/api/firmware/eeprom/upgrade', {
+						method: 'POST',
+						headers: getAuthHeaders(),
+					});
+					if (!r.ok) {
+						const err = await r.json().catch(() => ({}));
+						setStatus('Error: ' + (err.error || r.statusText), 'text-destructive');
+						return;
+					}
+					const data = await r.json();
+					editor().value = data.raw || '';
+					buildCatalogIndex(data);
+					renderPreview(data);
+					applyPendingChrome(data);
+					setStatus('Bootloader upgrade staged as pieeprom.upd. rpi-eeprom-update will flash on the next boot.', 'text-green-500');
 				} catch(e) {
 					setStatus('Error: ' + e.message, 'text-destructive');
 				} finally {
@@ -367,9 +406,10 @@ templ eepromDialogScript() {
 				btn.disabled = true;
 				setStatus('Staging update…');
 				try {
-					// First save can take a few seconds — the server lazily
-					// downloads pieeprom.bin from raspberrypi/rpi-eeprom if
-					// it's not already on the FAT.
+					// The server mutates the live pieeprom.bin U-Boot wrote on
+					// the last host boot. If pieeprom.bin isn't on the FAT
+					// yet the server returns an error — reboot the host so
+					// U-Boot writes one.
 					const r = await fetch('/api/firmware/eeprom', {
 						method: 'PUT',
 						headers: getAuthHeaders(),

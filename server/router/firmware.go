@@ -1,6 +1,7 @@
 package router
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -109,15 +110,38 @@ func firmwareRouter(r *gin.Engine) {
 		c.JSON(http.StatusOK, img)
 	})
 
-	// POST /api/firmware/eeprom/refresh — force a re-download of the
-	// latest upstream pieeprom-*.bin, overwriting pieeprom.bin on the
-	// FAT. Does NOT touch any pending pieeprom.upd.
-	api.POST("/eeprom/refresh", func(c *gin.Context) {
-		if err := ctrl.RefreshPieepromBin(c.Request.Context()); err != nil {
+	// POST /api/firmware/eeprom/recovery/refresh — force a re-download
+	// of recovery.bin from the upstream channel, overwriting whatever's
+	// on the FAT. Use after the bootloader release changes so the
+	// recovery loader on disk matches.
+	//
+	// pieeprom.bin is intentionally NOT re-downloaded by the BMC — it's
+	// the live EEPROM dump U-Boot writes each boot and serves as the
+	// recovery source for the host.
+	api.POST("/eeprom/recovery/refresh", func(c *gin.Context) {
+		if err := ctrl.RefreshRecoveryBin(c.Request.Context()); err != nil {
 			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 			return
 		}
 		summary, _ := ctrl.GetEEPROMConfig()
+		c.JSON(http.StatusOK, summary)
+	})
+
+	// POST /api/firmware/eeprom/upgrade — stage a bootloader version
+	// upgrade by downloading the latest upstream pieeprom-*.bin,
+	// transplanting the user's current bootconf into it, and writing it
+	// as pieeprom.upd. recovery.bin from the same channel is staged in
+	// the same step. The live pieeprom.bin is untouched.
+	api.POST("/eeprom/upgrade", func(c *gin.Context) {
+		summary, err := ctrl.StageEEPROMVersionUpgrade(c.Request.Context())
+		if err != nil {
+			status := http.StatusBadGateway
+			if errors.Is(err, firmware.ErrNoPieepromBin) {
+				status = http.StatusConflict
+			}
+			c.JSON(status, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusOK, summary)
 	})
 
