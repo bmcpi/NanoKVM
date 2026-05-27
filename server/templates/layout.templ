@@ -16,7 +16,7 @@ import (
 // stylesheet (templuiFallback) carries the handful of templui-base utilities
 // the current output.css is missing — enough for Buttons / Inputs / Cards to
 // render correctly without a full Tailwind rebuild against vendored sources.
-templ layout(title string, showNav bool) {
+templ layout(title string, showNav bool, onDocsPage bool) {
 	<!DOCTYPE html>
 	<html lang="en" class="dark">
 		<head>
@@ -31,7 +31,7 @@ templ layout(title string, showNav bool) {
 		<body class="min-h-screen">
 			<div class="flex h-screen flex-col">
 				if showNav {
-					@Navbar()
+					@Navbar(onDocsPage)
 				}
 				<main class="min-h-0 flex-1 overflow-hidden">
 					{ children... }

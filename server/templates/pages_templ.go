@@ -50,7 +50,7 @@ func ConsolePage() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("NanoKVM BMC - Serial Console", true).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("NanoKVM BMC - Serial Console", true, false).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -97,7 +97,7 @@ func SettingsPage() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = layout("NanoKVM BMC - Settings", true).Render(templ.WithChildren(ctx, templ_7745c5c3_Var4), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = layout("NanoKVM BMC - Settings", true, false).Render(templ.WithChildren(ctx, templ_7745c5c3_Var4), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

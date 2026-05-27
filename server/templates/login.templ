@@ -10,7 +10,7 @@ import (
 // LoginPage is the public sign-in page. Wraps a templui Card-less form
 // (centred, minimal chrome) and a tips Dialog reachable via "Forgot Password?".
 templ LoginPage() {
-	@layout("NanoKVM - Login", false) {
+	@layout("NanoKVM - Login", false, false) {
 		<script src="/js/crypto-js.min.js"></script>
 		<div class="flex h-full w-full flex-col items-center justify-center p-4">
 			<form id="login-form" class="w-full max-w-sm space-y-4" onsubmit="return handleLogin(event)">

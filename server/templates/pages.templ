@@ -5,13 +5,13 @@ package templates
 // live. Keep them so existing links / bookmarks don't 404.
 
 templ ConsolePage() {
-	@layout("NanoKVM BMC - Serial Console", true) {
+	@layout("NanoKVM BMC - Serial Console", true, false) {
 		<script>window.location.replace('/dashboard');</script>
 	}
 }
 
 templ SettingsPage() {
-	@layout("NanoKVM BMC - Settings", true) {
+	@layout("NanoKVM BMC - Settings", true, false) {
 		<script>window.location.replace('/dashboard');</script>
 	}
 }

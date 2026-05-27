@@ -15,7 +15,7 @@ import (
 // Page is reached via /docs (public, no auth — discovery should be open
 // for clients like bmclib that want to introspect the surface first).
 templ APIDocsPage(m APIDocsModel) {
-	@layout("NanoKVM BMC - API Docs", true) {
+	@layout("NanoKVM BMC - API Docs", true, true) {
 		<div class="flex h-full min-h-0 w-full">
 			@apiDocsSidebar(m)
 			<main class="flex-1 min-w-0 overflow-y-auto">

@@ -15,7 +15,7 @@ import (
 // — Navbar must therefore render inside the sidebar.Layout established by
 // DashboardPage. Pages that don't have an overview sidebar (login, password)
 // skip Navbar entirely.
-templ Navbar() {
+templ Navbar(onDocsPage bool) {
 	<header class="flex items-center justify-between border-b border-border bg-card px-4 py-2">
 		<div class="flex items-center gap-3">
 			<span class="text-sm font-bold tracking-wide">NanoKVM BMC</span>
@@ -23,16 +23,30 @@ templ Navbar() {
 			@VirtualMediaMenu()
 		</div>
 		<div class="flex items-center gap-2">
-			@button.Button(button.Props{
-				Variant: button.VariantGhost,
-				Size:    button.SizeSm,
-				Href:    "/docs",
-				Attributes: templ.Attributes{
-					"title": "Redfish API documentation",
-				},
-			}) {
-				@icon.BookOpen()
-				<span>API Docs</span>
+			if onDocsPage {
+				@button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Size:    button.SizeSm,
+					Href:    "/",
+					Attributes: templ.Attributes{
+						"title": "Back to BMC dashboard",
+					},
+				}) {
+					@icon.LayoutDashboard()
+					<span>Dashboard</span>
+				}
+			} else {
+				@button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Size:    button.SizeSm,
+					Href:    "/docs",
+					Attributes: templ.Attributes{
+						"title": "Redfish API documentation",
+					},
+				}) {
+					@icon.BookOpen()
+					<span>API Docs</span>
+				}
 			}
 			@button.Button(button.Props{
 				Variant: button.VariantGhost,
