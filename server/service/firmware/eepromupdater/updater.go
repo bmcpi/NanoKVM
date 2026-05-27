@@ -10,11 +10,16 @@
 // Upstream layout (on the rpi-eeprom repo's default branch):
 //
 //	firmware-2712/<channel>/pieeprom-YYYY-MM-DD.bin   ← RPi 5 (BCM2712)
+//	firmware-2712/<channel>/recovery.bin              ← shared recovery loader
 //	firmware-2711/<channel>/pieeprom-YYYY-MM-DD.bin   ← RPi 4 (BCM2711)
+//	firmware-2711/<channel>/recovery.bin
 //
 // where <channel> is "stable", "beta", or "critical". We list the channel
 // directory via the GitHub Contents API and pick the lexicographically
 // largest pieeprom-*.bin (date in filename, ISO 8601 — sorts correctly).
+// The recovery.bin from the same channel is fetched alongside — without
+// it on the boot FAT, rpi-eeprom-update can't actually apply pieeprom.upd
+// at next boot.
 package eepromupdater
 
 import (
@@ -64,6 +69,12 @@ type Image struct {
 	Platform Platform  `json:"platform"` // 2712 or 2711
 	Channel  Channel   `json:"channel"`  // stable/beta/critical
 	FoundAt  time.Time `json:"foundAt"`  // when the lookup happened
+	// RecoveryURL / RecoverySize point at the recovery.bin shipped in the
+	// same channel directory. rpi-eeprom-update needs recovery.bin sitting
+	// next to pieeprom.upd on the boot FAT in order to actually apply a
+	// staged update on next boot. Empty if the channel didn't carry one.
+	RecoveryURL  string `json:"recoveryUrl,omitempty"`
+	RecoverySize int64  `json:"recoverySize,omitempty"`
 }
 
 // FindLatestOptions tunes FindLatest. Zero-value defaults are safe (RPi 5
@@ -117,30 +128,30 @@ func FindLatest(ctx context.Context, opts FindLatestOptions) (*Image, error) {
 		return nil, fmt.Errorf("list %s: HTTP %d: %s", dir, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	var entries []struct {
-		Name        string `json:"name"`
-		Type        string `json:"type"`
-		Size        int64  `json:"size"`
-		DownloadURL string `json:"download_url"`
-	}
+	var entries []listEntry
 	if err := json.NewDecoder(resp.Body).Decode(&entries); err != nil {
 		return nil, fmt.Errorf("decode listing: %w", err)
 	}
 
 	// Filter to pieeprom-*.bin and sort descending by name. Filenames are
 	// pieeprom-YYYY-MM-DD.bin so lexical descending == newest first.
-	candidates := entries[:0]
+	// Capture recovery.bin in passing — same channel, same listing.
+	var (
+		candidates   []listEntry
+		recoveryURL  string
+		recoverySize int64
+	)
 	for _, e := range entries {
-		if e.Type != "file" {
+		if e.Type != "file" || e.DownloadURL == "" {
 			continue
 		}
-		if !strings.HasPrefix(e.Name, "pieeprom-") || !strings.HasSuffix(e.Name, ".bin") {
-			continue
+		switch {
+		case strings.HasPrefix(e.Name, "pieeprom-") && strings.HasSuffix(e.Name, ".bin"):
+			candidates = append(candidates, listEntry{Name: e.Name, DownloadURL: e.DownloadURL, Size: e.Size})
+		case e.Name == "recovery.bin":
+			recoveryURL = e.DownloadURL
+			recoverySize = e.Size
 		}
-		if e.DownloadURL == "" {
-			continue
-		}
-		candidates = append(candidates, e)
 	}
 	if len(candidates) == 0 {
 		return nil, fmt.Errorf("no pieeprom-*.bin entries found in %s", dir)
@@ -150,14 +161,24 @@ func FindLatest(ctx context.Context, opts FindLatestOptions) (*Image, error) {
 	})
 	top := candidates[0]
 	return &Image{
-		Name:     top.Name,
-		URL:      top.DownloadURL,
-		Size:     top.Size,
-		Version:  parseVersionFromName(top.Name),
-		Platform: platform,
-		Channel:  channel,
-		FoundAt:  time.Now(),
+		Name:         top.Name,
+		URL:          top.DownloadURL,
+		Size:         top.Size,
+		Version:      parseVersionFromName(top.Name),
+		Platform:     platform,
+		Channel:      channel,
+		FoundAt:      time.Now(),
+		RecoveryURL:  recoveryURL,
+		RecoverySize: recoverySize,
 	}, nil
+}
+
+// listEntry is the subset of github contents-API fields we use.
+type listEntry struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Size        int64  `json:"size"`
+	DownloadURL string `json:"download_url"`
 }
 
 // parseVersionFromName turns "pieeprom-2024-12-04.bin" into "2024-12-04".
@@ -174,22 +195,39 @@ func Download(ctx context.Context, img *Image, client *http.Client) ([]byte, err
 	if img == nil || img.URL == "" {
 		return nil, errors.New("nil image or empty URL")
 	}
+	return fetch(ctx, client, img.URL, img.Name, img.Size)
+}
+
+// DownloadRecovery fetches the recovery.bin associated with img (same
+// channel directory). Returns an error if img has no recorded
+// RecoveryURL — callers should treat that as "channel doesn't ship one"
+// and skip the recovery-staging step.
+func DownloadRecovery(ctx context.Context, img *Image, client *http.Client) ([]byte, error) {
+	if img == nil || img.RecoveryURL == "" {
+		return nil, errors.New("nil image or empty recovery URL")
+	}
+	return fetch(ctx, client, img.RecoveryURL, "recovery.bin", img.RecoverySize)
+}
+
+// fetch is the shared HTTP-get for Download/DownloadRecovery: same size
+// cap, same context handling, same client default.
+func fetch(ctx context.Context, client *http.Client, url, name string, expectedSize int64) ([]byte, error) {
 	if client == nil {
-		// EEPROM binaries are ~2 MB; allow generous time for slow links.
+		// EEPROM binaries are ~2 MB and recovery.bin is similar; allow
+		// generous time for slow links.
 		client = &http.Client{Timeout: 2 * time.Minute}
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, img.URL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("get %s: %w", img.Name, err)
+		return nil, fmt.Errorf("get %s: %w", name, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("get %s: HTTP %d", img.Name, resp.StatusCode)
+		return nil, fmt.Errorf("get %s: HTTP %d", name, resp.StatusCode)
 	}
 
 	// Cap the read so a misbehaving server can't OOM us. Real images are
@@ -197,13 +235,13 @@ func Download(ctx context.Context, img *Image, client *http.Client) ([]byte, err
 	const maxBytes = 4 * 1024 * 1024
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes+1))
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", img.Name, err)
+		return nil, fmt.Errorf("read %s: %w", name, err)
 	}
 	if len(body) > maxBytes {
-		return nil, fmt.Errorf("%s exceeded max size %d bytes", img.Name, maxBytes)
+		return nil, fmt.Errorf("%s exceeded max size %d bytes", name, maxBytes)
 	}
-	if img.Size > 0 && int64(len(body)) != img.Size {
-		return nil, fmt.Errorf("%s size mismatch: got %d, expected %d", img.Name, len(body), img.Size)
+	if expectedSize > 0 && int64(len(body)) != expectedSize {
+		return nil, fmt.Errorf("%s size mismatch: got %d, expected %d", name, len(body), expectedSize)
 	}
 	return body, nil
 }

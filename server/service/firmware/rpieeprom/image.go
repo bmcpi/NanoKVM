@@ -1,10 +1,13 @@
 package rpieeprom
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // Section magics ported from raspberrypi/rpi-eeprom (rpi-eeprom-config).
@@ -354,6 +357,40 @@ func (im *Image) findNextOffset(idx int) int {
 		break
 	}
 	return next
+}
+
+// buildTimestampMarker is the ASCII tag the upstream rpi-eeprom build
+// embeds inside bootcode so tools like `rpi-eeprom-update` can read the
+// image version without a separate metadata file. Value is the Unix
+// seconds at build time, ASCII-decimal-encoded.
+var buildTimestampMarker = []byte("BUILD_TIMESTAMP=")
+
+// Version returns the bootloader build timestamp embedded in the image,
+// or the zero time and ok=false when no marker is found. The marker is
+// searched only in the bootcode section (the read-only header on AB
+// images) — that's where rpi-eeprom puts it.
+func (im *Image) Version() (time.Time, bool) {
+	bootcode, err := im.GetFile(BootCodeBin)
+	if err != nil {
+		return time.Time{}, false
+	}
+	idx := bytes.Index(bootcode, buildTimestampMarker)
+	if idx < 0 {
+		return time.Time{}, false
+	}
+	start := idx + len(buildTimestampMarker)
+	end := start
+	for end < len(bootcode) && bootcode[end] >= '0' && bootcode[end] <= '9' {
+		end++
+	}
+	if end == start {
+		return time.Time{}, false
+	}
+	ts, err := strconv.ParseInt(string(bootcode[start:end]), 10, 64)
+	if err != nil || ts <= 0 {
+		return time.Time{}, false
+	}
+	return time.Unix(ts, 0).UTC(), true
 }
 
 func validImageSize(n int) bool {

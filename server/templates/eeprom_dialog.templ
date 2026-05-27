@@ -262,16 +262,24 @@ templ eepromDialogScript() {
 
 			function describeState(data) {
 				const parts = [];
-				if (data.source === 'eeprom.txt') {
-					parts.push("Loaded live config from U-Boot's eeprom.txt dump");
+				if (data.source === 'pieeprom.bin') {
+					parts.push("Loaded live config from U-Boot's pieeprom.bin dump");
+				} else if (data.source === 'pieeprom.upd') {
+					parts.push('Showing the staged pieeprom.upd update');
 				} else if (data.source) {
 					parts.push(`Loaded from ${data.source}`);
+				}
+				if (data.version) {
+					parts.push(`bootloader ${data.version}`);
 				}
 				if (data.pending) {
 					parts.push('a pending update is staged for the next boot');
 				}
 				if (!data.pieepromBinPresent) {
-					parts.push('pieeprom.bin not yet cached on the FAT (will download on first save)');
+					parts.push('pieeprom.bin not yet on the FAT — reboot the host so U-Boot writes one');
+				}
+				if (data.pending && !data.recoveryBinPresent) {
+					parts.push('recovery.bin missing — the staged update will not flash until it is downloaded');
 				}
 				return parts.length ? parts.join(' — ') + '.' : 'Loaded.';
 			}
@@ -291,7 +299,7 @@ templ eepromDialogScript() {
 					renderPreview(data);
 					applyPendingChrome(data);
 					if (!data.raw) {
-						setStatus('No eeprom.txt on the FAT yet — U-Boot writes it on each boot.');
+						setStatus('No pieeprom.bin on the FAT yet — reboot the host so U-Boot writes a fresh dump.');
 					} else {
 						setStatus(describeState(data));
 					}

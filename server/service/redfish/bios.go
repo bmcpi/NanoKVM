@@ -28,8 +28,9 @@ import (
 )
 
 // GetBios returns the live bootloader configuration as a Redfish Bios
-// resource. Attributes are taken from the [all] section of eeprom.txt
-// (U-Boot's per-boot text dump).
+// resource. Attributes are extracted from the [all] section of the
+// bootconf.txt embedded in pieeprom.bin (U-Boot's per-boot EEPROM
+// dump).
 func (s *Service) GetBios(c *gin.Context) {
 	ctrl := firmware.GetController()
 
@@ -58,7 +59,7 @@ func (s *Service) GetBios(c *gin.Context) {
 		// @Redfish.Settings — DMTF DSP2046 SettingsObject link. Clients
 		// PATCH /Bios/Settings to stage changes; the live Attributes
 		// here only update after the host has flashed the EEPROM and
-		// rebooted (which regenerates eeprom.txt).
+		// rebooted (U-Boot writes a refreshed pieeprom.bin each boot).
 		"@Redfish.Settings": gin.H{
 			"@odata.type": "#Settings.v1_3_5.Settings",
 			"SettingsObject": gin.H{
@@ -84,7 +85,7 @@ func (s *Service) GetBios(c *gin.Context) {
 		// which FAT paths were probed, whether each one was found,
 		// which one was actually parsed, and what section headers it
 		// contained. Critical for first-boot debugging where U-Boot
-		// hasn't written eeprom.txt yet.
+		// hasn't written pieeprom.bin yet.
 		"Oem": gin.H{
 			"NanoKVM": gin.H{
 				"@odata.type":   "#NanoKVM.v1_0_0.Bios",

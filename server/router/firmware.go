@@ -87,7 +87,7 @@ func firmwareRouter(r *gin.Engine) {
 	})
 
 	// DELETE /api/firmware/eeprom/pending — cancels a staged update by
-	// removing pieeprom.upd. Next read shows the live eeprom.txt config
+	// removing pieeprom.upd. Next read shows the live pieeprom.bin config
 	// with Pending=false.
 	api.DELETE("/eeprom/pending", func(c *gin.Context) {
 		if err := ctrl.CancelEEPROMUpdate(); err != nil {

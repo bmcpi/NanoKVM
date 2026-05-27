@@ -32,7 +32,8 @@ func redfishRouter(r *gin.Engine) {
 		api.PATCH("/Systems/1", service.PatchSystem)
 
 		// Bios — RPi 5 bootloader EEPROM as Redfish Bios.Attributes.
-		// Live values come from eeprom.txt (U-Boot's per-boot dump);
+		// Live values come from the bootconf.txt embedded in pieeprom.bin
+		// (U-Boot writes a fresh EEPROM dump each boot);
 		// PATCH /Bios/Settings stages a pieeprom.upd for the host's
 		// rpi-eeprom-update to flash on next boot.
 		api.GET("/Systems/1/Bios", service.GetBios)

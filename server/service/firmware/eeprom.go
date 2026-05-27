@@ -6,21 +6,19 @@ package firmware
 // the host sees over the USB gadget.
 //
 // Reads:
-//   The currently-installed config is displayed from eeprom.txt, which
-//   U-Boot writes to the FAT root on every boot. That's the authoritative
-//   live state. We do NOT extract bootconf.txt from pieeprom.bin for
-//   display — the bin file may be a freshly-downloaded blank template
-//   that doesn't match what's actually programmed.
+//   U-Boot now exports the raw pieeprom.bin (a dump of the currently-
+//   programmed EEPROM) on every boot. The BMC parses it through the
+//   rpieeprom package to extract the embedded bootconf.txt and the
+//   build timestamp baked into bootcode.bin. The previous eeprom.txt
+//   text dump is gone.
 //
 // Writes:
 //   Saves go through SetEEPROMConfig which:
-//     1. Ensures a pieeprom.bin is on the FAT (downloads the latest from
-//        upstream rpi-eeprom if missing — see eepromupdater).
-//     2. Loads the source image (the pending pieeprom.upd if a previous
-//        edit hasn't been flashed yet, else pieeprom.bin).
-//     3. Uses the rpieeprom parser to swap the embedded bootconf.txt
+//     1. Loads the source image — the pending pieeprom.upd if a previous
+//        edit hasn't been flashed yet, else the live pieeprom.bin.
+//     2. Uses the rpieeprom parser to swap the embedded bootconf.txt
 //        section for the new content.
-//     4. Writes the modified bytes back as pieeprom.upd.
+//     3. Writes the modified bytes back as pieeprom.upd.
 //   On next boot rpi-eeprom-update sees pieeprom.upd and flashes the
 //   EEPROM safely.
 
@@ -49,9 +47,9 @@ const PlatformDefault = eepromkeys.PlatformRPi5
 
 const (
 	// File names on the firmware-image FAT root.
-	eepromTextFile    = "eeprom.txt"   // U-Boot's read-only text dump
-	eepromBinaryFile  = "pieeprom.bin" // current EEPROM image (cached)
-	eepromPendingFile = "pieeprom.upd" // staged update for rpi-eeprom-update
+	eepromBinaryFile   = "pieeprom.bin" // raw EEPROM dump written by U-Boot
+	eepromPendingFile  = "pieeprom.upd" // staged update for rpi-eeprom-update
+	eepromRecoveryFile = "recovery.bin" // recovery loader sourced from upstream
 )
 
 // maxEEPROMConfigBytes caps accepted writes. bootconf.txt sits in the
@@ -78,11 +76,25 @@ type EEPROMConfigSummary struct {
 	// waiting for the next boot to be flashed by rpi-eeprom-update.
 	Pending bool `json:"pending"`
 	// Source tells the caller where the displayed text came from
-	// (eeprom.txt currently; reserved for future variants).
+	// (e.g. "pieeprom.bin" for the live image, "pieeprom.upd" when a
+	// staged update is being previewed).
 	Source string `json:"source"`
-	// PieepromBinPresent reports whether the FAT already holds a
-	// pieeprom.bin. Edits download one automatically if missing.
+	// PieepromBinPresent reports whether the FAT holds a pieeprom.bin.
+	// Under the current U-Boot it should always be true; the flag is
+	// kept so the UI can surface a clear "no image yet — reboot" hint
+	// while the BMC starts up before U-Boot has written one.
 	PieepromBinPresent bool `json:"pieepromBinPresent"`
+	// RecoveryBinPresent reports whether recovery.bin is staged on the
+	// FAT. rpi-eeprom-update needs it to actually apply a pending
+	// pieeprom.upd at next boot; missing it means the staged update is
+	// inert until the file is downloaded.
+	RecoveryBinPresent bool `json:"recoveryBinPresent"`
+	// Version is the bootloader build timestamp parsed from the image
+	// (BUILD_TIMESTAMP marker inside bootcode). Empty when the image
+	// is missing or doesn't carry the marker.
+	Version string `json:"version,omitempty"`
+	// VersionUnix is the same value as a Unix timestamp; 0 when unknown.
+	VersionUnix int64 `json:"versionUnix,omitempty"`
 	// Catalog is the documented EEPROM-key reference for the active
 	// platform (name/type/default/description). Lets clients build a
 	// structured editor that shows the default beside each value.
@@ -91,25 +103,63 @@ type EEPROMConfigSummary struct {
 	Platform eepromkeys.Platform `json:"platform"`
 }
 
-// GetEEPROMConfig returns the current bootloader config from eeprom.txt
-// (U-Boot's per-boot text dump) plus flags describing the state of the
-// staged-update files on the FAT.
+// GetEEPROMConfig returns the current bootloader config parsed out of
+// pieeprom.bin — the raw EEPROM dump U-Boot writes to the FAT root on
+// every boot — plus the bootloader build version and flags describing
+// the staged-update slot.
+//
+// If a pieeprom.upd is staged its bootconf.txt is shown instead, so the
+// UI reflects what the host will see after the next flash. Source on
+// the summary tells the caller which file was read.
 func (c *Controller) GetEEPROMConfig() (EEPROMConfigSummary, error) {
 	pending, _ := c.hasFileOnImage(eepromPendingFile)
 	binPresent, _ := c.hasFileOnImage(eepromBinaryFile)
+	recoveryPresent, _ := c.hasFileOnImage(eepromRecoveryFile)
 
-	var text string
-	var source string
-	if data, err := c.ReadFileFromImage(eepromTextFile); err == nil && len(data) > 0 {
-		text = string(data)
-		source = eepromTextFile
-	}
+	text, source, version, versionUnix := c.readBootconfFromImage()
 
 	summary := summarise(text, source, pending)
 	summary.PieepromBinPresent = binPresent
+	summary.RecoveryBinPresent = recoveryPresent
 	summary.Platform = PlatformDefault
 	summary.Catalog = eepromkeys.ForPlatform(PlatformDefault)
+	summary.Version = version
+	summary.VersionUnix = versionUnix
 	return summary, nil
+}
+
+// readBootconfFromImage opens the most-relevant EEPROM image on the FAT
+// (pending .upd if any, else the live .bin) and extracts the embedded
+// bootconf.txt plus the build timestamp. Returns empty strings when no
+// image is present or the parse fails — callers treat that as "live
+// config not yet available" rather than as an error, because the
+// situation is recoverable (U-Boot will write a fresh .bin on next
+// boot).
+func (c *Controller) readBootconfFromImage() (text, source, version string, versionUnix int64) {
+	candidates := []string{eepromPendingFile, eepromBinaryFile}
+	for _, name := range candidates {
+		data, err := c.ReadFileFromImage(name)
+		if err != nil || len(data) == 0 {
+			continue
+		}
+		img, err := rpieeprom.ParseBytes(data)
+		if err != nil {
+			log.Debugf("eeprom: parse %s failed: %v", name, err)
+			continue
+		}
+		source = name
+		if bc, err := img.GetFile(rpieeprom.BootConfTxt); err == nil {
+			text = string(bc)
+		} else {
+			log.Debugf("eeprom: extract bootconf.txt from %s failed: %v", name, err)
+		}
+		if v, ok := img.Version(); ok {
+			version = v.Format("2006-01-02")
+			versionUnix = v.Unix()
+		}
+		return text, source, version, versionUnix
+	}
+	return "", "", "", 0
 }
 
 // SetEEPROMConfig stages a bootloader config change as pieeprom.upd. If
@@ -151,21 +201,27 @@ func (c *Controller) SetEEPROMConfig(ctx context.Context, bootconfTxt string) (E
 		return EEPROMConfigSummary{}, fmt.Errorf("write %s: %w", eepromPendingFile, err)
 	}
 
-	// Refresh the summary: text still reads from eeprom.txt (current
-	// live state) — what we just wrote is staged, not active.
+	// rpi-eeprom-update needs recovery.bin on the same FAT to actually
+	// apply pieeprom.upd at next boot. Fetch it from upstream lazily —
+	// if the file is already present we leave it alone, so a previous
+	// successful stage is enough.
+	if err := c.EnsureRecoveryBin(ctx); err != nil {
+		log.Warnf("eeprom: ensure recovery.bin failed: %v (staged update may not flash)", err)
+	}
+
+	// Refresh the summary: GetEEPROMConfig prefers the pending .upd so
+	// the returned text matches what was just staged. Pending=true is
+	// asserted below in case the read raced anything else.
 	out, _ := c.GetEEPROMConfig()
 	out.Pending = true
 	return out, nil
 }
 
-// eepromLiveTextCandidates is the list of FAT-root paths we probe in
-// order looking for the live bootloader text dump. U-Boot writes
-// "eeprom.txt"; some recovery / rpi-eeprom tooling uses "bootconf.txt"
-// in the same shape, so we accept both.
-var eepromLiveTextCandidates = []string{
-	"eeprom.txt",
-	"bootconf.txt",
-}
+// eepromImageCandidates lists the FAT-root EEPROM images we look at in
+// priority order for live-state reads. The pending .upd wins when
+// present so the Redfish/UI view matches what the host will see on the
+// next boot; otherwise the live .bin U-Boot writes each boot is used.
+var eepromImageCandidates = []string{eepromPendingFile, eepromBinaryFile}
 
 // EEPROMReadDiagnostics describes everything the BMC tried when fetching
 // live bootloader settings. Surfaced via the Redfish Bios resource (Oem
@@ -183,53 +239,72 @@ type EEPROMReadDiagnostics struct {
 	// (lowercase). Useful when [all] is empty but conditional sections
 	// hold all the actual settings.
 	SectionsSeen []string `json:"sectionsSeen,omitempty"`
+	// Version is the bootloader build timestamp parsed from the image,
+	// formatted YYYY-MM-DD. Empty when the marker is missing.
+	Version string `json:"version,omitempty"`
 }
 
 // EEPROMProbe is one path-lookup attempt during EEPROM read.
 type EEPROMProbe struct {
-	Path  string `json:"path"`
-	Found bool   `json:"found"`
-	Size  int    `json:"size,omitempty"`
-	Error string `json:"error,omitempty"`
+	Path       string `json:"path"`
+	Found      bool   `json:"found"`
+	Size       int    `json:"size,omitempty"`
+	Error      string `json:"error,omitempty"`
+	ParseError string `json:"parseError,omitempty"`
 }
 
 // GetBIOSAttributes returns the live [all]-section keys from the
-// bootloader text dump as a flat map suitable for the Redfish
-// Bios.Attributes resource, plus diagnostics describing what was probed.
-// Conditional sections ([gpio4=1] etc.) are not exposed via this surface.
+// bootloader image's embedded bootconf.txt as a flat map suitable for
+// the Redfish Bios.Attributes resource, plus diagnostics describing
+// what was probed. Conditional sections ([gpio4=1] etc.) are not
+// exposed via this surface.
 //
-// Unlike the previous version, errors from the underlying FS are NOT
-// swallowed — the caller decides whether to surface them. Missing
-// files (the most common reason for empty attrs) are reported as
-// Probes[].Found=false rather than as errors.
+// FS errors and parse failures are recorded on the diagnostics rather
+// than returned, so a single bad file doesn't poison the whole read —
+// the next candidate (e.g. the live .bin behind a malformed .upd) is
+// still tried. The function only returns an error for unexpected
+// failures it can't recover from.
 func (c *Controller) GetBIOSAttributes() (map[string]string, EEPROMReadDiagnostics, error) {
-	diag := EEPROMReadDiagnostics{Probes: make([]EEPROMProbe, 0, len(eepromLiveTextCandidates))}
+	diag := EEPROMReadDiagnostics{Probes: make([]EEPROMProbe, 0, len(eepromImageCandidates))}
 
-	for _, name := range eepromLiveTextCandidates {
+	for _, name := range eepromImageCandidates {
 		data, err := c.ReadFileFromImage(name)
 		probe := EEPROMProbe{Path: name}
 		if err != nil {
 			probe.Error = err.Error()
 			diag.Probes = append(diag.Probes, probe)
-			// Don't bail on a single-path read error — keep probing other
-			// candidates. The aggregated diagnostics make it obvious if
-			// every probe failed for the same reason.
 			continue
 		}
 		if len(data) == 0 {
-			diag.Probes = append(diag.Probes, probe) // Found=false implicit
+			diag.Probes = append(diag.Probes, probe)
 			continue
 		}
 		probe.Found = true
 		probe.Size = len(data)
+
+		img, err := rpieeprom.ParseBytes(data)
+		if err != nil {
+			probe.ParseError = err.Error()
+			diag.Probes = append(diag.Probes, probe)
+			continue
+		}
+		bc, err := img.GetFile(rpieeprom.BootConfTxt)
+		if err != nil {
+			probe.ParseError = "extract bootconf.txt: " + err.Error()
+			diag.Probes = append(diag.Probes, probe)
+			continue
+		}
 		diag.Probes = append(diag.Probes, probe)
 
-		// First non-empty file wins. Capture the section list for
-		// diagnostics so the operator can spot "all settings live in a
-		// conditional section" cases.
-		text := string(data)
+		// First image with a parseable bootconf wins. Capture diagnostics
+		// so the operator can spot "all settings live in a conditional
+		// section" cases.
+		text := string(bc)
 		diag.Source = name
 		diag.SectionsSeen = eepromkeys.ListSections(text)
+		if v, ok := img.Version(); ok {
+			diag.Version = v.Format("2006-01-02")
+		}
 		attrs := eepromkeys.ParseAllSection(text)
 		diag.AttributeCount = len(attrs)
 		return attrs, diag, nil
@@ -331,13 +406,16 @@ func (c *Controller) SetBIOSAttributes(ctx context.Context, attrs map[string]str
 	if err := c.WriteFileToImage(eepromPendingFile, img.Bytes()); err != nil {
 		return EEPROMConfigSummary{}, fmt.Errorf("write %s: %w", eepromPendingFile, err)
 	}
+	if err := c.EnsureRecoveryBin(ctx); err != nil {
+		log.Warnf("eeprom: ensure recovery.bin failed: %v (staged update may not flash)", err)
+	}
 	out, _ := c.GetEEPROMConfig()
 	out.Pending = true
 	return out, nil
 }
 
 // CancelEEPROMUpdate removes any staged pieeprom.upd. Next read will show
-// the live config (from eeprom.txt) with Pending=false.
+// the live config parsed from pieeprom.bin with Pending=false.
 func (c *Controller) CancelEEPROMUpdate() error {
 	if err := c.RemoveFileFromImage(eepromPendingFile); err != nil {
 		return fmt.Errorf("remove %s: %w", eepromPendingFile, err)
@@ -353,6 +431,58 @@ func (c *Controller) EnsurePieepromBin(ctx context.Context) error {
 		return nil
 	}
 	return c.refreshPieepromBinLocked(ctx, false)
+}
+
+// EnsureRecoveryBin makes sure recovery.bin is present on the FAT. It is
+// the second piece rpi-eeprom-update needs (alongside pieeprom.upd) to
+// apply a staged EEPROM update on the next boot — without it the staged
+// pieeprom.upd just sits there. No-op when already present.
+//
+// Errors are non-fatal at the call site (warned and continued): a previous
+// successful stage is sometimes enough, and we'd rather complete the .upd
+// write than refuse to stage anything on a transient network failure.
+func (c *Controller) EnsureRecoveryBin(ctx context.Context) error {
+	if ok, _ := c.hasFileOnImage(eepromRecoveryFile); ok {
+		return nil
+	}
+	return c.refreshRecoveryBinLocked(ctx)
+}
+
+// RefreshRecoveryBin force-downloads the latest channel recovery.bin and
+// overwrites the FAT copy. Use when the bootloader release changes and
+// the recovery loader needs to match.
+func (c *Controller) RefreshRecoveryBin(ctx context.Context) error {
+	return c.refreshRecoveryBinLocked(ctx)
+}
+
+func (c *Controller) refreshRecoveryBinLocked(ctx context.Context) error {
+	if ctx == nil {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+	}
+
+	img, err := eepromupdater.FindLatest(ctx, eepromupdater.FindLatestOptions{
+		Platform: eepromupdater.PlatformRPi5,
+		Channel:  eepromupdater.ChannelStable,
+	})
+	if err != nil {
+		return fmt.Errorf("find latest: %w", err)
+	}
+	if img.RecoveryURL == "" {
+		return fmt.Errorf("upstream channel %s/%s ships no recovery.bin", img.Platform, img.Channel)
+	}
+	log.Infof("eeprom: downloading recovery.bin (%d bytes) from %s/%s", img.RecoverySize, img.Platform, img.Channel)
+
+	data, err := eepromupdater.DownloadRecovery(ctx, img, nil)
+	if err != nil {
+		return fmt.Errorf("download recovery.bin: %w", err)
+	}
+	if err := c.WriteFileToImage(eepromRecoveryFile, data); err != nil {
+		return fmt.Errorf("write %s: %w", eepromRecoveryFile, err)
+	}
+	log.Infof("eeprom: wrote %s on firmware FAT (%d bytes)", eepromRecoveryFile, len(data))
+	return nil
 }
 
 // RefreshPieepromBin force-downloads the latest upstream stable image and
