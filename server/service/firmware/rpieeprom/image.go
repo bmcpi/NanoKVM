@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -393,13 +394,51 @@ func (im *Image) Version() (time.Time, bool) {
 	return time.Unix(ts, 0).UTC(), true
 }
 
-func validImageSize(n int) bool {
-	for _, v := range ValidImageSizes {
-		if n == v {
-			return true
-		}
+// SetTimestamp writes the self-update timestamp into the image. The Pi
+// bootloader's SELF-UPDATE path compares the .upd's `updatetime` against
+// the running EEPROM's; if the .upd's value is not strictly greater the
+// update is skipped (with "SELF-UPDATE timestamp current N new M skip"
+// in the early-stage log). Upstream `rpi-eeprom-update` always sets this
+// to `date -u +%s` when staging — we do the same.
+//
+// Layout matches `rpi-eeprom-config.set_timestamp`: each `updatetime`
+// file section's 8-byte content holds ~ts at offset 0 and ts at offset 4
+// (little-endian uint32s). The XOR pair is a corruption check. There are
+// two sections on AB images — one in the read-only header [0, ReadOnlySize)
+// and one in the partition [ReadOnlySize, ReadOnlySize+PartitionSize) —
+// and both must be updated.
+func (im *Image) SetTimestamp(ts int64) error {
+	tsLo := uint32(ts)
+	inv := ^tsLo
+
+	write := func(sec Section) {
+		contentOff := sec.Offset + 4 + FileHdrLen
+		binary.LittleEndian.PutUint32(im.data[contentOff:], inv)
+		binary.LittleEndian.PutUint32(im.data[contentOff+4:], tsLo)
 	}
-	return false
+
+	if s, _, err := im.findFile(UpdateTime, 0, ReadOnlySize); err == nil {
+		write(s)
+	} else if im.ab {
+		// AB images must carry the RO updatetime; missing it would mean
+		// our parse is wrong or the image is malformed.
+		return fmt.Errorf("set timestamp: read-only updatetime missing: %w", err)
+	}
+
+	s, _, err := im.findFile(UpdateTime, ReadOnlySize, ReadOnlySize+PartitionSize)
+	if err != nil {
+		if im.ab {
+			return fmt.Errorf("set timestamp: partition updatetime missing: %w", err)
+		}
+		// Non-AB (RPi 4 512K) images don't have the partition copy.
+		return nil
+	}
+	write(s)
+	return nil
+}
+
+func validImageSize(n int) bool {
+	return slices.Contains(ValidImageSizes, n)
 }
 
 func cloneBytes(b []byte) []byte {

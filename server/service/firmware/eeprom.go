@@ -200,7 +200,7 @@ func (c *Controller) SetEEPROMConfig(ctx context.Context, bootconfTxt string) (E
 		return EEPROMConfigSummary{}, fmt.Errorf("replace bootconf.txt: %w", err)
 	}
 
-	if err := c.stagePendingEEPROM(img.Bytes()); err != nil {
+	if err := c.stagePendingEEPROM(img); err != nil {
 		return EEPROMConfigSummary{}, err
 	}
 
@@ -220,19 +220,31 @@ func (c *Controller) SetEEPROMConfig(ctx context.Context, bootconfTxt string) (E
 	return out, nil
 }
 
-// stagePendingEEPROM writes pieeprom.upd alongside its pieeprom.sig
-// signature. The Pi 5 boot ROM verifies sig against upd before applying;
-// without the .sig the update is silently ignored ("pieeprom.upd not
-// found" in the early-stage log even though the .upd is on the FAT).
-// The signature format matches rpi-eeprom-update upstream: a single line
-// of lowercase hex SHA-256 over the .upd bytes.
-func (c *Controller) stagePendingEEPROM(updBytes []byte) error {
+// stagePendingEEPROM writes pieeprom.upd alongside its pieeprom.sig.
+//
+// Two upstream-required steps that are easy to miss:
+//
+//  1. The image's embedded `updatetime` is stamped to the current Unix
+//     time before the .upd is written. The bootloader's SELF-UPDATE
+//     path compares this against the running EEPROM's timestamp and
+//     skips when they're equal — without bumping it the early-stage log
+//     shows "SELF-UPDATE timestamp current N new N skip" (or both 0 on
+//     first stage) and the EEPROM is not flashed.
+//  2. The sig file's format is the one produced by rpi-eeprom-digest:
+//     a line of lowercase-hex sha256 followed by `ts: <unix-seconds>\n`.
+//     The same timestamp value goes into both the image and the sig.
+func (c *Controller) stagePendingEEPROM(img *rpieeprom.Image) error {
+	ts := time.Now().Unix()
+	if err := img.SetTimestamp(ts); err != nil {
+		return fmt.Errorf("set update timestamp: %w", err)
+	}
+	updBytes := img.Bytes()
 	if err := c.WriteFileToImage(eepromPendingFile, updBytes); err != nil {
 		return fmt.Errorf("write %s: %w", eepromPendingFile, err)
 	}
 	sum := sha256.Sum256(updBytes)
-	sig := []byte(hex.EncodeToString(sum[:]) + "\n")
-	if err := c.WriteFileToImage(eepromPendingSigFile, sig); err != nil {
+	sig := fmt.Sprintf("%s\nts: %d\n", hex.EncodeToString(sum[:]), ts)
+	if err := c.WriteFileToImage(eepromPendingSigFile, []byte(sig)); err != nil {
 		return fmt.Errorf("write %s: %w", eepromPendingSigFile, err)
 	}
 	return nil
@@ -420,7 +432,7 @@ func (c *Controller) SetBIOSAttributes(ctx context.Context, attrs map[string]str
 	if err := img.UpdateFile(rpieeprom.BootConfTxt, []byte(newBootconf)); err != nil {
 		return EEPROMConfigSummary{}, fmt.Errorf("replace bootconf.txt: %w", err)
 	}
-	if err := c.stagePendingEEPROM(img.Bytes()); err != nil {
+	if err := c.stagePendingEEPROM(img); err != nil {
 		return EEPROMConfigSummary{}, err
 	}
 	if err := c.EnsureRecoveryBin(ctx); err != nil {
@@ -576,7 +588,7 @@ func (c *Controller) StageEEPROMVersionUpgrade(ctx context.Context) (EEPROMConfi
 
 	// 4. Stage as pieeprom.upd (+ pieeprom.sig) + recovery.bin from the
 	//    same channel.
-	if err := c.stagePendingEEPROM(newImg.Bytes()); err != nil {
+	if err := c.stagePendingEEPROM(newImg); err != nil {
 		return EEPROMConfigSummary{}, err
 	}
 	log.Infof("eeprom: staged %s as %s with preserved bootconf from %s",
