@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -68,7 +69,8 @@ type APIDocsParam struct {
 type APIDocsBody struct {
 	ContentType string
 	Required    bool
-	Example     string // pretty-printed JSON when an `example` was set
+	Example     string         // pretty-printed JSON when an `example` was set
+	Schema      *APIDocsSchema // resolved schema, nil when absent
 }
 
 // APIDocsResponse is one (status → description) pair, optionally with a
@@ -76,8 +78,65 @@ type APIDocsBody struct {
 type APIDocsResponse struct {
 	Status      string // "200", "default", etc.
 	Description string
-	ContentType string // first content type with an example, when present
-	Example     string // pretty-printed JSON example, empty when absent
+	ContentType string         // first content type with an example, when present
+	Example     string         // pretty-printed JSON example, empty when absent
+	Schema      *APIDocsSchema // resolved schema, nil when absent
+}
+
+// APIDocsSchema is a Redoc-style schema tree. Each node carries its
+// JSON-schema metadata plus child nodes for object properties / array
+// items / oneOf variants. Cycles in the OpenAPI doc are broken by
+// returning a leaf with RefName set and Properties left nil.
+type APIDocsSchema struct {
+	Type        string   // "object" | "array" | "string" | "integer" | "number" | "boolean" | "" for refs/composition
+	Format      string   // e.g. "int32", "date-time"
+	Description string
+	Example     string   // raw value rendered as text
+	Default     string
+	Enum        []string
+	// RefName is the component-schemas key when this node originated as
+	// a $ref. Used for headers / cycle-break leaves.
+	RefName string
+	// Nullable is set when the schema's type was declared as
+	// [Foo, "null"] (OpenAPI 3.1 / JSON Schema style).
+	Nullable bool
+
+	// Object-shape fields.
+	Properties []APIDocsSchemaProp
+	Required   map[string]bool
+	// AdditionalProperties carries the value schema when the object
+	// allows extra keys, e.g. `additionalProperties: { type: string }`.
+	AdditionalProperties *APIDocsSchema
+
+	// Array-shape fields.
+	Items *APIDocsSchema
+
+	// Composition. Rendered as a "one of" pill list with each variant
+	// expandable. allOf is pre-merged into Properties during build.
+	OneOf []*APIDocsSchema
+}
+
+// APIDocsSchemaProp is one named property on an object schema.
+type APIDocsSchemaProp struct {
+	Name     string
+	Required bool
+	Schema   *APIDocsSchema
+}
+
+// resolver carries the components maps so $ref strings can be resolved
+// against them while building schemas and responses.
+type resolver struct {
+	schemas   map[string]any // components.schemas
+	responses map[string]any // components.responses
+}
+
+func newResolver(doc map[string]any) *resolver {
+	r := &resolver{}
+	if comp, ok := doc["components"].(map[string]any); ok {
+		r.schemas, _ = comp["schemas"].(map[string]any)
+		r.responses, _ = comp["responses"].(map[string]any)
+	}
+	return r
 }
 
 // LoadAPIDocs parses an OpenAPI YAML document into APIDocsModel.
@@ -88,6 +147,7 @@ func LoadAPIDocs(yamlBytes []byte) (APIDocsModel, error) {
 	}
 	doc, _ := normaliseYAMLForJSON(raw).(map[string]any)
 
+	res := newResolver(doc)
 	m := APIDocsModel{ByTag: map[string][]APIDocsOperation{}}
 
 	if info, ok := doc["info"].(map[string]any); ok {
@@ -141,7 +201,7 @@ func LoadAPIDocs(yamlBytes []byte) (APIDocsModel, error) {
 			if !ok {
 				continue
 			}
-			op := newAPIOp(method, path, pi, opMap)
+			op := newAPIOp(res, method, path, pi, opMap)
 			m.ByTag[op.Tag] = append(m.ByTag[op.Tag], op)
 		}
 	}
@@ -169,7 +229,7 @@ func LoadAPIDocs(yamlBytes []byte) (APIDocsModel, error) {
 	return m, nil
 }
 
-func newAPIOp(method, path string, pi, opMap map[string]any) APIDocsOperation {
+func newAPIOp(res *resolver, method, path string, pi, opMap map[string]any) APIDocsOperation {
 	op := APIDocsOperation{
 		Method: strings.ToUpper(method),
 		Path:   path,
@@ -194,8 +254,8 @@ func newAPIOp(method, path string, pi, opMap map[string]any) APIDocsOperation {
 	}
 
 	op.Parameters = extractAPIParams(pi, opMap)
-	op.RequestBody = extractAPIBody(opMap)
-	op.Responses = extractAPIResponses(opMap)
+	op.RequestBody = extractAPIBody(res, opMap)
+	op.Responses = extractAPIResponses(res, opMap)
 	return op
 }
 
@@ -236,7 +296,7 @@ func extractAPIParams(pi, op map[string]any) []APIDocsParam {
 	return out
 }
 
-func extractAPIBody(op map[string]any) *APIDocsBody {
+func extractAPIBody(res *resolver, op map[string]any) *APIDocsBody {
 	body, ok := op["requestBody"].(map[string]any)
 	if !ok {
 		return nil
@@ -244,28 +304,23 @@ func extractAPIBody(op map[string]any) *APIDocsBody {
 	out := &APIDocsBody{}
 	out.Required, _ = body["required"].(bool)
 	if content, ok := body["content"].(map[string]any); ok {
-		// Take the first content-type entry (alphabetical for
-		// determinism). Our spec uses one content type per body.
-		keys := make([]string, 0, len(content))
-		for k := range content {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		if len(keys) > 0 {
-			out.ContentType = keys[0]
-			if vm, ok := content[keys[0]].(map[string]any); ok {
-				if ex, ok := vm["example"]; ok {
-					if pretty, err := json.MarshalIndent(ex, "", "  "); err == nil {
-						out.Example = string(pretty)
-					}
+		ct, vm := firstContent(content)
+		out.ContentType = ct
+		if vm != nil {
+			if ex, ok := vm["example"]; ok {
+				if pretty, err := json.MarshalIndent(ex, "", "  "); err == nil {
+					out.Example = string(pretty)
 				}
+			}
+			if sm, ok := vm["schema"].(map[string]any); ok {
+				out.Schema = res.buildSchema(sm, nil)
 			}
 		}
 	}
 	return out
 }
 
-func extractAPIResponses(op map[string]any) []APIDocsResponse {
+func extractAPIResponses(res *resolver, op map[string]any) []APIDocsResponse {
 	responses, ok := op["responses"].(map[string]any)
 	if !ok {
 		return nil
@@ -282,38 +337,288 @@ func extractAPIResponses(op map[string]any) []APIDocsResponse {
 		if !ok {
 			continue
 		}
-		ar := APIDocsResponse{Status: k}
-		ar.Description, _ = r["description"].(string)
-		// $ref response refs — flatten to the ref target name as a
-		// description hint so we don't drop them silently.
-		if ar.Description == "" {
-			if ref, ok := r["$ref"].(string); ok {
-				ar.Description = "(" + lastPathSegment(ref) + ")"
+		// Resolve a $ref to components.responses — Redoc behaviour:
+		// surface the target's description + content the same as an
+		// inline response. Falls back to "(RefName)" when the target
+		// can't be resolved.
+		var refName string
+		if ref, ok := r["$ref"].(string); ok {
+			refName = lastPathSegment(ref)
+			if res.responses != nil {
+				if resolved, ok := res.responses[refName].(map[string]any); ok {
+					r = resolved
+				}
 			}
 		}
+		ar := APIDocsResponse{Status: k}
+		ar.Description, _ = r["description"].(string)
+		if ar.Description == "" && refName != "" {
+			ar.Description = "(" + refName + ")"
+		}
 		if content, ok := r["content"].(map[string]any); ok {
-			cts := make([]string, 0, len(content))
-			for ck := range content {
-				cts = append(cts, ck)
-			}
-			sort.Strings(cts)
-			for _, ct := range cts {
-				vm, ok := content[ct].(map[string]any)
-				if !ok {
-					continue
-				}
+			ct, vm := firstContent(content)
+			if vm != nil {
 				if ex, ok := vm["example"]; ok {
 					if pretty, err := json.MarshalIndent(ex, "", "  "); err == nil {
 						ar.ContentType = ct
 						ar.Example = string(pretty)
-						break
 					}
+				}
+				if sm, ok := vm["schema"].(map[string]any); ok {
+					if ar.ContentType == "" {
+						ar.ContentType = ct
+					}
+					ar.Schema = res.buildSchema(sm, nil)
 				}
 			}
 		}
 		out = append(out, ar)
 	}
 	return out
+}
+
+// firstContent returns the alphabetically-first content-type entry from
+// an OpenAPI content map together with its descriptor. Our spec only
+// uses one content type per body but the rule keeps the choice
+// deterministic when more are added.
+func firstContent(content map[string]any) (string, map[string]any) {
+	keys := make([]string, 0, len(content))
+	for k := range content {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	if len(keys) == 0 {
+		return "", nil
+	}
+	vm, _ := content[keys[0]].(map[string]any)
+	return keys[0], vm
+}
+
+// maxSchemaDepth caps recursion when building schema trees. Our spec is
+// shallow (<=4 levels) so the limit only matters as a guard against
+// pathological cycles introduced later.
+const maxSchemaDepth = 8
+
+// buildSchema converts an OpenAPI schema dict into APIDocsSchema. The
+// `seen` parameter is a chain of ref names already being expanded above
+// this call: re-encountering one breaks the cycle by returning a leaf
+// node whose RefName is set so the renderer can show
+// "→ SchemaName (recursive)".
+func (r *resolver) buildSchema(raw map[string]any, seen []string) *APIDocsSchema {
+	if raw == nil {
+		return nil
+	}
+	if len(seen) > maxSchemaDepth {
+		return &APIDocsSchema{Description: "(max depth reached)"}
+	}
+
+	// $ref: short-circuit by recursing on the referenced schema, but
+	// detect cycles via `seen`.
+	if ref, ok := raw["$ref"].(string); ok {
+		name := lastPathSegment(ref)
+		for _, s := range seen {
+			if s == name {
+				return &APIDocsSchema{RefName: name}
+			}
+		}
+		target, _ := r.schemas[name].(map[string]any)
+		if target == nil {
+			return &APIDocsSchema{RefName: name}
+		}
+		built := r.buildSchema(target, append(seen, name))
+		if built != nil {
+			built.RefName = name
+		}
+		return built
+	}
+
+	s := &APIDocsSchema{}
+	s.Type, s.Nullable = schemaType(raw["type"])
+	s.Format, _ = raw["format"].(string)
+	s.Description, _ = raw["description"].(string)
+	s.Default = stringifyScalar(raw["default"])
+	if ex, ok := raw["example"]; ok {
+		s.Example = stringifyScalar(ex)
+	}
+	if enum, ok := raw["enum"].([]any); ok {
+		for _, v := range enum {
+			s.Enum = append(s.Enum, stringifyScalar(v))
+		}
+	}
+
+	// allOf — merge member schemas into s. This handles the common
+	// "extends a base + adds properties" idiom without forcing the
+	// renderer to know about composition.
+	if allOf, ok := raw["allOf"].([]any); ok {
+		for _, m := range allOf {
+			mm, ok := m.(map[string]any)
+			if !ok {
+				continue
+			}
+			mergeSchema(s, r.buildSchema(mm, seen))
+		}
+	}
+
+	// oneOf / anyOf — surfaced as variants for the renderer to expand.
+	for _, key := range []string{"oneOf", "anyOf"} {
+		if list, ok := raw[key].([]any); ok {
+			for _, m := range list {
+				mm, ok := m.(map[string]any)
+				if !ok {
+					continue
+				}
+				s.OneOf = append(s.OneOf, r.buildSchema(mm, seen))
+			}
+		}
+	}
+
+	// required is a list of property names. Stash as a set so the
+	// property loop below can flag entries cheaply.
+	if req, ok := raw["required"].([]any); ok {
+		s.Required = make(map[string]bool, len(req))
+		for _, v := range req {
+			if name, ok := v.(string); ok {
+				s.Required[name] = true
+			}
+		}
+	}
+
+	if props, ok := raw["properties"].(map[string]any); ok {
+		keys := make([]string, 0, len(props))
+		for k := range props {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			pm, ok := props[k].(map[string]any)
+			if !ok {
+				continue
+			}
+			child := r.buildSchema(pm, seen)
+			s.Properties = append(s.Properties, APIDocsSchemaProp{
+				Name:     k,
+				Required: s.Required[k],
+				Schema:   child,
+			})
+		}
+		if s.Type == "" {
+			s.Type = "object"
+		}
+	}
+
+	if ap, ok := raw["additionalProperties"]; ok {
+		switch v := ap.(type) {
+		case map[string]any:
+			s.AdditionalProperties = r.buildSchema(v, seen)
+		case bool:
+			if v {
+				s.AdditionalProperties = &APIDocsSchema{Type: "any"}
+			}
+		}
+		if s.Type == "" {
+			s.Type = "object"
+		}
+	}
+
+	if items, ok := raw["items"].(map[string]any); ok {
+		s.Items = r.buildSchema(items, seen)
+		if s.Type == "" {
+			s.Type = "array"
+		}
+	}
+
+	return s
+}
+
+// schemaType normalises OpenAPI's two type spellings: plain string
+// ("object") and the 3.1 nullable array form (["string", "null"]).
+func schemaType(raw any) (string, bool) {
+	switch v := raw.(type) {
+	case string:
+		return v, false
+	case []any:
+		var primary string
+		var nullable bool
+		for _, t := range v {
+			if ts, ok := t.(string); ok {
+				if ts == "null" {
+					nullable = true
+				} else if primary == "" {
+					primary = ts
+				}
+			}
+		}
+		return primary, nullable
+	default:
+		return "", false
+	}
+}
+
+// mergeSchema folds src's relevant fields into dst — used to flatten
+// `allOf` members into the parent schema.
+func mergeSchema(dst, src *APIDocsSchema) {
+	if src == nil {
+		return
+	}
+	if dst.Type == "" {
+		dst.Type = src.Type
+	}
+	if dst.Description == "" {
+		dst.Description = src.Description
+	}
+	if src.Required != nil {
+		if dst.Required == nil {
+			dst.Required = map[string]bool{}
+		}
+		for k, v := range src.Required {
+			dst.Required[k] = v
+		}
+	}
+	for _, p := range src.Properties {
+		if p.Required || dst.Required[p.Name] {
+			p.Required = true
+		}
+		dst.Properties = append(dst.Properties, p)
+	}
+	if dst.Items == nil {
+		dst.Items = src.Items
+	}
+	if dst.AdditionalProperties == nil {
+		dst.AdditionalProperties = src.AdditionalProperties
+	}
+}
+
+// stringifyScalar formats an arbitrary JSON-ish value as a short string
+// for the schema renderer. Objects / arrays fall back to JSON.
+func stringifyScalar(v any) string {
+	if v == nil {
+		return ""
+	}
+	switch t := v.(type) {
+	case string:
+		return t
+	case bool:
+		if t {
+			return "true"
+		}
+		return "false"
+	case int:
+		return strconv.Itoa(t)
+	case int64:
+		return strconv.FormatInt(t, 10)
+	case float64:
+		// YAML decodes integers like 115200 as float64; keep them
+		// integer-shaped when there's no fractional part.
+		if t == float64(int64(t)) {
+			return strconv.FormatInt(int64(t), 10)
+		}
+		return strconv.FormatFloat(t, 'g', -1, 64)
+	default:
+		if b, err := json.Marshal(v); err == nil {
+			return string(b)
+		}
+		return ""
+	}
 }
 
 // FirstResponseSample returns the first response that carries an example
@@ -387,6 +692,52 @@ func lastPathSegment(s string) string {
 		return s[i+1:]
 	}
 	return s
+}
+
+// needsRecursion reports whether the schema has child structure worth
+// rendering inline (object properties, array items, oneOf variants,
+// additional-properties value). Primitive leaves with only enum/example
+// can use the inline meta renderer.
+func needsRecursion(s *APIDocsSchema) bool {
+	if s == nil {
+		return false
+	}
+	return len(s.Properties) > 0 || s.Items != nil || len(s.OneOf) > 0 || s.AdditionalProperties != nil
+}
+
+// typeLabel produces the small text label rendered in the type pill —
+// e.g. "string", "array of object", "object", "string · int32",
+// "string?" when nullable. Falls back to the ref name when the schema
+// was a $ref cycle leaf.
+func typeLabel(s *APIDocsSchema) string {
+	if s == nil {
+		return ""
+	}
+	if s.Type == "" && s.RefName != "" {
+		return "→ " + s.RefName
+	}
+	t := s.Type
+	if t == "" {
+		if len(s.OneOf) > 0 {
+			t = "one of"
+		} else {
+			t = "any"
+		}
+	}
+	if t == "array" {
+		inner := "any"
+		if s.Items != nil {
+			inner = typeLabel(s.Items)
+		}
+		t = "array of " + inner
+	}
+	if s.Format != "" {
+		t = t + " · " + s.Format
+	}
+	if s.Nullable {
+		t = t + " · nullable"
+	}
+	return t
 }
 
 // shortMethod returns a fixed-width abbreviation for sidebar method

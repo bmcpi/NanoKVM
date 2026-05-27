@@ -4,7 +4,6 @@ import (
 	"strconv"
 
 	"github.com/templui/templui/components/badge"
-	"github.com/templui/templui/components/separator"
 )
 
 // APIDocsPage renders the OpenAPI-derived Redfish API reference in a
@@ -250,33 +249,257 @@ templ apiDocsParameters(params []APIDocsParam) {
 	</div>
 }
 
-// apiDocsRequestBody renders content type + (when present) the pretty-
-// printed example as a code block.
+// apiDocsRequestBody renders content type + schema + example.
 templ apiDocsRequestBody(b APIDocsBody) {
-	<div class="space-y-1.5">
+	<div class="space-y-2">
 		<p class="text-xs text-muted-foreground">
 			<code class="font-mono">{ b.ContentType }</code>
 			if b.Required {
 				<span class="ml-1 text-destructive">· required</span>
 			}
 		</p>
+		if b.Schema != nil {
+			@apiDocsSchemaRoot(b.Schema)
+		}
 		if b.Example != "" {
-			<pre class="overflow-x-auto rounded-md border border-border bg-muted/50 p-3 text-xs"><code class="font-mono">{ b.Example }</code></pre>
+			<details class="rounded-md border border-border bg-muted/30">
+				<summary class="cursor-pointer px-3 py-1.5 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-accent/40 transition-colors">Example</summary>
+				<pre class="overflow-x-auto p-3 text-xs border-t border-border"><code class="font-mono">{ b.Example }</code></pre>
+			</details>
 		}
 	</div>
 }
 
-// apiDocsResponses is a flat list of (status badge + description) lines.
+// apiDocsResponses renders each response with status badge, description,
+// and (when the response has a schema/example) a collapsible body. We
+// open the first 2xx by default so the success shape is visible without
+// a click.
 templ apiDocsResponses(rs []APIDocsResponse) {
-	<div class="space-y-1.5">
-		for _, r := range rs {
-			<div class="flex items-baseline gap-2 text-sm">
+	<div class="space-y-2">
+		for i, r := range rs {
+			@apiDocsResponseRow(r, i == 0)
+		}
+	</div>
+}
+
+templ apiDocsResponseRow(r APIDocsResponse, open bool) {
+	if r.Schema != nil || r.Example != "" {
+		<details class="rounded-md border border-border bg-muted/20" open?={ open }>
+			<summary class="flex items-baseline gap-2 cursor-pointer px-3 py-2 text-sm hover:bg-accent/40 transition-colors">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-3.5 text-muted-foreground transition-transform [details[open]>summary>&]:rotate-90 shrink-0 mt-0.5">
+					<polyline points="9 18 15 12 9 6"></polyline>
+				</svg>
 				@badge.Badge(badge.Props{Class: StatusColorClass(r.Status) + " font-mono text-xs px-2"}) {
 					{ r.Status }
 				}
 				<span class="text-sm text-muted-foreground flex-1">{ r.Description }</span>
+			</summary>
+			<div class="border-t border-border px-3 py-3 space-y-3">
+				if r.ContentType != "" {
+					<p class="text-[0.6875rem] text-muted-foreground"><code class="font-mono">{ r.ContentType }</code></p>
+				}
+				if r.Schema != nil {
+					@apiDocsSchemaRoot(r.Schema)
+				}
 			</div>
-			@separator.Separator(separator.Props{Class: "last:hidden"})
+		</details>
+	} else {
+		<div class="flex items-baseline gap-2 text-sm rounded-md border border-border/40 bg-muted/10 px-3 py-2">
+			@badge.Badge(badge.Props{Class: StatusColorClass(r.Status) + " font-mono text-xs px-2"}) {
+				{ r.Status }
+			}
+			<span class="text-sm text-muted-foreground flex-1">{ r.Description }</span>
+		</div>
+	}
+}
+
+// apiDocsSchemaRoot is the entry point for rendering a schema tree.
+// Wraps the inner @apiDocsSchema call in a labelled frame so the user
+// sees "Schema" + (when present) the component name.
+templ apiDocsSchemaRoot(s *APIDocsSchema) {
+	<div class="rounded-md border border-border bg-card">
+		<div class="flex items-baseline gap-2 px-3 py-1.5 border-b border-border">
+			<span class="text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">Schema</span>
+			if s.RefName != "" {
+				<code class="font-mono text-[0.6875rem] text-muted-foreground/80">{ s.RefName }</code>
+			}
+			@apiDocsTypeBadge(s)
+		</div>
+		<div class="px-3 py-2">
+			@apiDocsSchema(s, 0)
+		</div>
+	</div>
+}
+
+// apiDocsSchema dispatches a schema node to the right sub-renderer.
+// `depth` is used to cap recursion in the template (defence-in-depth on
+// top of the loader's maxSchemaDepth).
+templ apiDocsSchema(s *APIDocsSchema, depth int) {
+	if s == nil {
+		<span class="text-xs text-muted-foreground italic">(unspecified)</span>
+	} else if depth > 12 {
+		<span class="text-xs text-muted-foreground italic">…</span>
+	} else if s.Type == "object" || len(s.Properties) > 0 || s.AdditionalProperties != nil {
+		@apiDocsSchemaObject(s, depth)
+	} else if s.Type == "array" || s.Items != nil {
+		@apiDocsSchemaArray(s, depth)
+	} else if len(s.OneOf) > 0 {
+		@apiDocsSchemaOneOf(s, depth)
+	} else {
+		@apiDocsSchemaLeaf(s)
+	}
+}
+
+// apiDocsSchemaObject lists each property as a row. Nested
+// object/array values render inline indented to make the structure
+// scannable like Redoc; primitives just show name + type + description.
+templ apiDocsSchemaObject(s *APIDocsSchema, depth int) {
+	<div class="space-y-1.5">
+		if s.Description != "" && depth == 0 {
+			<p class="text-xs text-muted-foreground whitespace-pre-line mb-2">{ s.Description }</p>
+		}
+		for _, p := range s.Properties {
+			@apiDocsSchemaProp(p, depth)
+		}
+		if s.AdditionalProperties != nil {
+			<div class="flex flex-col gap-1 py-1.5 border-l-2 border-border/60 pl-3">
+				<div class="flex items-baseline gap-2 flex-wrap">
+					<code class="font-mono text-xs italic text-muted-foreground">[additional property]</code>
+					@apiDocsTypeBadge(s.AdditionalProperties)
+				</div>
+				if needsRecursion(s.AdditionalProperties) {
+					<div class="pt-1">
+						@apiDocsSchema(s.AdditionalProperties, depth+1)
+					</div>
+				}
+			</div>
+		}
+		if len(s.Properties) == 0 && s.AdditionalProperties == nil {
+			<span class="text-xs text-muted-foreground italic">(no properties)</span>
 		}
 	</div>
+}
+
+// apiDocsSchemaProp renders one named property row. Object/array
+// children get an inline <details> so the user can drill in without
+// leaving the page.
+templ apiDocsSchemaProp(p APIDocsSchemaProp, depth int) {
+	if needsRecursion(p.Schema) {
+		<details class="border-l-2 border-border/60 pl-3" open?={ depth == 0 }>
+			<summary class="cursor-pointer py-1.5 list-none [&::-webkit-details-marker]:hidden">
+				<div class="flex items-baseline gap-2 flex-wrap">
+					<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-3 text-muted-foreground transition-transform [details[open]>summary>&]:rotate-90 inline-block">
+						<polyline points="9 18 15 12 9 6"></polyline>
+					</svg>
+					<code class="font-mono text-xs font-semibold">{ p.Name }</code>
+					@apiDocsTypeBadge(p.Schema)
+					if p.Required {
+						<span class="text-[0.625rem] text-destructive">required</span>
+					}
+				</div>
+				if p.Schema != nil && p.Schema.Description != "" {
+					<p class="text-xs text-muted-foreground whitespace-pre-line pl-5 mt-0.5">{ p.Schema.Description }</p>
+				}
+			</summary>
+			<div class="pl-5 pt-1 pb-1">
+				@apiDocsSchema(p.Schema, depth+1)
+			</div>
+		</details>
+	} else {
+		<div class="flex flex-col gap-0.5 py-1.5 border-l-2 border-border/60 pl-3">
+			<div class="flex items-baseline gap-2 flex-wrap">
+				<code class="font-mono text-xs font-semibold">{ p.Name }</code>
+				@apiDocsTypeBadge(p.Schema)
+				if p.Required {
+					<span class="text-[0.625rem] text-destructive">required</span>
+				}
+			</div>
+			if p.Schema != nil {
+				@apiDocsSchemaMeta(p.Schema)
+			}
+		</div>
+	}
+}
+
+// apiDocsSchemaArray renders an array schema as "Array of <ItemType>"
+// followed by the recursive item schema.
+templ apiDocsSchemaArray(s *APIDocsSchema, depth int) {
+	<div class="space-y-1">
+		if s.Description != "" && depth == 0 {
+			<p class="text-xs text-muted-foreground whitespace-pre-line">{ s.Description }</p>
+		}
+		<div class="flex items-baseline gap-2 flex-wrap">
+			<span class="text-[0.6875rem] uppercase tracking-wider text-muted-foreground">items</span>
+			@apiDocsTypeBadge(s.Items)
+		</div>
+		if needsRecursion(s.Items) {
+			<div class="pl-3 border-l-2 border-border/60 pt-1">
+				@apiDocsSchema(s.Items, depth+1)
+			</div>
+		}
+	</div>
+}
+
+// apiDocsSchemaOneOf shows each variant as a collapsible block.
+templ apiDocsSchemaOneOf(s *APIDocsSchema, depth int) {
+	<div class="space-y-1">
+		<span class="text-[0.6875rem] uppercase tracking-wider text-muted-foreground">one of</span>
+		<div class="space-y-1.5">
+			for i, v := range s.OneOf {
+				<details class="border-l-2 border-border/60 pl-3" open?={ i == 0 }>
+					<summary class="cursor-pointer py-1 list-none [&::-webkit-details-marker]:hidden flex items-baseline gap-2">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-3 text-muted-foreground transition-transform [details[open]>summary>&]:rotate-90 inline-block">
+							<polyline points="9 18 15 12 9 6"></polyline>
+						</svg>
+						<span class="text-xs font-semibold">variant { strconv.Itoa(i + 1) }</span>
+						@apiDocsTypeBadge(v)
+					</summary>
+					<div class="pl-5 pt-1">
+						@apiDocsSchema(v, depth+1)
+					</div>
+				</details>
+			}
+		</div>
+	</div>
+}
+
+// apiDocsSchemaLeaf renders primitive (string/integer/boolean/etc.)
+// schemas — only meta lines (enum / default / example).
+templ apiDocsSchemaLeaf(s *APIDocsSchema) {
+	@apiDocsSchemaMeta(s)
+}
+
+// apiDocsSchemaMeta lists the optional meta lines (enum / default /
+// example) shared by leaves and primitive properties.
+templ apiDocsSchemaMeta(s *APIDocsSchema) {
+	if s != nil {
+		if len(s.Enum) > 0 {
+			<div class="flex items-baseline gap-1.5 flex-wrap mt-0.5">
+				<span class="text-[0.6875rem] text-muted-foreground/70">enum:</span>
+				for _, v := range s.Enum {
+					<code class="font-mono text-[0.6875rem] rounded bg-muted/60 px-1.5 py-0.5">{ v }</code>
+				}
+			</div>
+		}
+		if s.Default != "" {
+			<div class="text-[0.6875rem] text-muted-foreground/70">
+				<span>default:</span> <code class="font-mono">{ s.Default }</code>
+			</div>
+		}
+		if s.Example != "" {
+			<div class="text-[0.6875rem] text-muted-foreground/70">
+				<span>example:</span> <code class="font-mono break-all">{ s.Example }</code>
+			</div>
+		}
+	}
+}
+
+// apiDocsTypeBadge renders the small type pill ("string", "object",
+// "array of object", etc.). Includes nullable/format hints when set.
+templ apiDocsTypeBadge(s *APIDocsSchema) {
+	if s != nil {
+		<span class="font-mono text-[0.6875rem] text-muted-foreground/80">
+			{ typeLabel(s) }
+		</span>
+	}
 }
