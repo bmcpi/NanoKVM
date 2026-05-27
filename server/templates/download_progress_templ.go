@@ -5,11 +5,10 @@ package templates
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
-import (
-	"github.com/a-h/templ"
-	templruntime "github.com/a-h/templ/runtime"
-	"github.com/templui/templui/components/progress"
-)
+import "github.com/a-h/templ"
+import templruntime "github.com/a-h/templ/runtime"
+
+import "github.com/templui/templui/components/progress"
 
 // DownloadProgress renders a templui Progress bar + a small status text
 // line, both hidden by default. Long-running download buttons live next to

@@ -5,9 +5,10 @@ package templates
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
+import "github.com/a-h/templ"
+import templruntime "github.com/a-h/templ/runtime"
+
 import (
-	"github.com/a-h/templ"
-	templruntime "github.com/a-h/templ/runtime"
 	"github.com/templui/templui/components/button"
 	"github.com/templui/templui/components/card"
 	"github.com/templui/templui/components/dialog"
@@ -15,7 +16,6 @@ import (
 	"github.com/templui/templui/components/input"
 	"github.com/templui/templui/components/label"
 	"github.com/templui/templui/components/separator"
-
 	switchcomp "github.com/templui/templui/components/switch"
 )
 

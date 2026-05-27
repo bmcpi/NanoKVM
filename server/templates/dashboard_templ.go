@@ -5,10 +5,8 @@ package templates
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
-import (
-	"github.com/a-h/templ"
-	templruntime "github.com/a-h/templ/runtime"
-)
+import "github.com/a-h/templ"
+import templruntime "github.com/a-h/templ/runtime"
 
 // DashboardPage is the main BMC page. Standard layout (navbar at top), then
 // a horizontal flex row containing the console pane + the Server Overview

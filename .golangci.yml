@@ -142,7 +142,7 @@ linters:
             - yaml,omitzero
             - protobuf,casttype
   exclusions:
-    generated: lax
+    generated: strict
     presets:
       - comments
       - common-false-positives
@@ -173,9 +173,7 @@ linters:
           - goheader
         path-except: zz_generated\.deepcopy\.go
     paths:
-      - server/templates/layout_templ.go
-      - server/templates/overview_templ.go
-      - server/templates/pages_templ.go
+      - server/templates/*_templ.go
       - third_party$
       - builtin$
       - examples$
@@ -188,11 +186,9 @@ formatters:
     - gofumpt
     - goimports
   exclusions:
-    generated: disable
+    generated: lax
     paths:
-      - server/templates/layout_templ.go
-      - server/templates/overview_templ.go
-      - server/templates/pages_templ.go
+      - server/templates/*_templ.go
       - third_party$
       - builtin$
       - examples$
