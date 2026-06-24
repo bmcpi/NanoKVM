@@ -5,13 +5,11 @@ import (
 	"github.com/templui/templui/components/dropdown"
 	"github.com/templui/templui/components/icon"
 	"github.com/templui/templui/components/input"
-	"github.com/templui/templui/components/label"
-	"github.com/templui/templui/components/separator"
 )
 
-// VirtualMediaMenu is the navbar virtual-media picker. Inline UI has two
-// views — "current mount" + "add media" — that the inline script toggles
-// via the standard `hidden` Tailwind utility.
+// VirtualMediaMenu is the navbar virtual-media picker. Two views — "current
+// mount" and "add media" — toggled by the inline script. The "add" view uses
+// three tabs (Existing / Upload / URL) to keep height fixed.
 templ VirtualMediaMenu() {
 	@dropdown.Dropdown() {
 		@dropdown.Trigger(dropdown.TriggerProps{
@@ -19,11 +17,11 @@ templ VirtualMediaMenu() {
 		}) {
 			<button class="nav-item">
 				<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/></svg>
-				<span>Virtual Media</span>
+				<span class="hidden sm:inline">Virtual Media</span>
 				<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="opacity-60"><path d="m6 9 6 6 6-6"/></svg>
 			</button>
 		}
-		@dropdown.Content(dropdown.ContentProps{Class: "w-96 p-0", Placement: dropdown.PlacementBottomStart}) {
+		@dropdown.Content(dropdown.ContentProps{Class: "w-96 p-0 panel-fit", Placement: dropdown.PlacementBottomStart}) {
 			@vmCurrentView()
 			@vmAddView()
 		}
@@ -31,37 +29,42 @@ templ VirtualMediaMenu() {
 	@virtualMediaScript()
 }
 
-// vmCurrentView shows the currently-mounted media + entry point to the add view.
+// vmCurrentView shows current mount state + entry to the add view.
 templ vmCurrentView() {
-	<div id="nav-vm-view" class="flex flex-col gap-3 p-3">
-		<div>
-			<div class="text-sm font-semibold">Virtual Media</div>
-			<div class="text-xs text-muted-foreground">Mount an image to boot from or install an OS.</div>
-		</div>
-		<div id="nav-vm-card" class="flex flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border px-3 py-5 text-center">
-			<div class="flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground">
-				@icon.Disc()
+	<div id="nav-vm-view" class="p-3 space-y-3">
+		<div class="flex items-start justify-between gap-2">
+			<div>
+				<div class="text-sm font-semibold">Virtual Media</div>
+				<div class="text-xs text-muted-foreground">Mount an image to boot from or install an OS.</div>
 			</div>
-			<div id="nav-vm-title" class="text-sm font-semibold">No mounted media</div>
-			<div id="nav-vm-sub" class="text-xs text-muted-foreground">Add a file to get started</div>
-		</div>
-		<div class="flex items-center justify-end gap-2">
 			@button.Button(button.Props{
-				ID:         "nav-vm-eject",
-				Variant:    button.VariantDestructive,
+				Variant:    button.VariantGhost,
 				Size:       button.SizeSm,
-				Class:      "hidden",
-				Attributes: templ.Attributes{"onclick": "navVmEject()"},
-			}) {
-				Eject
-			}
-			@button.Button(button.Props{
-				Variant:    button.VariantOutline,
-				Size:       button.SizeSm,
+				Class:      "h-7 shrink-0",
 				Attributes: templ.Attributes{"onclick": "window.tui?.popover?.closeNearest(this)"},
 			}) {
 				Close
 			}
+		</div>
+		<div id="nav-vm-card" class="flex items-center gap-3 rounded-md border border-dashed border-border px-3 py-3">
+			<div class="flex size-8 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground">
+				@icon.Disc()
+			</div>
+			<div class="min-w-0 flex-1">
+				<div id="nav-vm-title" class="text-sm font-semibold truncate">No mounted media</div>
+				<div id="nav-vm-sub" class="text-xs text-muted-foreground">Add a file to get started</div>
+			</div>
+			@button.Button(button.Props{
+				ID:         "nav-vm-eject",
+				Variant:    button.VariantDestructive,
+				Size:       button.SizeSm,
+				Class:      "hidden h-7 shrink-0",
+				Attributes: templ.Attributes{"onclick": "navVmEject()"},
+			}) {
+				Eject
+			}
+		</div>
+		<div class="flex justify-end">
 			@button.Button(button.Props{
 				Size:       button.SizeSm,
 				Attributes: templ.Attributes{"onclick": "navVmShowAdd()"},
@@ -76,14 +79,15 @@ templ vmCurrentView() {
 	</div>
 }
 
-// vmAddView is the add-media panel (existing ISOs, upload, fetch).
+// vmAddView uses three tabs (Existing / Upload / URL) so height stays fixed.
 templ vmAddView() {
-	<div id="nav-vm-add" class="hidden flex flex-col gap-3 p-3">
-		<div class="flex items-center justify-between">
+	<div id="nav-vm-add" class="hidden p-3 space-y-2">
+		<div class="flex items-center justify-between gap-2">
 			<div class="text-sm font-semibold">Add New Media</div>
 			@button.Button(button.Props{
 				Variant:    button.VariantGhost,
 				Size:       button.SizeSm,
+				Class:      "h-7",
 				Attributes: templ.Attributes{"onclick": "navVmShowView()"},
 			}) {
 				<span class="flex items-center gap-1">
@@ -92,12 +96,16 @@ templ vmAddView() {
 				</span>
 			}
 		</div>
-		<div class="space-y-1.5">
-			@label.Label(label.Props{For: "nav-vm-select", Class: "text-xs text-muted-foreground"}) {
-				Existing ISOs
-			}
+		// Tab bar
+		<div class="flex gap-0.5 rounded-md bg-muted p-0.5 text-xs">
+			<button id="vm-tab-existing" class="vm-tab vm-tab-active" onclick="navVmTab('existing')">Existing</button>
+			<button id="vm-tab-upload"   class="vm-tab"               onclick="navVmTab('upload')">Upload</button>
+			<button id="vm-tab-url"      class="vm-tab"               onclick="navVmTab('url')">URL</button>
+		</div>
+		// Tab panels
+		<div id="vm-panel-existing" class="space-y-2">
 			<div class="flex items-center gap-2">
-				<select id="nav-vm-select" class="h-9 flex-1 rounded-md border border-input bg-transparent px-3 text-sm dark:bg-input/30"></select>
+				<select id="nav-vm-select" class="h-8 flex-1 rounded-md border border-input bg-transparent px-3 text-sm dark:bg-input/30"></select>
 				@button.Button(button.Props{
 					Size:       button.SizeSm,
 					Attributes: templ.Attributes{"onclick": "navVmInsert()"},
@@ -106,17 +114,13 @@ templ vmAddView() {
 				}
 			</div>
 		</div>
-		@separator.Separator()
-		<div class="space-y-1.5">
-			@label.Label(label.Props{For: "nav-vm-file", Class: "text-xs text-muted-foreground"}) {
-				Upload File
-			}
+		<div id="vm-panel-upload" class="hidden space-y-2">
 			<div class="flex items-center gap-2">
 				@input.Input(input.Props{
 					ID:         "nav-vm-file",
 					Type:       input.TypeFile,
 					FileAccept: ".iso,.img",
-					Class:      "flex-1",
+					Class:      "flex-1 h-8",
 				})
 				@button.Button(button.Props{
 					Size:       button.SizeSm,
@@ -126,11 +130,7 @@ templ vmAddView() {
 				}
 			</div>
 		</div>
-		@separator.Separator()
-		<div class="space-y-1.5">
-			@label.Label(label.Props{For: "nav-vm-url", Class: "text-xs text-muted-foreground"}) {
-				Fetch from URL
-			}
+		<div id="vm-panel-url" class="hidden space-y-2">
 			@input.Input(input.Props{
 				ID:          "nav-vm-url",
 				Type:        input.TypeURL,
@@ -150,8 +150,13 @@ templ vmAddView() {
 				}
 			</div>
 		</div>
-		<p id="nav-vm-add-status" class="text-xs text-muted-foreground"></p>
+		<p id="nav-vm-add-status" class="text-xs text-muted-foreground min-h-[1rem]"></p>
 	</div>
+	<style>
+		.vm-tab { flex: 1; padding: .25rem .5rem; border-radius: .25rem; color: var(--muted-foreground); cursor: pointer; background: transparent; border: none; transition: background .1s, color .1s; }
+		.vm-tab:hover { color: var(--foreground); }
+		.vm-tab-active { background: var(--background); color: var(--foreground); box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+	</style>
 }
 
 templ virtualMediaScript() {
@@ -197,6 +202,14 @@ templ virtualMediaScript() {
 		function navVmShowView() {
 			document.getElementById('nav-vm-add').classList.add('hidden');
 			document.getElementById('nav-vm-view').classList.remove('hidden');
+		}
+
+		function navVmTab(name) {
+			['existing','upload','url'].forEach(t => {
+				document.getElementById('vm-panel-' + t).classList.toggle('hidden', t !== name);
+				const btn = document.getElementById('vm-tab-' + t);
+				btn.classList.toggle('vm-tab-active', t === name);
+			});
 		}
 
 		async function navVmInsert() {
