@@ -13,11 +13,11 @@ import (
 	"github.com/templui/templui/components/icon"
 )
 
-// Navbar renders a two-bar header matching the PiKVM / JetKVM pattern:
+// Navbar is a single top bar. The Serial Console panel below acts as the
+// contextual second bar (mirrors JetKVM / PiKVM's dual-bar pattern).
 //
-//	Bar 1 — brand + live power status (read-only indicators)
-//	Bar 2 — action toolbar: Power ▾, Virtual Media ▾, Server Overview (left)
-//	         API Docs, Settings, Logout (right)
+// Left cluster:  brand → Power ▾ → Virtual Media ▾ → divider → Server Overview
+// Right cluster: API Docs → Settings → Logout
 func Navbar(onDocsPage bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -43,7 +43,7 @@ func Navbar(onDocsPage bool) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"flex items-center justify-between border-b border-border bg-card px-4\" style=\"height:2.5rem\"><a href=\"/\" class=\"flex items-center gap-2 no-underline\"><img src=\"/img/favicon.ico\" alt=\"\" class=\"size-4 shrink-0\"> <span class=\"text-sm font-semibold tracking-wide whitespace-nowrap text-foreground\">NanoKVM BMC</span></a><div class=\"flex items-center gap-1.5 text-xs text-muted-foreground\"><span id=\"power-dot\" class=\"inline-block size-2 rounded-full bg-muted-foreground shrink-0\"></span> <span id=\"power-text\">Checking…</span></div></div><div class=\"flex items-center justify-between border-b border-border bg-card px-2 gap-1\" style=\"height:2.25rem\"><div class=\"flex items-center gap-0.5\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<header class=\"flex items-center justify-between border-b border-border bg-card px-3 gap-1 shrink-0\" style=\"height:2.75rem\"><div class=\"flex items-center gap-0.5\"><a href=\"/\" class=\"flex items-center mr-2 shrink-0\" title=\"NanoKVM BMC\" aria-label=\"NanoKVM BMC\"><img src=\"/img/favicon.ico\" alt=\"NanoKVM BMC\" class=\"size-5\"></a>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -55,7 +55,7 @@ func Navbar(onDocsPage bool) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"w-px h-3.5 bg-border mx-1 shrink-0\"></div><button class=\"nav-item\" onclick=\"toggleOverview()\" aria-label=\"Server Overview\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"w-px h-3.5 bg-border mx-1 shrink-0\"></div><button class=\"nav-item\" onclick=\"toggleOverview()\" aria-label=\"Server Overview\" title=\"Server Overview\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -63,7 +63,7 @@ func Navbar(onDocsPage bool) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<span class=\"hidden sm:inline\">Server Overview</span></button></div><div class=\"flex items-center gap-0.5\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "<span class=\"hidden sm:inline\">Server Overview</span></button></div><div class=\"flex items-center gap-0.5 shrink-0\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -170,7 +170,7 @@ func Navbar(onDocsPage bool) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "</div></header>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -203,7 +203,7 @@ func navbarStyles() templ.Component {
 			templ_7745c5c3_Var5 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<style>\n\t\t/* Flat toolbar button — matches JetKVM / PiKVM action bar style. */\n\t\t.nav-item {\n\t\t\tdisplay: inline-flex;\n\t\t\talign-items: center;\n\t\t\tgap: 0.375rem;\n\t\t\tpadding: 0.25rem 0.5rem;\n\t\t\tfont-size: 0.8125rem;\n\t\t\tcolor: var(--muted-foreground);\n\t\t\tborder-radius: 0.25rem;\n\t\t\tborder: none;\n\t\t\tbackground: transparent;\n\t\t\tcursor: pointer;\n\t\t\twhite-space: nowrap;\n\t\t\ttransition: color 0.1s ease, background-color 0.1s ease;\n\t\t\tline-height: 1;\n\t\t\theight: 1.75rem;\n\t\t}\n\t\t.nav-item:hover { color: var(--foreground); background-color: var(--accent); }\n\t\t.nav-item svg { flex-shrink: 0; width: 0.875rem; height: 0.875rem; }\n\t\t/* Strip extra wrapper padding that templui injects around dropdown triggers. */\n\t\t.action-bar .dropdown-trigger { padding: 0; }\n\t</style>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<style>\n\t\t/* Flat toolbar button — matches JetKVM / PiKVM action bar style. */\n\t\t.nav-item {\n\t\t\tdisplay: inline-flex;\n\t\t\talign-items: center;\n\t\t\tgap: 0.375rem;\n\t\t\tpadding: 0.25rem 0.5rem;\n\t\t\tfont-size: 0.8125rem;\n\t\t\tcolor: var(--muted-foreground);\n\t\t\tborder-radius: 0.25rem;\n\t\t\tborder: none;\n\t\t\tbackground: transparent;\n\t\t\tcursor: pointer;\n\t\t\twhite-space: nowrap;\n\t\t\ttransition: color 0.1s ease, background-color 0.1s ease;\n\t\t\tline-height: 1;\n\t\t\theight: 1.75rem;\n\t\t}\n\t\t.nav-item:hover { color: var(--foreground); background-color: var(--accent); }\n\t\t.nav-item svg { flex-shrink: 0; width: 0.875rem; height: 0.875rem; }\n\t</style>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

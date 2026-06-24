@@ -5,39 +5,29 @@ import (
 	"github.com/templui/templui/components/icon"
 )
 
-// Navbar renders a two-bar header matching the PiKVM / JetKVM pattern:
+// Navbar is a single top bar. The Serial Console panel below acts as the
+// contextual second bar (mirrors JetKVM / PiKVM's dual-bar pattern).
 //
-//   Bar 1 — brand + live power status (read-only indicators)
-//   Bar 2 — action toolbar: Power ▾, Virtual Media ▾, Server Overview (left)
-//            API Docs, Settings, Logout (right)
+// Left cluster:  brand → Power ▾ → Virtual Media ▾ → divider → Server Overview
+// Right cluster: API Docs → Settings → Logout
 templ Navbar(onDocsPage bool) {
 	@navbarStyles()
-	// ── Bar 1: Brand + status ─────────────────────────────────────────
-	<div class="flex items-center justify-between border-b border-border bg-card px-4" style="height:2.5rem">
-		<a href="/" class="flex items-center gap-2 no-underline">
-			<img src="/img/favicon.ico" alt="" class="size-4 shrink-0"/>
-			<span class="text-sm font-semibold tracking-wide whitespace-nowrap text-foreground">NanoKVM BMC</span>
-		</a>
-		// Power status pill — read-only; pollPower() drives it via JS.
-		<div class="flex items-center gap-1.5 text-xs text-muted-foreground">
-			<span id="power-dot" class="inline-block size-2 rounded-full bg-muted-foreground shrink-0"></span>
-			<span id="power-text">Checking…</span>
-		</div>
-	</div>
-	// ── Bar 2: Action toolbar ──────────────────────────────────────────
-	<div class="flex items-center justify-between border-b border-border bg-card px-2 gap-1" style="height:2.25rem">
-		// Left cluster: dropdowns + overview toggle
+	<header class="flex items-center justify-between border-b border-border bg-card px-3 gap-1 shrink-0" style="height:2.75rem">
+		// Left cluster
 		<div class="flex items-center gap-0.5">
+			<a href="/" class="flex items-center mr-2 shrink-0" title="NanoKVM BMC" aria-label="NanoKVM BMC">
+				<img src="/img/favicon.ico" alt="NanoKVM BMC" class="size-5"/>
+			</a>
 			@PowerMenu()
 			@VirtualMediaMenu()
 			<div class="w-px h-3.5 bg-border mx-1 shrink-0"></div>
-			<button class="nav-item" onclick="toggleOverview()" aria-label="Server Overview">
+			<button class="nav-item" onclick="toggleOverview()" aria-label="Server Overview" title="Server Overview">
 				@icon.MonitorSpeaker()
 				<span class="hidden sm:inline">Server Overview</span>
 			</button>
 		</div>
-		// Right cluster: utility links
-		<div class="flex items-center gap-0.5">
+		// Right cluster
+		<div class="flex items-center gap-0.5 shrink-0">
 			if onDocsPage {
 				@button.Button(button.Props{
 					Variant: button.VariantGhost,
@@ -76,7 +66,7 @@ templ Navbar(onDocsPage bool) {
 				@icon.LogOut()
 			}
 		</div>
-	</div>
+	</header>
 	@navbarScript()
 }
 
@@ -101,8 +91,6 @@ templ navbarStyles() {
 		}
 		.nav-item:hover { color: var(--foreground); background-color: var(--accent); }
 		.nav-item svg { flex-shrink: 0; width: 0.875rem; height: 0.875rem; }
-		/* Strip extra wrapper padding that templui injects around dropdown triggers. */
-		.action-bar .dropdown-trigger { padding: 0; }
 	</style>
 }
 
