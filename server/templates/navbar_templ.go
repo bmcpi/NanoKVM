@@ -44,7 +44,7 @@ func Navbar(onDocsPage bool) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<header class=\"flex items-center justify-between border-b border-border bg-card px-4 py-2\"><div class=\"flex items-center gap-3\"><span class=\"text-sm font-bold tracking-wide\">NanoKVM BMC</span>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<header class=\"flex items-center justify-between border-b border-border bg-card px-4 py-2 gap-2 min-w-0\"><div class=\"flex items-center gap-2 min-w-0 shrink-0\"><span class=\"text-sm font-bold tracking-wide whitespace-nowrap\">NanoKVM BMC</span>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -56,7 +56,7 @@ func Navbar(onDocsPage bool) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</div><div class=\"flex items-center gap-2\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</div><div class=\"flex items-center gap-1 shrink-0\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -77,7 +77,7 @@ func Navbar(onDocsPage bool) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, " <span>Dashboard</span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, " <span class=\"hidden sm:inline\">Dashboard</span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -88,7 +88,8 @@ func Navbar(onDocsPage bool) templ.Component {
 				Size:    button.SizeSm,
 				Href:    "/",
 				Attributes: templ.Attributes{
-					"title": "Back to BMC dashboard",
+					"title":      "Back to BMC dashboard",
+					"aria-label": "Dashboard",
 				},
 			}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
@@ -111,7 +112,7 @@ func Navbar(onDocsPage bool) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " <span>API Docs</span>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " <span class=\"hidden sm:inline\">API Docs</span>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -122,7 +123,9 @@ func Navbar(onDocsPage bool) templ.Component {
 				Size:    button.SizeSm,
 				Href:    "/docs",
 				Attributes: templ.Attributes{
-					"title": "Redfish API documentation",
+					"title":      "Redfish API documentation",
+					"aria-label": "API Docs",
+					"target":     "_blank",
 				},
 			}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var3), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
@@ -145,7 +148,7 @@ func Navbar(onDocsPage bool) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " <span>Server Overview</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " <span class=\"hidden sm:inline\">Server Overview</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -155,8 +158,9 @@ func Navbar(onDocsPage bool) templ.Component {
 			Variant: button.VariantGhost,
 			Size:    button.SizeSm,
 			Attributes: templ.Attributes{
-				"onclick": "toggleOverview()",
-				"title":   "Server Overview",
+				"onclick":    "toggleOverview()",
+				"title":      "Server Overview",
+				"aria-label": "Server Overview",
 			},
 		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var4), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
@@ -187,7 +191,7 @@ func Navbar(onDocsPage bool) templ.Component {
 		templ_7745c5c3_Err = button.Button(button.Props{
 			Variant:    button.VariantGhost,
 			Size:       button.SizeIcon,
-			Attributes: templ.Attributes{"onclick": "doLogout()", "title": "Logout"},
+			Attributes: templ.Attributes{"onclick": "doLogout()", "title": "Logout", "aria-label": "Logout"},
 		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err

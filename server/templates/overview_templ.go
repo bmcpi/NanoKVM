@@ -63,7 +63,7 @@ func OverviewSidebar() templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" class=\"ov-sidebar\" data-state=\"closed\" aria-label=\"Server Overview\"><div class=\"ov-sidebar-inner\"><div class=\"flex items-center justify-between border-b border-border px-4 py-3\"><div><h2 class=\"text-sm font-semibold\">Server Overview</h2><p class=\"text-xs text-muted-foreground\">Identity, network, and firmware state.</p></div></div><div class=\"flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-4\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\" class=\"ov-sidebar\" data-state=\"closed\" aria-label=\"Server Overview\"><div class=\"ov-sidebar-inner\"><div class=\"flex items-center justify-between border-b border-border px-4 py-3\"><div><h2 class=\"text-sm font-semibold\">Server Overview</h2><p class=\"text-xs text-muted-foreground\">Identity, network, and firmware state.</p></div><button onclick=\"toggleOverview()\" title=\"Close\" aria-label=\"Close Server Overview\" class=\"rounded-sm p-1 opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring transition-opacity\"><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M18 6 6 18\"></path><path d=\"m6 6 12 12\"></path></svg></button></div><div class=\"flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-4\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1702,7 +1702,7 @@ func kvRow(label, valueID string) templ.Component {
 		var templ_7745c5c3_Var63 string
 		templ_7745c5c3_Var63, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview.templ`, Line: 337, Col: 32}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview.templ`, Line: 345, Col: 32}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var63))
 		if templ_7745c5c3_Err != nil {
@@ -1715,7 +1715,7 @@ func kvRow(label, valueID string) templ.Component {
 		var templ_7745c5c3_Var64 string
 		templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.JoinStringErrs(valueID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview.templ`, Line: 338, Col: 20}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `overview.templ`, Line: 346, Col: 20}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var64))
 		if templ_7745c5c3_Err != nil {

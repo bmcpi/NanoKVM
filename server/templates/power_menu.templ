@@ -15,11 +15,14 @@ templ PowerMenu() {
 	@dropdown.Dropdown() {
 		@dropdown.Trigger() {
 			@button.Button(button.Props{
-				Variant: button.VariantGhost,
-				Size:    button.SizeSm,
+				Variant:    button.VariantGhost,
+				Size:       button.SizeSm,
+				Attributes: templ.Attributes{"aria-label": "Power menu"},
 			}) {
-				<span id="power-dot" class="inline-block size-2 rounded-full bg-destructive"></span>
-				<span id="power-text">Checking…</span>
+				// Dot starts muted (unknown); JS sets bg-green-500 (on) or
+				// bg-destructive (off) once the GPIO poll resolves.
+				<span id="power-dot" class="inline-block size-2 rounded-full bg-muted-foreground"></span>
+				<span id="power-text" class="hidden xs:inline">Checking…</span>
 				@icon.ChevronDown()
 			}
 		}
@@ -154,8 +157,12 @@ templ powerMenuScript() {
 				const on = data.data.pwr;
 				const dot = document.getElementById('power-dot');
 				dot.className = 'inline-block size-2 rounded-full ' + (on ? 'bg-green-500' : 'bg-destructive');
-				document.getElementById('power-text').textContent = on ? 'Power On' : 'Power Off';
-			} catch(e) {}
+				const txt = document.getElementById('power-text');
+				txt.textContent = on ? 'Power On' : 'Power Off';
+				txt.className = 'hidden xs:inline';
+			} catch(e) {
+				// Leave dot muted and text as "Checking…" on error.
+			}
 		}
 		pollPower();
 		setInterval(pollPower, 5000);

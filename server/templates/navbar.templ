@@ -16,24 +16,25 @@ import (
 // DashboardPage. Pages that don't have an overview sidebar (login, password)
 // skip Navbar entirely.
 templ Navbar(onDocsPage bool) {
-	<header class="flex items-center justify-between border-b border-border bg-card px-4 py-2">
-		<div class="flex items-center gap-3">
-			<span class="text-sm font-bold tracking-wide">NanoKVM BMC</span>
+	<header class="flex items-center justify-between border-b border-border bg-card px-4 py-2 gap-2 min-w-0">
+		<div class="flex items-center gap-2 min-w-0 shrink-0">
+			<span class="text-sm font-bold tracking-wide whitespace-nowrap">NanoKVM BMC</span>
 			@PowerMenu()
 			@VirtualMediaMenu()
 		</div>
-		<div class="flex items-center gap-2">
+		<div class="flex items-center gap-1 shrink-0">
 			if onDocsPage {
 				@button.Button(button.Props{
 					Variant: button.VariantGhost,
 					Size:    button.SizeSm,
 					Href:    "/",
 					Attributes: templ.Attributes{
-						"title": "Back to BMC dashboard",
+						"title":      "Back to BMC dashboard",
+						"aria-label": "Dashboard",
 					},
 				}) {
 					@icon.LayoutDashboard()
-					<span>Dashboard</span>
+					<span class="hidden sm:inline">Dashboard</span>
 				}
 			} else {
 				@button.Button(button.Props{
@@ -41,29 +42,32 @@ templ Navbar(onDocsPage bool) {
 					Size:    button.SizeSm,
 					Href:    "/docs",
 					Attributes: templ.Attributes{
-						"title": "Redfish API documentation",
+						"title":      "Redfish API documentation",
+						"aria-label": "API Docs",
+						"target":     "_blank",
 					},
 				}) {
 					@icon.BookOpen()
-					<span>API Docs</span>
+					<span class="hidden sm:inline">API Docs</span>
 				}
 			}
 			@button.Button(button.Props{
 				Variant: button.VariantGhost,
 				Size:    button.SizeSm,
 				Attributes: templ.Attributes{
-					"onclick": "toggleOverview()",
-					"title":   "Server Overview",
+					"onclick":    "toggleOverview()",
+					"title":      "Server Overview",
+					"aria-label": "Server Overview",
 				},
 			}) {
 				@icon.MonitorSpeaker()
-				<span>Server Overview</span>
+				<span class="hidden sm:inline">Server Overview</span>
 			}
 			@SettingsDialogTrigger()
 			@button.Button(button.Props{
 				Variant:    button.VariantGhost,
 				Size:       button.SizeIcon,
-				Attributes: templ.Attributes{"onclick": "doLogout()", "title": "Logout"},
+				Attributes: templ.Attributes{"onclick": "doLogout()", "title": "Logout", "aria-label": "Logout"},
 			}) {
 				@icon.LogOut()
 			}

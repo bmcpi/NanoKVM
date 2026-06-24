@@ -19,9 +19,13 @@ templ SettingsDialogTrigger() {
 		@button.Button(button.Props{
 			Variant: button.VariantGhost,
 			Size:    button.SizeSm,
+			Attributes: templ.Attributes{
+				"title":      "Settings",
+				"aria-label": "Settings",
+			},
 		}) {
 			@icon.Settings()
-			<span>Settings</span>
+			<span class="hidden sm:inline">Settings</span>
 		}
 	}
 }
@@ -31,7 +35,7 @@ templ SettingsDialogTrigger() {
 // the navbar via @dialog.Trigger(For: "settings-dialog").
 templ SettingsDialog() {
 	@dialog.Dialog(dialog.Props{ID: "settings-dialog"}) {
-		@dialog.Content(dialog.ContentProps{Class: "max-w-lg"}) {
+		@dialog.Content(dialog.ContentProps{Class: "max-w-lg max-h-[calc(100svh-4rem)] flex flex-col"}) {
 			@dialog.Header() {
 				@dialog.Title() {
 					Settings
@@ -40,7 +44,10 @@ templ SettingsDialog() {
 					Network, security, system, and automatic update settings.
 				}
 			}
-			<div class="flex flex-col gap-4 py-2">
+			// Scrollable card area: flex-1 + overflow-y-auto pins the header
+			// and footer so the Close button is always reachable regardless of
+			// viewport height.
+			<div class="flex-1 min-h-0 overflow-y-auto flex flex-col gap-4 py-2 pr-1">
 				@settingsNetworkCard()
 				@settingsSecurityCard()
 				@settingsAutoUpdateCard()
